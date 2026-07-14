@@ -1,0 +1,20 @@
+# --- Backend (Django/Python) ---
+smartgrowth-backend/smartgrowth-backend/venv/
+smartgrowth-backend/smartgrowth-backend/.env
+**/__pycache__/
+*.pyc
+*.sqlite3
+
+# --- Frontend (Vite/Node) ---
+smartgrowth-pwa/smartgrowth-pwa/node_modules/
+smartgrowth-pwa/smartgrowth-pwa/dist/
+smartgrowth-pwa/smartgrowth-pwa/.env
+smartgrowth-pwa/smartgrowth-pwa/*.tsbuildinfo
+npm-debug.log*
+
+# --- Editor / OS / tooling ---
+.vscode/
+.idea/
+.claude/
+.DS_Store
+Thumbs.db
