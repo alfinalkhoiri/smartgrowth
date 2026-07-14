@@ -46,9 +46,8 @@ tiap folder:
 
 ## Deploy ke production
 
-Live di **https://smartgrowth.f-mc.my.id** (VPS, satu domain untuk frontend +
-backend lewat nginx). Langkah lengkap ada di [`DEPLOY.md`](DEPLOY.md) —
-setup nginx, Gunicorn (systemd), PostgreSQL, dan HTTPS (Let's Encrypt).
+Live di **https://smartgrowth.f-mc.my.id**. Detail infrastruktur deployment
+sengaja tidak didokumentasikan di repo publik ini.
 
 ## Status
 
