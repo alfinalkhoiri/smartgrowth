@@ -37,6 +37,7 @@ class GrowthRecord(models.Model):
     weight_kg = models.DecimalField(max_digits=5, decimal_places=2)
     height_cm = models.DecimalField(max_digits=5, decimal_places=2)
     age_months = models.PositiveIntegerField(help_text='Usia anak saat pengukuran, dalam bulan')
+    notes = models.TextField(blank=True, default='', help_text='Catatan tambahan dari kader/nakes saat pengukuran')
 
     # Computed via WHO growth standards at save-time (see services/risk_engine.py)
     height_for_age_z = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)

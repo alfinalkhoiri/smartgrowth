@@ -7,8 +7,12 @@ on 2026-07-14. Each height figure below is WHO's own published SDxneg/SD0
 value for that exact day — this checks that calculate_haz() reproduces WHO's
 own Z-scores from WHO's own published heights, not just internal round-trips.
 """
-from django.test import SimpleTestCase
+from datetime import date, timedelta
 
+from django.test import SimpleTestCase, TestCase
+
+from apps.growth.models import Child
+from apps.growth.serializers import ChildSerializer, GrowthRecordSerializer
 from apps.growth.services.risk_engine import (
     calculate_haz,
     calculate_whz,
@@ -130,3 +134,59 @@ class ClassifyGrowthRecordTests(SimpleTestCase):
         self.assertEqual(classify_from_whz(-1.0), 'normal')
         self.assertEqual(classify_from_whz(-2.5), 'watch')
         self.assertEqual(classify_from_whz(-3.5), 'risk')
+
+
+class ChildSerializerDateValidationTests(SimpleTestCase):
+    def test_rejects_future_birth_date(self):
+        tomorrow = (date.today() + timedelta(days=1)).isoformat()
+        serializer = ChildSerializer(data={'name': 'Anak Uji', 'birth_date': tomorrow, 'sex': 'male'})
+        self.assertFalse(serializer.is_valid())
+        self.assertIn('birth_date', serializer.errors)
+
+    def test_accepts_past_birth_date(self):
+        yesterday = (date.today() - timedelta(days=1)).isoformat()
+        serializer = ChildSerializer(data={'name': 'Anak Uji', 'birth_date': yesterday, 'sex': 'male'})
+        self.assertTrue(serializer.is_valid(), serializer.errors)
+
+    def test_accepts_todays_birth_date(self):
+        today = date.today().isoformat()
+        serializer = ChildSerializer(data={'name': 'Anak Uji', 'birth_date': today, 'sex': 'male'})
+        self.assertTrue(serializer.is_valid(), serializer.errors)
+
+
+class GrowthRecordSerializerDateValidationTests(TestCase):
+    def setUp(self):
+        self.child = Child.objects.create(name='Anak Uji', birth_date=date(2024, 1, 1), sex='male')
+
+    def test_rejects_measured_at_before_birth_date(self):
+        serializer = GrowthRecordSerializer(data={
+            'child_id': str(self.child.id),
+            'measured_at': '2023-12-31',
+            'weight_kg': 10,
+            'height_cm': 70,
+            'age_months': 0,
+        })
+        self.assertFalse(serializer.is_valid())
+        self.assertIn('measured_at', serializer.errors)
+
+    def test_rejects_future_measured_at(self):
+        tomorrow = (date.today() + timedelta(days=1)).isoformat()
+        serializer = GrowthRecordSerializer(data={
+            'child_id': str(self.child.id),
+            'measured_at': tomorrow,
+            'weight_kg': 10,
+            'height_cm': 70,
+            'age_months': 0,
+        })
+        self.assertFalse(serializer.is_valid())
+        self.assertIn('measured_at', serializer.errors)
+
+    def test_accepts_valid_measured_at(self):
+        serializer = GrowthRecordSerializer(data={
+            'child_id': str(self.child.id),
+            'measured_at': '2024-06-01',
+            'weight_kg': 10,
+            'height_cm': 70,
+            'age_months': 5,
+        })
+        self.assertTrue(serializer.is_valid(), serializer.errors)

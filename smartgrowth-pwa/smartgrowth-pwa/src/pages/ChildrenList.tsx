@@ -1,6 +1,9 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { Link } from 'react-router-dom';
+import axios from 'axios';
 import { growthApi } from '@/api/growth';
+import { firstErrorMessage } from '@/api/errors';
+import { authApi } from '@/api/auth';
 import { useGrowthStore } from '@/features/growth/store';
 import type { Child } from '@/types';
 
@@ -11,6 +14,8 @@ const emptyForm = {
   exclusiveBreastfeeding: false,
   birthWeightKg: ''
 };
+
+const today = new Date().toISOString().slice(0, 10);
 
 export default function ChildrenList() {
   const children = useGrowthStore((s) => s.children);
@@ -24,6 +29,8 @@ export default function ChildrenList() {
   const [form, setForm] = useState(emptyForm);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const canCreate = authApi.canCreate();
+  const canEditDelete = authApi.canEditDelete();
 
   useEffect(() => {
     growthApi.listChildren().then((res) => setChildren(res.data));
@@ -49,13 +56,24 @@ export default function ChildrenList() {
 
   const handleDelete = async (child: Child) => {
     if (!window.confirm(`Hapus data ${child.name}? Riwayat pengukurannya juga akan terhapus.`)) return;
-    await growthApi.deleteChild(child.id);
-    removeChild(child.id);
+    try {
+      await growthApi.deleteChild(child.id);
+      removeChild(child.id);
+    } catch (err) {
+      const message = axios.isAxiosError(err) ? firstErrorMessage(err.response?.data) : null;
+      setError(message ?? 'Gagal menghapus balita.');
+    }
   };
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setError('');
+
+    if (form.birthDate > today) {
+      setError('Tanggal lahir tidak boleh di masa depan.');
+      return;
+    }
+
     setSaving(true);
     const payload = {
       name: form.name,
@@ -75,8 +93,9 @@ export default function ChildrenList() {
       setForm(emptyForm);
       setEditingId(null);
       setShowForm(false);
-    } catch {
-      setError('Gagal menyimpan balita. Periksa kembali data yang diisi.');
+    } catch (err) {
+      const message = axios.isAxiosError(err) ? firstErrorMessage(err.response?.data) : null;
+      setError(message ?? 'Gagal menyimpan balita. Periksa kembali data yang diisi.');
     } finally {
       setSaving(false);
     }
@@ -86,17 +105,20 @@ export default function ChildrenList() {
     <div className="p-4 space-y-3">
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-semibold">Daftar Balita</h1>
-        <button
-          onClick={() => (showForm ? setShowForm(false) : startAdd())}
-          className="bg-teal-700 text-white text-sm font-medium px-3 py-2 rounded-lg"
-        >
-          {showForm ? 'Batal' : '+ Tambah Balita'}
-        </button>
+        {canCreate && (
+          <button
+            onClick={() => (showForm ? setShowForm(false) : startAdd())}
+            className="bg-teal-700 text-white text-sm font-medium px-3 py-2 rounded-lg"
+          >
+            {showForm ? 'Batal' : '+ Tambah Balita'}
+          </button>
+        )}
       </div>
 
-      {showForm && (
+      {error && <p className="text-sm text-red-600">{error}</p>}
+
+      {showForm && (editingId ? canEditDelete : canCreate) && (
         <form onSubmit={handleSubmit} className="bg-white rounded-2xl shadow-sm p-4 space-y-3">
-          {error && <p className="text-sm text-red-600">{error}</p>}
           <div>
             <label className="block text-sm text-gray-600 mb-1">Nama</label>
             <input
@@ -114,6 +136,7 @@ export default function ChildrenList() {
                 className="w-full border rounded-lg px-3 py-2"
                 value={form.birthDate}
                 onChange={(e) => setForm({ ...form, birthDate: e.target.value })}
+                max={today}
                 required
               />
             </div>
@@ -163,14 +186,16 @@ export default function ChildrenList() {
             <p className="font-medium">{child.name}</p>
             <p className="text-sm text-gray-500">Lahir: {child.birthDate}</p>
           </Link>
-          <div className="flex items-center gap-3 ml-2">
-            <button onClick={() => startEdit(child)} className="text-sm text-teal-700 font-medium">
-              Edit
-            </button>
-            <button onClick={() => handleDelete(child)} className="text-sm text-red-600 font-medium">
-              Hapus
-            </button>
-          </div>
+          {canEditDelete && (
+            <div className="flex items-center gap-3 ml-2">
+              <button onClick={() => startEdit(child)} className="text-sm text-teal-700 font-medium">
+                Edit
+              </button>
+              <button onClick={() => handleDelete(child)} className="text-sm text-red-600 font-medium">
+                Hapus
+              </button>
+            </div>
+          )}
         </div>
       ))}
       {children.length === 0 && !showForm && (

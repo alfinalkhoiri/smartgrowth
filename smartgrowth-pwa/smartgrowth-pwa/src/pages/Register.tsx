@@ -2,20 +2,13 @@ import { useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { authApi, type PublicRole } from '@/api/auth';
+import { firstErrorMessage } from '@/api/errors';
 
 const roleLabels: Record<PublicRole, string> = {
   kader: 'Kader Posyandu',
   nakes: 'Tenaga Kesehatan (Nakes)',
   viewer: 'Manajemen / Viewer'
 };
-
-function firstErrorMessage(data: unknown): string | null {
-  if (!data || typeof data !== 'object') return null;
-  for (const value of Object.values(data as Record<string, unknown>)) {
-    if (Array.isArray(value) && typeof value[0] === 'string') return value[0];
-  }
-  return null;
-}
 
 export default function Register() {
   const [username, setUsername] = useState('');

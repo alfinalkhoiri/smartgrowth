@@ -82,6 +82,7 @@ USE_I18N = True
 USE_TZ = True
 
 STATIC_URL = 'static/'
+STATIC_ROOT = BASE_DIR / 'staticfiles'  # populated by `collectstatic`, served by nginx in production
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 REST_FRAMEWORK = {
@@ -110,3 +111,9 @@ SIMPLE_JWT = {
 }
 
 CORS_ALLOWED_ORIGINS = config('CORS_ALLOWED_ORIGINS', default='', cast=Csv())
+
+# Behind nginx terminating TLS (see deploy/nginx.conf), Django otherwise has
+# no way to know the original request was HTTPS — needed for correct
+# is_secure()/redirect behavior and for CSRF checks on the Django admin.
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+CSRF_TRUSTED_ORIGINS = config('CSRF_TRUSTED_ORIGINS', default='', cast=Csv())

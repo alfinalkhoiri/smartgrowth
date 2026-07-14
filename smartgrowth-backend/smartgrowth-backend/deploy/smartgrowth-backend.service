@@ -1,0 +1,14 @@
+[Unit]
+Description=SmartGrowth Django backend (Gunicorn)
+After=network.target postgresql.service
+
+[Service]
+User=www-data
+Group=www-data
+WorkingDirectory=/var/www/smartgrowth/smartgrowth-backend/smartgrowth-backend
+ExecStart=/var/www/smartgrowth/smartgrowth-backend/smartgrowth-backend/venv/bin/gunicorn config.wsgi:application --bind 127.0.0.1:8000 --workers 3
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

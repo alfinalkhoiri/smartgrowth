@@ -1,9 +1,13 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { useParams } from 'react-router-dom';
+import axios from 'axios';
 import { growthApi } from '@/api/growth';
+import { firstErrorMessage } from '@/api/errors';
+import { authApi } from '@/api/auth';
 import { useGrowthStore } from '@/features/growth/store';
 import { GrowthChart } from '@/components/GrowthChart';
 import { RiskBadge } from '@/components/RiskBadge';
+import { riskDescription } from '@/features/growth/zscore';
 import type { Child, GrowthRecord } from '@/types';
 
 function monthsBetween(birthDate: string, measuredAt: string): number {
@@ -15,6 +19,7 @@ function monthsBetween(birthDate: string, measuredAt: string): number {
 }
 
 const emptyForm = { measuredAt: '', weightKg: '', heightCm: '' };
+const today = new Date().toISOString().slice(0, 10);
 
 export default function ChildDashboard() {
   const { childId } = useParams<{ childId: string }>();
@@ -30,6 +35,11 @@ export default function ChildDashboard() {
   const [form, setForm] = useState(emptyForm);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const [resultRecord, setResultRecord] = useState<GrowthRecord | null>(null);
+  const [noteDraft, setNoteDraft] = useState('');
+  const [savingNote, setSavingNote] = useState(false);
+  const canCreate = authApi.canCreate();
+  const canEditDelete = authApi.canEditDelete();
 
   useEffect(() => {
     if (!childId) return;
@@ -40,6 +50,11 @@ export default function ChildDashboard() {
   }, [childId, setRecords]);
 
   const latest = records[records.length - 1];
+
+  const openResult = (record: GrowthRecord) => {
+    setResultRecord(record);
+    setNoteDraft(record.notes ?? '');
+  };
 
   const startAdd = () => {
     setEditingId(null);
@@ -60,15 +75,33 @@ export default function ChildDashboard() {
   const handleDelete = async (record: GrowthRecord) => {
     if (!childId) return;
     if (!window.confirm(`Hapus pengukuran tanggal ${record.measuredAt}?`)) return;
-    await growthApi.deleteRecord(record.id);
-    removeRecord(childId, record.id);
+    try {
+      await growthApi.deleteRecord(record.id);
+      removeRecord(childId, record.id);
+    } catch (err) {
+      const message = axios.isAxiosError(err) ? firstErrorMessage(err.response?.data) : null;
+      setError(message ?? 'Gagal menghapus pengukuran.');
+    }
   };
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     if (!childId || !child) return;
     setError('');
+
+    if (form.measuredAt > today) {
+      setError('Tanggal pengukuran tidak boleh di masa depan.');
+      return;
+    }
+    if (form.measuredAt < child.birthDate) {
+      setError('Tanggal pengukuran tidak boleh sebelum tanggal lahir anak.');
+      return;
+    }
+
     setSaving(true);
+    // notes is deliberately left out here — it's only editable from the
+    // result popup (after the measurement itself is saved), and omitting it
+    // on an update leaves the existing note untouched rather than wiping it.
     const payload = {
       childId,
       measuredAt: form.measuredAt,
@@ -77,20 +110,48 @@ export default function ChildDashboard() {
       ageMonths: monthsBetween(child.birthDate, form.measuredAt)
     };
     try {
+      let saved: GrowthRecord;
       if (editingId) {
         const res = await growthApi.updateRecord(editingId, payload);
         updateRecord(res.data);
+        saved = res.data;
       } else {
         const res = await growthApi.createRecord(payload);
         addRecord(res.data);
+        saved = res.data;
       }
       setForm(emptyForm);
       setEditingId(null);
       setShowForm(false);
-    } catch {
-      setError('Gagal menyimpan pengukuran. Periksa kembali data yang diisi.');
+      openResult(saved);
+    } catch (err) {
+      const message = axios.isAxiosError(err) ? firstErrorMessage(err.response?.data) : null;
+      setError(message ?? 'Gagal menyimpan pengukuran. Periksa kembali data yang diisi.');
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleSaveNote = async () => {
+    if (!resultRecord || !childId) return;
+    setSavingNote(true);
+    try {
+      const payload = {
+        childId,
+        measuredAt: resultRecord.measuredAt,
+        weightKg: Number(resultRecord.weightKg),
+        heightCm: Number(resultRecord.heightCm),
+        ageMonths: resultRecord.ageMonths,
+        notes: noteDraft
+      };
+      const res = await growthApi.updateRecord(resultRecord.id, payload);
+      updateRecord(res.data);
+      setResultRecord(res.data);
+    } catch (err) {
+      const message = axios.isAxiosError(err) ? firstErrorMessage(err.response?.data) : null;
+      setError(message ?? 'Gagal menyimpan catatan.');
+    } finally {
+      setSavingNote(false);
     }
   };
 
@@ -102,18 +163,21 @@ export default function ChildDashboard() {
         <h1 className="text-xl font-semibold">{child?.name ?? 'Grafik Pertumbuhan'}</h1>
         <div className="flex items-center gap-2">
           {latest?.riskStatus && <RiskBadge status={latest.riskStatus} />}
-          <button
-            onClick={() => (showForm ? setShowForm(false) : startAdd())}
-            className="bg-teal-700 text-white text-sm font-medium px-3 py-2 rounded-lg"
-          >
-            {showForm ? 'Batal' : '+ Pengukuran'}
-          </button>
+          {canCreate && (
+            <button
+              onClick={() => (showForm ? setShowForm(false) : startAdd())}
+              className="bg-teal-700 text-white text-sm font-medium px-3 py-2 rounded-lg"
+            >
+              {showForm ? 'Batal' : '+ Pengukuran'}
+            </button>
+          )}
         </div>
       </div>
 
-      {showForm && (
+      {error && <p className="text-sm text-red-600">{error}</p>}
+
+      {showForm && (editingId ? canEditDelete : canCreate) && (
         <form onSubmit={handleSubmit} className="bg-white rounded-2xl shadow-sm p-4 space-y-3">
-          {error && <p className="text-sm text-red-600">{error}</p>}
           <div>
             <label className="block text-sm text-gray-600 mb-1">Tanggal Pengukuran</label>
             <input
@@ -121,6 +185,8 @@ export default function ChildDashboard() {
               className="w-full border rounded-lg px-3 py-2"
               value={form.measuredAt}
               onChange={(e) => setForm({ ...form, measuredAt: e.target.value })}
+              min={child?.birthDate}
+              max={today}
               required
             />
           </div>
@@ -181,15 +247,72 @@ export default function ChildDashboard() {
                 </p>
               </div>
               <div className="flex items-center gap-3">
-                <button onClick={() => startEdit(record)} className="text-sm text-teal-700 font-medium">
-                  Edit
+                <button onClick={() => openResult(record)} className="text-sm text-gray-500 font-medium">
+                  Info
                 </button>
-                <button onClick={() => handleDelete(record)} className="text-sm text-red-600 font-medium">
-                  Hapus
-                </button>
+                {canEditDelete && (
+                  <>
+                    <button onClick={() => startEdit(record)} className="text-sm text-teal-700 font-medium">
+                      Edit
+                    </button>
+                    <button onClick={() => handleDelete(record)} className="text-sm text-red-600 font-medium">
+                      Hapus
+                    </button>
+                  </>
+                )}
               </div>
             </div>
           ))}
+        </div>
+      )}
+
+      {resultRecord && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-2xl shadow-lg p-6 w-full max-w-sm space-y-4">
+            <h2 className="text-lg font-semibold">Hasil Pengukuran</h2>
+            {resultRecord.riskStatus && <RiskBadge status={resultRecord.riskStatus} />}
+            <div className="text-sm text-gray-600 space-y-1">
+              <p>Tanggal: {resultRecord.measuredAt} &middot; Usia: {resultRecord.ageMonths} bln</p>
+              <p>Berat: {resultRecord.weightKg} kg &middot; Tinggi: {resultRecord.heightCm} cm</p>
+              <p>Z-score Tinggi/Usia (HAZ): {resultRecord.heightForAgeZ ?? '-'}</p>
+              <p>Z-score Berat/Tinggi (WHZ): {resultRecord.weightForHeightZ ?? '-'}</p>
+            </div>
+            {resultRecord.riskStatus && (
+              <p className="text-sm text-gray-700">{riskDescription(resultRecord.riskStatus)}</p>
+            )}
+            {canEditDelete ? (
+              <div className="space-y-2">
+                <label className="block text-sm text-gray-600">Catatan</label>
+                <textarea
+                  className="w-full border rounded-lg px-3 py-2 text-sm"
+                  rows={2}
+                  placeholder="Mis. anak rewel saat diukur, sudah dirujuk ke puskesmas, dll."
+                  value={noteDraft}
+                  onChange={(e) => setNoteDraft(e.target.value)}
+                />
+                <button
+                  onClick={handleSaveNote}
+                  disabled={savingNote || noteDraft === (resultRecord.notes ?? '')}
+                  className="w-full bg-gray-100 text-gray-700 rounded-lg py-2 text-sm font-medium disabled:opacity-50"
+                >
+                  {savingNote ? 'Menyimpan catatan...' : 'Simpan Catatan'}
+                </button>
+              </div>
+            ) : (
+              resultRecord.notes && (
+                <div className="text-sm bg-gray-50 rounded-lg p-3">
+                  <p className="text-gray-500 mb-1">Catatan:</p>
+                  <p className="text-gray-700 whitespace-pre-wrap">{resultRecord.notes}</p>
+                </div>
+              )
+            )}
+            <button
+              onClick={() => setResultRecord(null)}
+              className="w-full bg-teal-700 text-white rounded-lg py-2 font-medium"
+            >
+              Tutup
+            </button>
+          </div>
         </div>
       )}
     </div>

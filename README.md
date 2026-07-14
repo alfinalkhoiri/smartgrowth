@@ -44,6 +44,12 @@ tiap folder:
    backend sudah dikonfigurasi.
 3. Buka `http://localhost:5173`, daftar/masuk, lalu mulai input data balita.
 
+## Deploy ke production
+
+Live di **https://smartgrowth.f-mc.my.id** (VPS, satu domain untuk frontend +
+backend lewat nginx). Langkah lengkap ada di [`DEPLOY.md`](DEPLOY.md) —
+setup nginx, Gunicorn (systemd), PostgreSQL, dan HTTPS (Let's Encrypt).
+
 ## Status
 
 Klasifikasi risiko Tahap 1 (rule-based, WHO Z-score) sudah selesai dan

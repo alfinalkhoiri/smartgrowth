@@ -1,8 +1,14 @@
 from rest_framework import generics, permissions, status
 from rest_framework.response import Response
-from rest_framework_simplejwt.tokens import RefreshToken
+from rest_framework_simplejwt.views import TokenObtainPairView
 
 from .serializers import RegisterSerializer
+from .tokens import RoleTokenObtainPairSerializer, tokens_with_claims
+
+
+class RoleTokenObtainPairView(TokenObtainPairView):
+    """POST /api/auth/login — same as SimpleJWT's default, with role/is_superuser in the token."""
+    serializer_class = RoleTokenObtainPairSerializer
 
 
 class RegisterView(generics.CreateAPIView):
@@ -18,8 +24,4 @@ class RegisterView(generics.CreateAPIView):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         user = serializer.save()
-        refresh = RefreshToken.for_user(user)
-        return Response(
-            {'access': str(refresh.access_token), 'refresh': str(refresh)},
-            status=status.HTTP_201_CREATED,
-        )
+        return Response(tokens_with_claims(user), status=status.HTTP_201_CREATED)

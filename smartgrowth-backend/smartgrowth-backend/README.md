@@ -193,16 +193,26 @@ Sudah diuji end-to-end dengan akun tiap role (create sebagai kader → 201,
 update/delete sebagai kader → 403, create sebagai viewer → 403, update/delete
 sebagai nakes → 200/204).
 
+**Frontend juga menyembunyikan/menonaktifkan tombol** sesuai role yang sama
+persis (`src/api/auth.ts` → `canCreate()`/`canEditDelete()`), bukan cuma
+mengandalkan backend menolak diam-diam. Ini dimungkinkan karena
+`RoleTokenObtainPairSerializer` (`apps/accounts/tokens.py`) menyematkan
+`role` dan `is_superuser` langsung ke payload JWT saat login/registrasi, jadi
+frontend cukup men-decode token yang sudah dipegang tanpa request tambahan.
+**Penting**: token yang diterbitkan sebelum perubahan ini tidak punya klaim
+tersebut — sesi yang sedang login harus logout lalu login ulang supaya
+tombolnya sesuai role.
+
 ## Cakupan API
 
 | Method         | Path                               | View                  | Catatan                                                                                                                                |
 | -------------- | ---------------------------------- | --------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
-| POST           | `/api/auth/login`                  | `TokenObtainPairView` | Mengembalikan `{access, refresh}` dari SimpleJWT                                                                                       |
+| POST           | `/api/auth/login`                  | `RoleTokenObtainPairView` | Mengembalikan `{access, refresh}` dari SimpleJWT, dengan klaim `role`/`is_superuser`/`username` disematkan ke JWT (dipakai frontend untuk show/hide tombol) |
 | POST           | `/api/auth/refresh`                | `TokenRefreshView`    |                                                                                                                                        |
-| POST           | `/api/auth/register`               | `RegisterView`        | Publik (`AllowAny`); role terbatas ke kader/nakes/viewer (admin tidak bisa daftar sendiri); mengembalikan `{access, refresh}` langsung |
+| POST           | `/api/auth/register`               | `RegisterView`        | Publik (`AllowAny`); role terbatas ke kader/nakes/viewer (admin tidak bisa daftar sendiri); mengembalikan `{access, refresh}` langsung, klaim role juga disematkan |
 | GET/POST       | `/api/children/`                   | `ChildViewSet`        | `?search=` berdasarkan nama; response array polos (tanpa pagination); POST butuh role kader/nakes/admin                                |
 | GET/PUT/DELETE | `/api/children/<id>/`              | `ChildViewSet`        | PUT/DELETE butuh role nakes/admin                                                                                                      |
-| GET/POST       | `/api/growth-records/`             | `GrowthRecordViewSet` | Filter dengan `?child=<uuid>`; `height_for_age_z`/`weight_for_height_z`/`risk_status` dihitung otomatis saat create/update             |
+| GET/POST       | `/api/growth-records/`             | `GrowthRecordViewSet` | Filter dengan `?child=<uuid>`; field `notes` (opsional, bebas teks); `height_for_age_z`/`weight_for_height_z`/`risk_status` dihitung otomatis saat create/update |
 | GET/PUT/DELETE | `/api/growth-records/<id>/`        | `GrowthRecordViewSet` | PUT/DELETE butuh role nakes/admin                                                                                                      |
 | GET            | `/api/risk-assessment/<child_id>/` | `RiskAssessmentView`  | Membuat `RiskAssessment` baru setiap kali dipanggil; semua role boleh akses                                                            |
 

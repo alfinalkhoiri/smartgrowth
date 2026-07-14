@@ -3,10 +3,17 @@ import ChildrenList from '@/pages/ChildrenList';
 import ChildDashboard from '@/pages/ChildDashboard';
 import Login from '@/pages/Login';
 import Register from '@/pages/Register';
+import { AppHeader } from '@/components/AppHeader';
 import { authApi } from '@/api/auth';
 
 function RequireAuth({ children }: { children: JSX.Element }) {
-  return authApi.isAuthenticated() ? children : <Navigate to="/login" replace />;
+  if (!authApi.isAuthenticated()) return <Navigate to="/login" replace />;
+  return (
+    <>
+      <AppHeader />
+      {children}
+    </>
+  );
 }
 
 export default function App() {

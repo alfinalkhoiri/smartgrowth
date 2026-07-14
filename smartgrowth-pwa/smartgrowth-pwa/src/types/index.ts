@@ -17,6 +17,7 @@ export interface GrowthRecord {
   weightKg: number;
   heightCm: number;
   ageMonths: number;
+  notes?: string;
   // Computed client- or server-side from WHO growth standards
   heightForAgeZ?: number;
   weightForHeightZ?: number;
