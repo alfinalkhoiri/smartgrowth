@@ -170,7 +170,7 @@ u.save()
 - Threshold (`classify_from_haz`/`classify_from_whz`): Z < -3 → `risk` (berat),
   Z < -2 → `watch` (perlu pemantauan), selebihnya → `normal`. Ini murni Tahap 1
   (rule-based) — model ML Tahap 2 nanti menambah lapisan di atasnya, bukan
-  menggantikannya (lihat `CLAUDE.md`).
+  menggantikannya sepenuhnya (keputusan klinis, bukan cuma teknis).
 
 ## Permission berbasis role
 
@@ -215,7 +215,6 @@ tidak perlu saling menyesuaikan penamaan secara manual.
 
 ## TODO (sisa pekerjaan)
 
-Satu-satunya yang sengaja belum dikerjakan: **Model ML Tahap 2** (lihat
-`CLAUDE.md` §5) — menunggu Tahap 1 rule-based (HAZ+WHZ, sudah selesai) stabil
-dan tervalidasi dulu di penggunaan nyata sebelum menambah lapisan prediktif
-di atasnya.
+Satu-satunya yang sengaja belum dikerjakan: **Model ML Tahap 2** — menunggu
+Tahap 1 rule-based (HAZ+WHZ, sudah selesai) stabil dan tervalidasi dulu di
+penggunaan nyata sebelum menambah lapisan prediktif di atasnya.
