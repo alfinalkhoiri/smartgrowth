@@ -1,5 +1,6 @@
 # --- Backend (Django/Python) ---
 smartgrowth-backend/smartgrowth-backend/venv/
+smartgrowth-backend/smartgrowth-backend/.venv/
 smartgrowth-backend/smartgrowth-backend/.env
 smartgrowth-backend/smartgrowth-backend/staticfiles/
 **/__pycache__/
