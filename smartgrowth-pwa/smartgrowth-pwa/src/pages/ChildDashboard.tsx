@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import axios from 'axios';
 import { growthApi } from '@/api/growth';
 import { firstErrorMessage } from '@/api/errors';
@@ -164,16 +164,7 @@ export default function ChildDashboard() {
   return (
     <div className="p-4 space-y-4">
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <Link
-            to="/"
-            aria-label="Kembali ke Daftar Balita"
-            className="text-gray-400 hover:text-gray-600 text-xl leading-none -ml-1 p-1"
-          >
-            &larr;
-          </Link>
-          <h1 className="text-xl font-semibold">{child?.name ?? 'Grafik Pertumbuhan'}</h1>
-        </div>
+        <h1 className="text-xl font-semibold">{child?.name ?? 'Grafik Pertumbuhan'}</h1>
         <div className="flex items-center gap-2">
           {latest?.riskStatus && <RiskBadge status={latest.riskStatus} />}
           {canCreate && (
