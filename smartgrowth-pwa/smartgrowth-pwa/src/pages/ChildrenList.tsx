@@ -17,6 +17,18 @@ const emptyForm = {
 
 const today = new Date().toISOString().slice(0, 10);
 
+function ageLabel(birthDate: string): string {
+  const birth = new Date(birthDate);
+  const now = new Date();
+  let months = (now.getFullYear() - birth.getFullYear()) * 12 + (now.getMonth() - birth.getMonth());
+  if (now.getDate() < birth.getDate()) months -= 1;
+  months = Math.max(0, months);
+  const years = Math.floor(months / 12);
+  const remMonths = months % 12;
+  if (years === 0) return `${remMonths} bulan`;
+  return remMonths === 0 ? `${years} tahun` : `${years} tahun ${remMonths} bulan`;
+}
+
 export default function ChildrenList() {
   const children = useGrowthStore((s) => s.children);
   const setChildren = useGrowthStore((s) => s.setChildren);
@@ -29,6 +41,7 @@ export default function ChildrenList() {
   const [form, setForm] = useState(emptyForm);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const [infoChild, setInfoChild] = useState<Child | null>(null);
   const canCreate = authApi.canCreate();
   const canEditDelete = authApi.canEditDelete();
 
@@ -186,20 +199,56 @@ export default function ChildrenList() {
             <p className="font-medium">{child.name}</p>
             <p className="text-sm text-gray-500">Lahir: {child.birthDate}</p>
           </Link>
-          {canEditDelete && (
-            <div className="flex items-center gap-3 ml-2">
-              <button onClick={() => startEdit(child)} className="text-sm text-teal-700 font-medium">
-                Edit
-              </button>
-              <button onClick={() => handleDelete(child)} className="text-sm text-red-600 font-medium">
-                Hapus
-              </button>
-            </div>
-          )}
+          <div className="flex items-center gap-3 ml-2">
+            <button onClick={() => setInfoChild(child)} className="text-sm text-gray-500 font-medium">
+              Info
+            </button>
+            {canEditDelete && (
+              <>
+                <button onClick={() => startEdit(child)} className="text-sm text-teal-700 font-medium">
+                  Edit
+                </button>
+                <button onClick={() => handleDelete(child)} className="text-sm text-red-600 font-medium">
+                  Hapus
+                </button>
+              </>
+            )}
+          </div>
         </div>
       ))}
       {children.length === 0 && !showForm && (
         <p className="text-gray-400 text-sm">Belum ada data. Tambahkan balita baru.</p>
+      )}
+
+      {infoChild && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50 print:static print:bg-white print:p-0">
+          <div className="print-area bg-white rounded-2xl shadow-lg p-6 w-full max-w-sm space-y-3">
+            <h2 className="text-lg font-semibold">{infoChild.name}</h2>
+            <div className="text-sm text-gray-600 space-y-1">
+              <p>Tanggal Lahir: {infoChild.birthDate} ({ageLabel(infoChild.birthDate)})</p>
+              <p>Jenis Kelamin: {infoChild.sex === 'male' ? 'Laki-laki' : 'Perempuan'}</p>
+              <p>
+                ASI Eksklusif:{' '}
+                {infoChild.exclusiveBreastfeeding == null ? '-' : infoChild.exclusiveBreastfeeding ? 'Ya' : 'Tidak'}
+              </p>
+              <p>Berat Lahir: {infoChild.birthWeightKg != null ? `${infoChild.birthWeightKg} kg` : '-'}</p>
+            </div>
+            <div className="flex gap-2 print:hidden">
+              <button
+                onClick={() => window.print()}
+                className="flex-1 bg-gray-100 text-gray-700 rounded-lg py-2 text-sm font-medium"
+              >
+                Cetak
+              </button>
+              <button
+                onClick={() => setInfoChild(null)}
+                className="flex-1 bg-teal-700 text-white rounded-lg py-2 text-sm font-medium"
+              >
+                Tutup
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

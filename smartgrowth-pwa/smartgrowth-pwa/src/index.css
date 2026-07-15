@@ -10,3 +10,20 @@ html, body, #root {
 body {
   overscroll-behavior-y: none;
 }
+
+/* Printing a popup (e.g. child info): only the .print-area content should
+   end up on paper, not the rest of the app underneath it. */
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  .print-area, .print-area * {
+    visibility: visible;
+  }
+  .print-area {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+  }
+}
