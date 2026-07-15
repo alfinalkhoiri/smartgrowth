@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from 'react';
-import { useParams } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
 import axios from 'axios';
 import { growthApi } from '@/api/growth';
 import { firstErrorMessage } from '@/api/errors';
@@ -163,6 +163,9 @@ export default function ChildDashboard() {
 
   return (
     <div className="p-4 space-y-4">
+      <Link to="/" className="inline-flex items-center gap-1 text-sm text-gray-500 font-medium">
+        &larr; Daftar Balita
+      </Link>
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-semibold">{child?.name ?? 'Grafik Pertumbuhan'}</h1>
         <div className="flex items-center gap-2">
