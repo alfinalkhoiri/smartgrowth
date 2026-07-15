@@ -5,7 +5,8 @@ import { growthApi } from '@/api/growth';
 import { firstErrorMessage } from '@/api/errors';
 import { authApi } from '@/api/auth';
 import { useGrowthStore } from '@/features/growth/store';
-import type { Child } from '@/types';
+import { RiskBadge } from '@/components/RiskBadge';
+import type { Child, GrowthRecord } from '@/types';
 
 const emptyForm = {
   name: '',
@@ -42,12 +43,26 @@ export default function ChildrenList() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [infoChild, setInfoChild] = useState<Child | null>(null);
+  const [latestRecord, setLatestRecord] = useState<GrowthRecord | null>(null);
+  const [loadingRecord, setLoadingRecord] = useState(false);
   const canCreate = authApi.canCreate();
   const canEditDelete = authApi.canEditDelete();
 
   useEffect(() => {
     growthApi.listChildren().then((res) => setChildren(res.data));
   }, [setChildren]);
+
+  const openInfo = async (child: Child) => {
+    setInfoChild(child);
+    setLatestRecord(null);
+    setLoadingRecord(true);
+    try {
+      const res = await growthApi.listRecords(child.id);
+      setLatestRecord(res.data[res.data.length - 1] ?? null);
+    } finally {
+      setLoadingRecord(false);
+    }
+  };
 
   const startAdd = () => {
     setEditingId(null);
@@ -200,7 +215,7 @@ export default function ChildrenList() {
             <p className="text-sm text-gray-500">Lahir: {child.birthDate}</p>
           </Link>
           <div className="flex items-center gap-3 ml-2">
-            <button onClick={() => setInfoChild(child)} className="text-sm text-gray-500 font-medium">
+            <button onClick={() => openInfo(child)} className="text-sm text-gray-500 font-medium">
               Info
             </button>
             {canEditDelete && (
@@ -233,6 +248,34 @@ export default function ChildrenList() {
               </p>
               <p>Berat Lahir: {infoChild.birthWeightKg != null ? `${infoChild.birthWeightKg} kg` : '-'}</p>
             </div>
+
+            <div className="border-t pt-3 space-y-1">
+              <div className="flex items-center justify-between">
+                <p className="text-sm font-medium text-gray-700">Hasil Pengukuran Terakhir</p>
+                {latestRecord?.riskStatus && <RiskBadge status={latestRecord.riskStatus} />}
+              </div>
+              {loadingRecord ? (
+                <p className="text-sm text-gray-400">Memuat...</p>
+              ) : latestRecord ? (
+                <div className="text-sm text-gray-600 space-y-1">
+                  <p>
+                    Tanggal: {latestRecord.measuredAt} &middot; Usia: {latestRecord.ageMonths} bln
+                  </p>
+                  <p>
+                    Berat: {latestRecord.weightKg} kg &middot; Tinggi: {latestRecord.heightCm} cm
+                  </p>
+                  {latestRecord.notes && (
+                    <div className="bg-gray-50 rounded-lg p-3 mt-1">
+                      <p className="text-gray-500 mb-1">Catatan:</p>
+                      <p className="text-gray-700 whitespace-pre-wrap">{latestRecord.notes}</p>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <p className="text-sm text-gray-400">Belum ada data pengukuran.</p>
+              )}
+            </div>
+
             <div className="flex gap-2 print:hidden">
               <button
                 onClick={() => window.print()}
@@ -241,7 +284,10 @@ export default function ChildrenList() {
                 Cetak
               </button>
               <button
-                onClick={() => setInfoChild(null)}
+                onClick={() => {
+                  setInfoChild(null);
+                  setLatestRecord(null);
+                }}
                 className="flex-1 bg-teal-700 text-white rounded-lg py-2 text-sm font-medium"
               >
                 Tutup
