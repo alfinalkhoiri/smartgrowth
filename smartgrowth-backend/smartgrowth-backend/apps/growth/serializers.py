@@ -29,7 +29,8 @@ class GrowthRecordSerializer(serializers.ModelSerializer):
     class Meta:
         model = GrowthRecord
         fields = [
-            'id', 'child_id', 'measured_at', 'weight_kg', 'height_cm', 'age_months', 'notes',
+            'id', 'child_id', 'measured_at', 'weight_kg', 'height_cm', 'age_months',
+            'officer_name', 'location', 'notes',
             'height_for_age_z', 'weight_for_height_z', 'risk_status', 'created_at',
         ]
         read_only_fields = ['id', 'height_for_age_z', 'weight_for_height_z', 'risk_status', 'created_at']

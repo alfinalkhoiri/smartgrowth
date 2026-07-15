@@ -18,7 +18,7 @@ function monthsBetween(birthDate: string, measuredAt: string): number {
   return Math.max(0, months);
 }
 
-const emptyForm = { measuredAt: '', weightKg: '', heightCm: '' };
+const emptyForm = { measuredAt: '', weightKg: '', heightCm: '', officerName: '', location: '' };
 const today = new Date().toISOString().slice(0, 10);
 
 export default function ChildDashboard() {
@@ -67,7 +67,9 @@ export default function ChildDashboard() {
     setForm({
       measuredAt: record.measuredAt,
       weightKg: String(record.weightKg),
-      heightCm: String(record.heightCm)
+      heightCm: String(record.heightCm),
+      officerName: record.officerName ?? '',
+      location: record.location ?? ''
     });
     setShowForm(true);
   };
@@ -107,7 +109,9 @@ export default function ChildDashboard() {
       measuredAt: form.measuredAt,
       weightKg: Number(form.weightKg),
       heightCm: Number(form.heightCm),
-      ageMonths: monthsBetween(child.birthDate, form.measuredAt)
+      ageMonths: monthsBetween(child.birthDate, form.measuredAt),
+      officerName: form.officerName,
+      location: form.location
     };
     try {
       let saved: GrowthRecord;
@@ -214,6 +218,26 @@ export default function ChildDashboard() {
               />
             </div>
           </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-sm text-gray-600 mb-1">Nama Petugas</label>
+              <input
+                className="w-full border rounded-lg px-3 py-2"
+                placeholder="Mis. Bidan Sari"
+                value={form.officerName}
+                onChange={(e) => setForm({ ...form, officerName: e.target.value })}
+              />
+            </div>
+            <div>
+              <label className="block text-sm text-gray-600 mb-1">Lokasi Pengukuran</label>
+              <input
+                className="w-full border rounded-lg px-3 py-2"
+                placeholder="Mis. Posyandu Melati"
+                value={form.location}
+                onChange={(e) => setForm({ ...form, location: e.target.value })}
+              />
+            </div>
+          </div>
           <button
             type="submit"
             disabled={saving}
@@ -245,6 +269,11 @@ export default function ChildDashboard() {
                 <p className="text-sm text-gray-500">
                   {record.weightKg} kg &middot; {record.heightCm} cm &middot; {record.ageMonths} bln
                 </p>
+                {(record.officerName || record.location) && (
+                  <p className="text-xs text-gray-400">
+                    {[record.officerName, record.location].filter(Boolean).join(' · ')}
+                  </p>
+                )}
               </div>
               <div className="flex items-center gap-3">
                 <button onClick={() => openResult(record)} className="text-sm text-gray-500 font-medium">
@@ -274,6 +303,13 @@ export default function ChildDashboard() {
             <div className="text-sm text-gray-600 space-y-1">
               <p>Tanggal: {resultRecord.measuredAt} &middot; Usia: {resultRecord.ageMonths} bln</p>
               <p>Berat: {resultRecord.weightKg} kg &middot; Tinggi: {resultRecord.heightCm} cm</p>
+              {(resultRecord.officerName || resultRecord.location) && (
+                <p>
+                  {resultRecord.officerName && <>Petugas: {resultRecord.officerName}</>}
+                  {resultRecord.officerName && resultRecord.location && ' · '}
+                  {resultRecord.location && <>Lokasi: {resultRecord.location}</>}
+                </p>
+              )}
               <p>Z-score Tinggi/Usia (HAZ): {resultRecord.heightForAgeZ ?? '-'}</p>
               <p>Z-score Berat/Tinggi (WHZ): {resultRecord.weightForHeightZ ?? '-'}</p>
             </div>
