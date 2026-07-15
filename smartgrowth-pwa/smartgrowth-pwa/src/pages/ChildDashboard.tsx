@@ -296,8 +296,8 @@ export default function ChildDashboard() {
       )}
 
       {resultRecord && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl shadow-lg p-6 w-full max-w-sm space-y-4">
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50 print:static print:bg-white print:p-0">
+          <div className="print-area bg-white rounded-2xl shadow-lg p-6 w-full max-w-sm space-y-4">
             <h2 className="text-lg font-semibold">Hasil Pengukuran</h2>
             {resultRecord.riskStatus && <RiskBadge status={resultRecord.riskStatus} />}
             <div className="text-sm text-gray-600 space-y-1">
@@ -342,12 +342,22 @@ export default function ChildDashboard() {
                 </div>
               )
             )}
-            <button
-              onClick={() => setResultRecord(null)}
-              className="w-full bg-teal-700 text-white rounded-lg py-2 font-medium"
-            >
-              Tutup
-            </button>
+            <div className="flex gap-2 print:hidden">
+              {resultRecord.notes && (
+                <button
+                  onClick={() => window.print()}
+                  className="flex-1 bg-gray-100 text-gray-700 rounded-lg py-2 text-sm font-medium"
+                >
+                  Cetak
+                </button>
+              )}
+              <button
+                onClick={() => setResultRecord(null)}
+                className="flex-1 bg-teal-700 text-white rounded-lg py-2 font-medium"
+              >
+                Tutup
+              </button>
+            </div>
           </div>
         </div>
       )}
