@@ -163,11 +163,17 @@ export default function ChildDashboard() {
 
   return (
     <div className="p-4 space-y-4">
-      <Link to="/" className="inline-flex items-center gap-1 text-sm text-gray-500 font-medium">
-        &larr; Daftar Balita
-      </Link>
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold">{child?.name ?? 'Grafik Pertumbuhan'}</h1>
+        <div className="flex items-center gap-3">
+          <Link
+            to="/"
+            aria-label="Kembali ke Daftar Balita"
+            className="text-gray-400 hover:text-gray-600 text-xl leading-none -ml-1 p-1"
+          >
+            &larr;
+          </Link>
+          <h1 className="text-xl font-semibold">{child?.name ?? 'Grafik Pertumbuhan'}</h1>
+        </div>
         <div className="flex items-center gap-2">
           {latest?.riskStatus && <RiskBadge status={latest.riskStatus} />}
           {canCreate && (
