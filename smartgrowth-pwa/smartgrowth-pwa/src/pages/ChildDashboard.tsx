@@ -32,8 +32,16 @@ function fromTriState(value: TriState): boolean | null {
   return null;
 }
 
-const emptyForm = { measuredAt: '', weightKg: '', heightCm: '', officerName: '', location: '' };
-const emptyQuestionnaire = { cleanWaterAccess: '' as TriState, recurrentIllness: '' as TriState, immunizationComplete: '' as TriState };
+const emptyForm = {
+  measuredAt: '',
+  weightKg: '',
+  heightCm: '',
+  officerName: '',
+  location: '',
+  cleanWaterAccess: '' as TriState,
+  recurrentIllness: '' as TriState,
+  immunizationComplete: '' as TriState
+};
 const today = new Date().toISOString().slice(0, 10);
 
 export default function ChildDashboard() {
@@ -53,8 +61,6 @@ export default function ChildDashboard() {
   const [resultRecord, setResultRecord] = useState<GrowthRecord | null>(null);
   const [noteDraft, setNoteDraft] = useState('');
   const [savingNote, setSavingNote] = useState(false);
-  const [questionnaireDraft, setQuestionnaireDraft] = useState(emptyQuestionnaire);
-  const [savingQuestionnaire, setSavingQuestionnaire] = useState(false);
   const canCreate = authApi.canCreate();
   const canEditDelete = authApi.canEditDelete();
 
@@ -71,11 +77,6 @@ export default function ChildDashboard() {
   const openResult = (record: GrowthRecord) => {
     setResultRecord(record);
     setNoteDraft(record.notes ?? '');
-    setQuestionnaireDraft({
-      cleanWaterAccess: toTriState(record.cleanWaterAccess),
-      recurrentIllness: toTriState(record.recurrentIllness),
-      immunizationComplete: toTriState(record.immunizationComplete)
-    });
   };
 
   const startAdd = () => {
@@ -91,7 +92,10 @@ export default function ChildDashboard() {
       weightKg: String(record.weightKg),
       heightCm: String(record.heightCm),
       officerName: record.officerName ?? '',
-      location: record.location ?? ''
+      location: record.location ?? '',
+      cleanWaterAccess: toTriState(record.cleanWaterAccess),
+      recurrentIllness: toTriState(record.recurrentIllness),
+      immunizationComplete: toTriState(record.immunizationComplete)
     });
     setShowForm(true);
   };
@@ -133,7 +137,10 @@ export default function ChildDashboard() {
       heightCm: Number(form.heightCm),
       ageMonths: monthsBetween(child.birthDate, form.measuredAt),
       officerName: form.officerName,
-      location: form.location
+      location: form.location,
+      cleanWaterAccess: fromTriState(form.cleanWaterAccess),
+      recurrentIllness: fromTriState(form.recurrentIllness),
+      immunizationComplete: fromTriState(form.immunizationComplete)
     };
     try {
       let saved: GrowthRecord;
@@ -178,31 +185,6 @@ export default function ChildDashboard() {
       setError(message ?? 'Gagal menyimpan catatan.');
     } finally {
       setSavingNote(false);
-    }
-  };
-
-  const handleSaveQuestionnaire = async () => {
-    if (!resultRecord || !childId) return;
-    setSavingQuestionnaire(true);
-    try {
-      const payload = {
-        childId,
-        measuredAt: resultRecord.measuredAt,
-        weightKg: Number(resultRecord.weightKg),
-        heightCm: Number(resultRecord.heightCm),
-        ageMonths: resultRecord.ageMonths,
-        cleanWaterAccess: fromTriState(questionnaireDraft.cleanWaterAccess),
-        recurrentIllness: fromTriState(questionnaireDraft.recurrentIllness),
-        immunizationComplete: fromTriState(questionnaireDraft.immunizationComplete)
-      };
-      const res = await growthApi.updateRecord(resultRecord.id, payload);
-      updateRecord(res.data);
-      setResultRecord(res.data);
-    } catch (err) {
-      const message = axios.isAxiosError(err) ? firstErrorMessage(err.response?.data) : null;
-      setError(message ?? 'Gagal menyimpan kuesioner.');
-    } finally {
-      setSavingQuestionnaire(false);
     }
   };
 
@@ -285,6 +267,49 @@ export default function ChildDashboard() {
               />
             </div>
           </div>
+
+          <div className="space-y-2 border-t pt-3">
+            <p className="text-sm font-medium text-gray-700">Kuesioner Faktor Risiko</p>
+            <div>
+              <label className="block text-xs text-gray-500 mb-1">Akses air bersih &amp; sanitasi layak</label>
+              <select
+                className="w-full border rounded-lg px-3 py-2 text-sm"
+                value={form.cleanWaterAccess}
+                onChange={(e) => setForm({ ...form, cleanWaterAccess: e.target.value as TriState })}
+              >
+                <option value="">Belum diisi</option>
+                <option value="yes">Ya</option>
+                <option value="no">Tidak</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs text-gray-500 mb-1">
+                Riwayat sakit/diare berulang (3 bulan terakhir)
+              </label>
+              <select
+                className="w-full border rounded-lg px-3 py-2 text-sm"
+                value={form.recurrentIllness}
+                onChange={(e) => setForm({ ...form, recurrentIllness: e.target.value as TriState })}
+              >
+                <option value="">Belum diisi</option>
+                <option value="yes">Ya</option>
+                <option value="no">Tidak</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs text-gray-500 mb-1">Imunisasi lengkap sesuai usia</label>
+              <select
+                className="w-full border rounded-lg px-3 py-2 text-sm"
+                value={form.immunizationComplete}
+                onChange={(e) => setForm({ ...form, immunizationComplete: e.target.value as TriState })}
+              >
+                <option value="">Belum diisi</option>
+                <option value="yes">Ya</option>
+                <option value="no">Tidak</option>
+              </select>
+            </div>
+          </div>
+
           <button
             type="submit"
             disabled={saving}
@@ -364,71 +389,16 @@ export default function ChildDashboard() {
               <p className="text-sm text-gray-700">{riskDescription(resultRecord.riskStatus)}</p>
             )}
 
-            {resultRecord.recommendations && resultRecord.recommendations.length > 0 && (
+            {canEditDelete && resultRecord.recommendations && resultRecord.recommendations.length > 0 && (
               <div className="bg-amber-50 rounded-lg p-3 space-y-1">
-                <p className="text-sm font-medium text-amber-800">Rekomendasi</p>
+                <p className="text-sm font-medium text-amber-800">
+                  Rekomendasi (sampaikan ke orang tua/pasien)
+                </p>
                 <ul className="text-sm text-amber-700 list-disc list-inside space-y-0.5">
                   {resultRecord.recommendations.map((rec, i) => (
                     <li key={i}>{rec}</li>
                   ))}
                 </ul>
-              </div>
-            )}
-
-            {canEditDelete && (
-              <div className="space-y-2 border-t pt-3">
-                <p className="text-sm font-medium text-gray-700">Kuesioner Faktor Risiko (Nakes)</p>
-                <div>
-                  <label className="block text-xs text-gray-500 mb-1">Akses air bersih &amp; sanitasi layak</label>
-                  <select
-                    className="w-full border rounded-lg px-3 py-2 text-sm"
-                    value={questionnaireDraft.cleanWaterAccess}
-                    onChange={(e) =>
-                      setQuestionnaireDraft({ ...questionnaireDraft, cleanWaterAccess: e.target.value as TriState })
-                    }
-                  >
-                    <option value="">Belum diisi</option>
-                    <option value="yes">Ya</option>
-                    <option value="no">Tidak</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-xs text-gray-500 mb-1">
-                    Riwayat sakit/diare berulang (3 bulan terakhir)
-                  </label>
-                  <select
-                    className="w-full border rounded-lg px-3 py-2 text-sm"
-                    value={questionnaireDraft.recurrentIllness}
-                    onChange={(e) =>
-                      setQuestionnaireDraft({ ...questionnaireDraft, recurrentIllness: e.target.value as TriState })
-                    }
-                  >
-                    <option value="">Belum diisi</option>
-                    <option value="yes">Ya</option>
-                    <option value="no">Tidak</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-xs text-gray-500 mb-1">Imunisasi lengkap sesuai usia</label>
-                  <select
-                    className="w-full border rounded-lg px-3 py-2 text-sm"
-                    value={questionnaireDraft.immunizationComplete}
-                    onChange={(e) =>
-                      setQuestionnaireDraft({ ...questionnaireDraft, immunizationComplete: e.target.value as TriState })
-                    }
-                  >
-                    <option value="">Belum diisi</option>
-                    <option value="yes">Ya</option>
-                    <option value="no">Tidak</option>
-                  </select>
-                </div>
-                <button
-                  onClick={handleSaveQuestionnaire}
-                  disabled={savingQuestionnaire}
-                  className="w-full bg-gray-100 text-gray-700 rounded-lg py-2 text-sm font-medium disabled:opacity-50"
-                >
-                  {savingQuestionnaire ? 'Menyimpan kuesioner...' : 'Simpan Kuesioner'}
-                </button>
               </div>
             )}
 

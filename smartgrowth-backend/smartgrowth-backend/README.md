@@ -168,7 +168,7 @@ u.save()
   `weight_for_height_z`, dan `risk_status` (`normal` / `watch` / `risk`)
   dihitung ulang dan disimpan.
 
-### Kuesioner faktor risiko tambahan (khusus nakes) + rekomendasi
+### Kuesioner faktor risiko tambahan + rekomendasi (kader input, nakes baca)
 
 - Field opsional di `GrowthRecord`: `clean_water_access`, `recurrent_illness`,
   `immunization_complete` (nullable — `null` berarti belum ditanya, beda dari
@@ -183,10 +183,14 @@ u.save()
   request lewat `SerializerMethodField`, bukan disimpan) di
   `GrowthRecordSerializer` — selalu konsisten dengan logic terbaru tanpa perlu
   migrasi data lama.
-- Field kuesioner bisa diisi siapa saja yang boleh create/update record (ikut
-  matriks permission role), tapi di frontend formnya sengaja hanya ditampilkan
-  untuk role nakes/admin — kader/viewer tetap melihat hasil `recommendations`
-  (read-only), sesuai permintaan agar kuesioner ini jadi alat kerja nakes.
+- Pembagian kerja di frontend: **kader** mengisi kuesionernya langsung di form
+  tambah/edit pengukuran (`ChildDashboard.tsx`) — masuk akal karena kader yang
+  langsung berhadapan dengan orang tua saat pengukuran di lapangan. Field-nya
+  ikut tersimpan lewat `POST`/`PUT` `growth-records` yang sama, jadi tidak
+  perlu perluasan permission (kader tetap hanya bisa create, tidak update).
+  **Nakes/admin** yang melihat `recommendations` di popup "Hasil Pengukuran"
+  (kader/viewer tidak) — dimaksudkan untuk disampaikan langsung ke orang
+  tua/pasien saat konsultasi.
 - Threshold (`classify_from_haz`/`classify_from_whz`): Z < -3 → `risk` (berat),
   Z < -2 → `watch` (perlu pemantauan), selebihnya → `normal`. Ini murni Tahap 1
   (rule-based) — model ML Tahap 2 nanti menambah lapisan di atasnya, bukan
