@@ -1,7 +1,16 @@
 from django.utils import timezone
 from rest_framework import serializers
 from .models import Child, GrowthRecord, RiskAssessment
-from .services.risk_engine import questionnaire_recommendations
+from .services.risk_engine import calculate_haz, calculate_whz, questionnaire_recommendations
+
+# WHO Anthro / SMART survey's own "implausible value" flags — Z-scores this
+# far out are essentially never real measurements, they're data-entry errors
+# (wrong unit, misplaced decimal, etc.). Rejecting them here catches mistakes
+# at input time instead of silently classifying garbage as "normal" (normal
+# range checks in risk_engine only look at the low tail for stunting/wasting,
+# not implausible values on the high tail).
+_HAZ_PLAUSIBLE_RANGE = (-6, 6)
+_WHZ_PLAUSIBLE_RANGE = (-5, 5)
 
 
 class ChildSerializer(serializers.ModelSerializer):
@@ -46,6 +55,9 @@ class GrowthRecordSerializer(serializers.ModelSerializer):
     def validate(self, attrs):
         measured_at = attrs.get('measured_at', getattr(self.instance, 'measured_at', None))
         child = attrs.get('child', getattr(self.instance, 'child', None))
+        height_cm = attrs.get('height_cm', getattr(self.instance, 'height_cm', None))
+        weight_kg = attrs.get('weight_kg', getattr(self.instance, 'weight_kg', None))
+        age_months = attrs.get('age_months', getattr(self.instance, 'age_months', None))
 
         if measured_at and measured_at > timezone.localdate():
             raise serializers.ValidationError(
@@ -55,6 +67,26 @@ class GrowthRecordSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError(
                 {'measured_at': 'Tanggal pengukuran tidak boleh sebelum tanggal lahir anak.'}
             )
+
+        if child and height_cm is not None and age_months is not None:
+            haz = calculate_haz(float(height_cm), age_months, child.sex)
+            if not (_HAZ_PLAUSIBLE_RANGE[0] <= haz <= _HAZ_PLAUSIBLE_RANGE[1]):
+                raise serializers.ValidationError({
+                    'height_cm': (
+                        f'Tinggi {height_cm}cm pada usia {age_months} bulan menghasilkan Z-score '
+                        f'tidak wajar (HAZ={haz:.1f}). Periksa kembali tinggi dan usia yang diisi.'
+                    )
+                })
+            if weight_kg is not None:
+                whz = calculate_whz(float(weight_kg), float(height_cm), age_months, child.sex)
+                if not (_WHZ_PLAUSIBLE_RANGE[0] <= whz <= _WHZ_PLAUSIBLE_RANGE[1]):
+                    raise serializers.ValidationError({
+                        'weight_kg': (
+                            f'Berat {weight_kg}kg pada tinggi {height_cm}cm menghasilkan Z-score '
+                            f'tidak wajar (WHZ={whz:.1f}). Periksa kembali berat dan tinggi yang diisi.'
+                        )
+                    })
+
         return attrs
 
     def create(self, validated_data):

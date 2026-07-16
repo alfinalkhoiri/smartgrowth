@@ -167,6 +167,14 @@ u.save()
   `perform_update()` — tiap kali record dibuat/diedit, `height_for_age_z`,
   `weight_for_height_z`, dan `risk_status` (`normal` / `watch` / `risk`)
   dihitung ulang dan disimpan.
+- **Validasi kewajaran** di `GrowthRecordSerializer.validate()` — HAZ di luar
+  [-6, +6] atau WHZ di luar [-5, +5] ditolak dengan `400` sebelum sempat
+  tersimpan (ambang batas ini persis konvensi "implausible value flag" WHO
+  Anthro/survei SMART, bukan angka buatan sendiri). `classify_from_haz`/
+  `classify_from_whz` cuma mengecek ekor negatif untuk stunting/wasting, jadi
+  tanpa ini input yang salah ketik (mis. tinggi 200cm untuk bayi 6 bulan)
+  akan lolos dan diklasifikasikan "normal" begitu saja alih-alih ditandai
+  sebagai kemungkinan salah input.
 
 ### Kuesioner faktor risiko tambahan + rekomendasi (kader input, nakes baca)
 

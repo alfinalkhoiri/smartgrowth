@@ -206,6 +206,47 @@ class GrowthRecordSerializerDateValidationTests(TestCase):
         self.assertTrue(serializer.is_valid(), serializer.errors)
 
 
+class GrowthRecordSerializerPlausibilityValidationTests(TestCase):
+    def setUp(self):
+        self.child = Child.objects.create(name='Anak Uji', birth_date=date(2024, 1, 1), sex='male')
+
+    def test_rejects_implausible_height_for_age(self):
+        # 200cm at 5 months old (expected ~65cm) puts HAZ far beyond +6 —
+        # this is the exact class of bad data found in production (typo'd
+        # or wrong-unit height), not a real measurement.
+        serializer = GrowthRecordSerializer(data={
+            'child_id': str(self.child.id),
+            'measured_at': '2024-06-01',
+            'weight_kg': 10,
+            'height_cm': 200,
+            'age_months': 5,
+        })
+        self.assertFalse(serializer.is_valid())
+        self.assertIn('height_cm', serializer.errors)
+
+    def test_rejects_implausible_weight_for_height(self):
+        # 100kg at 70cm tall puts WHZ far beyond +5.
+        serializer = GrowthRecordSerializer(data={
+            'child_id': str(self.child.id),
+            'measured_at': '2024-06-01',
+            'weight_kg': 100,
+            'height_cm': 70,
+            'age_months': 5,
+        })
+        self.assertFalse(serializer.is_valid())
+        self.assertIn('weight_kg', serializer.errors)
+
+    def test_accepts_plausible_values(self):
+        serializer = GrowthRecordSerializer(data={
+            'child_id': str(self.child.id),
+            'measured_at': '2024-06-01',
+            'weight_kg': 10,
+            'height_cm': 70,
+            'age_months': 5,
+        })
+        self.assertTrue(serializer.is_valid(), serializer.errors)
+
+
 class QuestionnaireRecommendationsTests(SimpleTestCase):
     def test_no_recommendations_when_nothing_flagged_or_unanswered(self):
         recs = questionnaire_recommendations(_child(), _record())
