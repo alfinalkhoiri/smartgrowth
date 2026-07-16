@@ -8,6 +8,7 @@ from .models import Child, GrowthRecord, RiskAssessment
 from .permissions import RoleBasedGrowthPermission
 from .serializers import ChildSerializer, GrowthRecordSerializer, RiskAssessmentSerializer
 from .services.risk_engine import assess_child_risk, calculate_haz, calculate_whz, classify_growth_record
+from .services.who_reference import height_range_for_age, weight_range_for_height
 
 
 class ChildViewSet(viewsets.ModelViewSet):
@@ -71,3 +72,45 @@ class RiskAssessmentView(APIView):
             reason_codes=result.reason_codes,
         )
         return Response(RiskAssessmentSerializer(assessment).data)
+
+
+class GrowthReferenceView(APIView):
+    """
+    GET /api/growth-reference/?sex=male&ageMonths=18&heightCm=80 (heightCm optional)
+
+    Reference guide (WHO -2SD..+2SD band, the same band classify_from_haz/whz
+    use for "normal" vs "watch") — helps kader/nakes spot an obviously wrong
+    entry (wrong unit, misplaced decimal) before submitting. This is guidance,
+    not a hard validation rule; the actual plausibility check still lives in
+    GrowthRecordSerializer.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        sex = request.query_params.get('sex')
+        if sex not in ('male', 'female'):
+            return Response({'detail': "Parameter 'sex' harus 'male' atau 'female'."}, status=400)
+
+        try:
+            age_months = float(request.query_params.get('ageMonths'))
+        except (TypeError, ValueError):
+            return Response({'detail': "Parameter 'ageMonths' wajib diisi angka."}, status=400)
+
+        height_min, height_max = height_range_for_age(age_months, sex)
+        data = {
+            'age_months': age_months,
+            'height_min_cm': round(height_min, 1),
+            'height_max_cm': round(height_max, 1),
+        }
+
+        height_cm_raw = request.query_params.get('heightCm')
+        if height_cm_raw:
+            try:
+                height_cm = float(height_cm_raw)
+            except ValueError:
+                return Response({'detail': "Parameter 'heightCm' harus angka."}, status=400)
+            weight_min, weight_max = weight_range_for_height(height_cm, age_months, sex)
+            data['weight_min_kg'] = round(weight_min, 1)
+            data['weight_max_kg'] = round(weight_max, 1)
+
+        return Response(data)

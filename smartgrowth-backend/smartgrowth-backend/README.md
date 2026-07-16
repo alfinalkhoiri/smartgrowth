@@ -91,7 +91,7 @@ apps/accounts/        # custom User model dengan field role (admin/kader/nakes/v
 apps/growth/
   models.py           # Child, GrowthRecord, RiskAssessment
   serializers.py
-  views.py            # ChildViewSet, GrowthRecordViewSet, RiskAssessmentView
+  views.py            # ChildViewSet, GrowthRecordViewSet, RiskAssessmentView, GrowthReferenceView
   permissions.py       # RoleBasedGrowthPermission (matriks akses per role)
   urls.py
   tests.py            # validasi calculate_haz()/calculate_whz() vs tabel resmi WHO
@@ -228,6 +228,35 @@ sudah tersimpan tanpa perlu input baru:
   riwayat (`ChildDashboard.tsx`), badge "2T" di kartu anak (`ChildrenList.tsx`),
   dan banner peringatan di kedua halaman kalau `growth_alert === '2T'`.
 
+### Rentang normal sebagai panduan input — `GET /api/growth-reference/`
+
+Validasi kewajaran ([-6,+6]/[-5,+5] HAZ/WHZ) baru menolak input **setelah**
+disubmit. Fitur ini memberi kader/nakes gambaran rentang wajar **sebelum**
+submit, langsung di form pengukuran, supaya salah ketik (salah unit, koma
+kepindah) kelihatan lebih awal:
+
+- **`who_reference._lms_inverse(z, L, M, S)`** — kebalikan rumus LMS, dipakai
+  untuk mengubah ambang Z-score jadi angka ukuran (cm/kg) — persis cara tabel
+  SD2neg/SD2 dst. di tabel resmi WHO sendiri dihasilkan.
+- **`who_reference.height_range_for_age(age_months, sex)`** dan
+  **`weight_range_for_height(height_cm, age_months, sex)`** — rentang -2SD
+  s.d. +2SD, **band yang sama** dipakai `classify_from_haz`/`classify_from_whz`
+  untuk status "normal" vs "perlu pemantauan". Ini panduan, bukan aturan
+  validasi keras — anak nyata tetap bisa berada di luar rentang ini tanpa itu
+  berarti salah input.
+- Diekspos lewat `GET /api/growth-reference/?sex=male&ageMonths=18&heightCm=80`
+  (`heightCm` opsional — kalau diisi, response juga menyertakan rentang berat;
+  kalau tidak, hanya rentang tinggi). Endpoint ini `IsAuthenticated` saja,
+  tanpa `RoleBasedGrowthPermission`, karena datanya cuma referensi baca,
+  berguna untuk semua role.
+- Di frontend (`ChildDashboard.tsx`), teks bantuan "Normal: X–Y cm/kg" muncul
+  otomatis di bawah input Tinggi/Berat begitu tanggal pengukuran (→ usia) dan,
+  untuk berat, tinggi badan yang sedang diisi tersedia — di-debounce 300ms
+  supaya tidak memanggil API di tiap ketikan.
+- Diuji di `GrowthRangeTests` (`tests.py`) terhadap nilai SD2neg/SD2 resmi WHO
+  yang sama seperti dipakai `CalculateHazTests`/`CalculateWhzTests` — bukan
+  cuma round-trip terhadap rumus sendiri.
+
 ## Permission berbasis role
 
 `apps/growth/permissions.py` → `RoleBasedGrowthPermission`, diterapkan di
@@ -271,6 +300,7 @@ tombolnya sesuai role.
 | GET/POST       | `/api/growth-records/`             | `GrowthRecordViewSet` | Filter dengan `?child=<uuid>`; field `officer_name`/`location`/`notes` opsional (bebas teks, tidak diikutkan saat update = nilai lama tidak berubah); `height_for_age_z`/`weight_for_height_z`/`risk_status` dihitung otomatis saat create/update |
 | GET/PUT/DELETE | `/api/growth-records/<id>/`        | `GrowthRecordViewSet` | PUT/DELETE butuh role nakes/admin                                                                                                      |
 | GET            | `/api/risk-assessment/<child_id>/` | `RiskAssessmentView`  | Membuat `RiskAssessment` baru setiap kali dipanggil; semua role boleh akses                                                            |
+| GET            | `/api/growth-reference/`           | `GrowthReferenceView` | Query params `sex`, `ageMonths` (wajib), `heightCm` (opsional); rentang -2SD..+2SD WHO sebagai panduan input, bukan validasi; `IsAuthenticated` saja, semua role boleh akses |
 
 Semua endpoint mewajibkan autentikasi JWT (`IsAuthenticated`), ditambah
 `RoleBasedGrowthPermission` di atas untuk `children`/`growth-records`.

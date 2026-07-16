@@ -17,6 +17,7 @@ children under 24 months and WFH from 24 months onward — see
 lms_for_weight() below.
 """
 import csv
+import math
 from functools import lru_cache
 from pathlib import Path
 
@@ -99,3 +100,33 @@ def lms_for_weight(height_cm: float, age_months: float, sex: str) -> tuple:
     indicator = 'wfl' if age_months < 24 else 'wfh'
     table = _load_table(indicator, sex, key_column='measure_cm', scale=CM_STEPS_PER_UNIT)
     return _interpolate(table, height_cm * CM_STEPS_PER_UNIT)
+
+
+def _lms_inverse(z: float, L: float, M: float, S: float) -> float:
+    """
+    The LMS formula solved for the raw measurement instead of Z — this is
+    exactly how WHO's own SD2neg/SD2/etc. reference columns are generated
+    (see the "expanded tables" this project's CSVs came from). Used to turn
+    a Z-score threshold back into a "what height/weight is that" value for
+    the reference-range guide.
+    """
+    if L != 0:
+        return M * ((1 + L * S * z) ** (1 / L))
+    return M * math.exp(S * z)
+
+
+def height_range_for_age(age_months: float, sex: str) -> tuple:
+    """
+    (min, max) height in cm spanning WHO's -2SD to +2SD Height-for-Age band
+    — the same threshold classify_from_haz() uses for "normal" vs "watch".
+    A reference guide, not a hard validation rule (real children do fall
+    outside this range without it being a data-entry error).
+    """
+    L, M, S = lms_for_age(age_months, sex)
+    return _lms_inverse(-2, L, M, S), _lms_inverse(2, L, M, S)
+
+
+def weight_range_for_height(height_cm: float, age_months: float, sex: str) -> tuple:
+    """(min, max) weight in kg spanning WHO's -2SD to +2SD Weight-for-Length/Height band."""
+    L, M, S = lms_for_weight(height_cm, age_months, sex)
+    return _lms_inverse(-2, L, M, S), _lms_inverse(2, L, M, S)

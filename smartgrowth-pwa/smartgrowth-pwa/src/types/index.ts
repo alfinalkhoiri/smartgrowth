@@ -45,3 +45,13 @@ export interface RiskAssessment {
   reasonCodes: string[]; // e.g. ["HAZ_BELOW_-2", "NO_EXCLUSIVE_BF"]
   assessedAt: string;
 }
+
+// WHO -2SD..+2SD band for the given age/sex (and height, for weight) — a
+// reference guide shown alongside the input fields, not a validation rule.
+export interface GrowthReference {
+  ageMonths: number;
+  heightMinCm: number;
+  heightMaxCm: number;
+  weightMinKg?: number;
+  weightMaxKg?: number;
+}

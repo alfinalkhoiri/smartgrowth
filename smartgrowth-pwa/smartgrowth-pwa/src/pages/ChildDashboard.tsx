@@ -25,7 +25,7 @@ import { useGrowthStore } from '@/features/growth/store';
 import { GrowthChart } from '@/components/GrowthChart';
 import { RiskBadge } from '@/components/RiskBadge';
 import { riskDescription } from '@/features/growth/zscore';
-import type { Child, GrowthRecord } from '@/types';
+import type { Child, GrowthRecord, GrowthReference } from '@/types';
 
 function monthsBetween(birthDate: string, measuredAt: string): number {
   const birth = new Date(birthDate);
@@ -83,6 +83,7 @@ export default function ChildDashboard() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [resultRecord, setResultRecord] = useState<GrowthRecord | null>(null);
+  const [reference, setReference] = useState<GrowthReference | null>(null);
   const [noteDraft, setNoteDraft] = useState('');
   const [savingNote, setSavingNote] = useState(false);
   const canCreate = authApi.canCreate();
@@ -99,6 +100,24 @@ export default function ChildDashboard() {
   }, [childId, setRecords]);
 
   const latest = records[records.length - 1];
+
+  // Debounced so retyping the height doesn't fire a request per keystroke;
+  // only shown while the form is open since it's just an input-time guide.
+  useEffect(() => {
+    if (!showForm || !child || !form.measuredAt) {
+      setReference(null);
+      return;
+    }
+    const ageMonths = monthsBetween(child.birthDate, form.measuredAt);
+    const heightCm = Number(form.heightCm);
+    const timer = setTimeout(() => {
+      growthApi
+        .getReference(child.sex, ageMonths, heightCm > 0 ? heightCm : undefined)
+        .then((res) => setReference(res.data))
+        .catch(() => setReference(null));
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [showForm, child, form.measuredAt, form.heightCm]);
 
   const openResult = (record: GrowthRecord) => {
     setError('');
@@ -290,6 +309,11 @@ export default function ChildDashboard() {
                 onChange={(e) => setForm({ ...form, weightKg: e.target.value })}
                 required
               />
+              {reference?.weightMinKg != null && (
+                <p className="text-xs text-gray-400 mt-1">
+                  Normal: {reference.weightMinKg}&ndash;{reference.weightMaxKg} kg
+                </p>
+              )}
             </div>
             <div>
               <label htmlFor="height-cm" className="field-label">
@@ -304,6 +328,11 @@ export default function ChildDashboard() {
                 onChange={(e) => setForm({ ...form, heightCm: e.target.value })}
                 required
               />
+              {reference && (
+                <p className="text-xs text-gray-400 mt-1">
+                  Normal: {reference.heightMinCm}&ndash;{reference.heightMaxCm} cm
+                </p>
+              )}
             </div>
           </div>
           <div className="grid grid-cols-2 gap-3">

@@ -1,5 +1,5 @@
 import { apiClient } from './client';
-import type { Child, GrowthRecord, RiskAssessment } from '@/types';
+import type { Child, GrowthRecord, RiskAssessment, GrowthReference } from '@/types';
 
 // Every path below ends in a trailing slash to match DRF's DefaultRouter
 // URL patterns exactly. Django's APPEND_SLASH can't transparently redirect
@@ -22,5 +22,10 @@ export const growthApi = {
   deleteRecord: (id: string) => apiClient.delete(`/growth-records/${id}/`),
 
   getRiskAssessment: (childId: string) =>
-    apiClient.get<RiskAssessment>(`/risk-assessment/${childId}/`)
+    apiClient.get<RiskAssessment>(`/risk-assessment/${childId}/`),
+
+  getReference: (sex: 'male' | 'female', ageMonths: number, heightCm?: number) =>
+    apiClient.get<GrowthReference>('/growth-reference/', {
+      params: { sex, ageMonths, ...(heightCm != null ? { heightCm } : {}) }
+    })
 };

@@ -24,7 +24,13 @@ from apps.growth.services.risk_engine import (
     has_2t_alert,
     questionnaire_recommendations,
 )
-from apps.growth.services.who_reference import DAYS_PER_MONTH, lms_for_age, lms_for_weight
+from apps.growth.services.who_reference import (
+    DAYS_PER_MONTH,
+    height_range_for_age,
+    lms_for_age,
+    lms_for_weight,
+    weight_range_for_height,
+)
 
 
 def _child(exclusive_breastfeeding=None, birth_weight_kg=None):
@@ -406,3 +412,31 @@ class GrowthTrendIntegrationTests(TestCase):
         self._add_record(date(2024, 8, 1), 8.5)  # naik — breaks it
         data = ChildSerializer(self.child).data
         self.assertIsNone(data['growth_alert'])
+
+
+class GrowthRangeTests(SimpleTestCase):
+    """Reference-range guide, checked against the same officially-quoted WHO
+    SD2neg/SD2 values used elsewhere in this file (see CalculateHazTests /
+    CalculateWhzTests docstrings for provenance)."""
+
+    def test_height_range_boys_newborn(self):
+        # WHO boys LHFA, day 0: official SD2neg=46.098, SD2=53.67
+        lo, hi = height_range_for_age(0, 'male')
+        self.assertAlmostEqual(lo, 46.098, places=2)
+        self.assertAlmostEqual(hi, 53.67, places=2)
+
+    def test_weight_range_boys_wfl_45cm(self):
+        # WHO boys WFL, length=45cm: official SD2neg=2.043, SD2=2.951
+        lo, hi = weight_range_for_height(45, age_months=0, sex='male')
+        self.assertAlmostEqual(lo, 2.043, places=2)
+        self.assertAlmostEqual(hi, 2.951, places=2)
+
+    def test_weight_range_boys_wfh_65cm(self):
+        # WHO boys WFH, height=65cm: official SD2neg=6.335, SD2=8.804
+        lo, hi = weight_range_for_height(65, age_months=24, sex='male')
+        self.assertAlmostEqual(lo, 6.335, places=2)
+        self.assertAlmostEqual(hi, 8.804, places=2)
+
+    def test_range_min_is_always_less_than_max(self):
+        lo, hi = height_range_for_age(30, 'female')
+        self.assertLess(lo, hi)
