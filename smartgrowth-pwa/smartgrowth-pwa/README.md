@@ -99,6 +99,24 @@ self-serviceable). `RequireAuth` in `App.tsx` guards every other route and
 redirects to `/login`; `client.ts`'s response interceptor does the same on a
 401 (expired token).
 
+## Design system
+
+Palette/typography/spacing were chosen data-driven (via the `ui-ux-pro-max`
+skill's design-system search for "healthcare medical dashboard government
+public-health"), not picked ad hoc: the **"Accessible & Ethical"** style —
+cyan primary (`#0891b2`, Tailwind's `cyan-600`) + emerald accent (`#059669`),
+Figtree typeface, WCAG AAA-oriented contrast. Tokens live in
+`tailwind.config.js` (`colors.primary` / `colors.accent`) and shared
+component classes (`.field-input`, `.btn-primary`, `.btn-secondary`,
+`.btn-ghost`, `.card`) in `src/index.css` under `@layer components` — reuse
+those instead of one-off utility strings on new pages.
+
+Baseline rules followed throughout (see the skill's `references/pro-rules.md`
+for the full checklist): 44×44px minimum touch targets, visible
+`:focus-visible` rings, `prefers-reduced-motion` respected, no emoji-as-icon
+(SVG only, via `lucide-react`), and risk status is never color-only — every
+`RiskBadge` and history-row status dot pairs an icon/color together.
+
 ## Risk classification layers
 
 - **Stage 1 (ship first):** rule-based WHO Height-for-Age Z-score thresholds

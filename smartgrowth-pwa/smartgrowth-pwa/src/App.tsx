@@ -26,7 +26,7 @@ export default function App() {
     // — verified with Playwright: reload while offline on /child/:id now
     // correctly re-renders from the Workbox precache.
     <HashRouter>
-      <div className="min-h-screen bg-gray-50">
+      <div className="min-h-screen bg-primary-light/60 font-sans">
         <Routes>
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
