@@ -20,10 +20,17 @@ export interface GrowthRecord {
   officerName?: string;
   location?: string;
   notes?: string;
+  // Kuesioner faktor risiko stunting tambahan (diisi nakes). undefined/null
+  // berarti belum dijawab — beda dari false yang berarti sudah ditanya dan
+  // jawabannya negatif.
+  cleanWaterAccess?: boolean | null;
+  recurrentIllness?: boolean | null;
+  immunizationComplete?: boolean | null;
   // Computed client- or server-side from WHO growth standards
   heightForAgeZ?: number;
   weightForHeightZ?: number;
   riskStatus?: RiskStatus;
+  recommendations?: string[];
 }
 
 export interface RiskAssessment {

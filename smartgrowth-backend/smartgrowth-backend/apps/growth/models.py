@@ -45,6 +45,20 @@ class GrowthRecord(models.Model):
     )
     notes = models.TextField(blank=True, default='', help_text='Catatan tambahan dari kader/nakes saat pengukuran')
 
+    # Kuesioner faktor risiko stunting tambahan — diisi nakes, null berarti
+    # belum ditanyakan/dijawab (beda dari False yang berarti sudah ditanya
+    # dan jawabannya negatif). Dipakai risk_engine.questionnaire_recommendations()
+    # bersama Child.exclusive_breastfeeding & Child.birth_weight_kg.
+    clean_water_access = models.BooleanField(
+        null=True, blank=True, help_text='Akses air bersih & sanitasi layak'
+    )
+    recurrent_illness = models.BooleanField(
+        null=True, blank=True, help_text='Riwayat sakit/diare berulang dalam 3 bulan terakhir'
+    )
+    immunization_complete = models.BooleanField(
+        null=True, blank=True, help_text='Imunisasi lengkap sesuai usia'
+    )
+
     # Computed via WHO growth standards at save-time (see services/risk_engine.py)
     height_for_age_z = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
     weight_for_height_z = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)

@@ -1,6 +1,7 @@
 from django.utils import timezone
 from rest_framework import serializers
 from .models import Child, GrowthRecord, RiskAssessment
+from .services.risk_engine import questionnaire_recommendations
 
 
 class ChildSerializer(serializers.ModelSerializer):
@@ -25,15 +26,22 @@ class ChildSerializer(serializers.ModelSerializer):
 
 class GrowthRecordSerializer(serializers.ModelSerializer):
     child_id = serializers.PrimaryKeyRelatedField(source='child', queryset=Child.objects.all())
+    recommendations = serializers.SerializerMethodField()
 
     class Meta:
         model = GrowthRecord
         fields = [
             'id', 'child_id', 'measured_at', 'weight_kg', 'height_cm', 'age_months',
             'officer_name', 'location', 'notes',
+            'clean_water_access', 'recurrent_illness', 'immunization_complete', 'recommendations',
             'height_for_age_z', 'weight_for_height_z', 'risk_status', 'created_at',
         ]
-        read_only_fields = ['id', 'height_for_age_z', 'weight_for_height_z', 'risk_status', 'created_at']
+        read_only_fields = [
+            'id', 'height_for_age_z', 'weight_for_height_z', 'risk_status', 'created_at', 'recommendations',
+        ]
+
+    def get_recommendations(self, obj):
+        return questionnaire_recommendations(obj.child, obj)
 
     def validate(self, attrs):
         measured_at = attrs.get('measured_at', getattr(self.instance, 'measured_at', None))

@@ -116,3 +116,47 @@ def assess_child_risk(child, latest_record) -> RiskResult:
         status = WATCH if status == NORMAL else status
 
     return RiskResult(risk_status=status, reason_codes=reason_codes)
+
+
+_LOW_BIRTH_WEIGHT_KG = 2.5
+
+
+def questionnaire_recommendations(child, record) -> list:
+    """
+    Advisory recommendations from well-established general stunting risk
+    factors — exclusive breastfeeding, low birth weight (BBLR), clean water/
+    sanitation access, recurrent illness, and immunization completeness (all
+    widely cited by WHO/UNICEF/Kemenkes stunting prevention guidance). This
+    supplements the HAZ/WHZ Z-score result; it does not replace it, and
+    intentionally only ever recommends further monitoring/consultation, never
+    a diagnosis. Fields left unanswered (None) are skipped, not treated as
+    "no risk" — an unanswered question isn't evidence of anything.
+    """
+    recommendations = []
+
+    if child.exclusive_breastfeeding is False:
+        recommendations.append(
+            'Edukasi pentingnya ASI eksklusif; jika usia di atas 6 bulan, pastikan MPASI bergizi seimbang.'
+        )
+
+    if child.birth_weight_kg is not None and float(child.birth_weight_kg) < _LOW_BIRTH_WEIGHT_KG:
+        recommendations.append(
+            'Riwayat berat badan lahir rendah (BBLR) — pantau pertumbuhan lebih ketat dan rujuk ke nakes bila perlu.'
+        )
+
+    if record.clean_water_access is False:
+        recommendations.append(
+            'Tingkatkan akses air bersih dan sanitasi layak untuk mencegah infeksi berulang.'
+        )
+
+    if record.recurrent_illness is True:
+        recommendations.append(
+            'Ada riwayat sakit/diare berulang — periksakan ke Puskesmas untuk evaluasi lebih lanjut.'
+        )
+
+    if record.immunization_complete is False:
+        recommendations.append(
+            'Lengkapi imunisasi sesuai jadwal di Posyandu/Puskesmas terdekat.'
+        )
+
+    return recommendations

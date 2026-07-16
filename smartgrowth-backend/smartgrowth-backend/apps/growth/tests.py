@@ -8,6 +8,7 @@ value for that exact day — this checks that calculate_haz() reproduces WHO's
 own Z-scores from WHO's own published heights, not just internal round-trips.
 """
 from datetime import date, timedelta
+from types import SimpleNamespace
 
 from django.test import SimpleTestCase, TestCase
 
@@ -19,8 +20,21 @@ from apps.growth.services.risk_engine import (
     classify_from_haz,
     classify_from_whz,
     classify_growth_record,
+    questionnaire_recommendations,
 )
 from apps.growth.services.who_reference import DAYS_PER_MONTH, lms_for_age, lms_for_weight
+
+
+def _child(exclusive_breastfeeding=None, birth_weight_kg=None):
+    return SimpleNamespace(exclusive_breastfeeding=exclusive_breastfeeding, birth_weight_kg=birth_weight_kg)
+
+
+def _record(clean_water_access=None, recurrent_illness=None, immunization_complete=None):
+    return SimpleNamespace(
+        clean_water_access=clean_water_access,
+        recurrent_illness=recurrent_illness,
+        immunization_complete=immunization_complete,
+    )
 
 
 class LmsForAgeTests(SimpleTestCase):
@@ -190,3 +204,53 @@ class GrowthRecordSerializerDateValidationTests(TestCase):
             'age_months': 5,
         })
         self.assertTrue(serializer.is_valid(), serializer.errors)
+
+
+class QuestionnaireRecommendationsTests(SimpleTestCase):
+    def test_no_recommendations_when_nothing_flagged_or_unanswered(self):
+        recs = questionnaire_recommendations(_child(), _record())
+        self.assertEqual(recs, [])
+
+    def test_no_exclusive_breastfeeding_flags_recommendation(self):
+        recs = questionnaire_recommendations(_child(exclusive_breastfeeding=False), _record())
+        self.assertEqual(len(recs), 1)
+        self.assertIn('ASI eksklusif', recs[0])
+
+    def test_low_birth_weight_flags_recommendation(self):
+        recs = questionnaire_recommendations(_child(birth_weight_kg=2.3), _record())
+        self.assertEqual(len(recs), 1)
+        self.assertIn('BBLR', recs[0])
+
+    def test_normal_birth_weight_does_not_flag(self):
+        recs = questionnaire_recommendations(_child(birth_weight_kg=3.2), _record())
+        self.assertEqual(recs, [])
+
+    def test_no_clean_water_access_flags_recommendation(self):
+        recs = questionnaire_recommendations(_child(), _record(clean_water_access=False))
+        self.assertEqual(len(recs), 1)
+        self.assertIn('air bersih', recs[0])
+
+    def test_recurrent_illness_flags_recommendation(self):
+        recs = questionnaire_recommendations(_child(), _record(recurrent_illness=True))
+        self.assertEqual(len(recs), 1)
+        self.assertIn('Puskesmas', recs[0])
+
+    def test_incomplete_immunization_flags_recommendation(self):
+        recs = questionnaire_recommendations(_child(), _record(immunization_complete=False))
+        self.assertEqual(len(recs), 1)
+        self.assertIn('imunisasi', recs[0])
+
+    def test_unanswered_questionnaire_fields_are_not_flagged(self):
+        # None means "not asked", which must not be treated as a risk signal.
+        recs = questionnaire_recommendations(
+            _child(exclusive_breastfeeding=None, birth_weight_kg=None),
+            _record(clean_water_access=None, recurrent_illness=None, immunization_complete=None),
+        )
+        self.assertEqual(recs, [])
+
+    def test_multiple_flags_combine(self):
+        recs = questionnaire_recommendations(
+            _child(exclusive_breastfeeding=False, birth_weight_kg=2.0),
+            _record(clean_water_access=False, recurrent_illness=True, immunization_complete=False),
+        )
+        self.assertEqual(len(recs), 5)

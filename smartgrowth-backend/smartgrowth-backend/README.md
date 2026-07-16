@@ -167,6 +167,26 @@ u.save()
   `perform_update()` — tiap kali record dibuat/diedit, `height_for_age_z`,
   `weight_for_height_z`, dan `risk_status` (`normal` / `watch` / `risk`)
   dihitung ulang dan disimpan.
+
+### Kuesioner faktor risiko tambahan (khusus nakes) + rekomendasi
+
+- Field opsional di `GrowthRecord`: `clean_water_access`, `recurrent_illness`,
+  `immunization_complete` (nullable — `null` berarti belum ditanya, beda dari
+  `false` yang berarti sudah ditanya dan jawabannya negatif).
+- **`risk_engine.questionnaire_recommendations(child, record)`** — menghasilkan
+  daftar rekomendasi teks dari faktor risiko stunting umum yang sudah dikenal
+  luas (ASI eksklusif, BBLR dari `Child.birth_weight_kg` < 2.5kg, akses air
+  bersih/sanitasi, riwayat sakit/diare berulang, kelengkapan imunisasi) —
+  pelengkap Z-score, bukan pengganti, dan tidak pernah membuat diagnosis,
+  hanya menyarankan pemantauan/rujukan lebih lanjut.
+- Diekspos sebagai field `recommendations` (read-only, dihitung ulang tiap
+  request lewat `SerializerMethodField`, bukan disimpan) di
+  `GrowthRecordSerializer` — selalu konsisten dengan logic terbaru tanpa perlu
+  migrasi data lama.
+- Field kuesioner bisa diisi siapa saja yang boleh create/update record (ikut
+  matriks permission role), tapi di frontend formnya sengaja hanya ditampilkan
+  untuk role nakes/admin — kader/viewer tetap melihat hasil `recommendations`
+  (read-only), sesuai permintaan agar kuesioner ini jadi alat kerja nakes.
 - Threshold (`classify_from_haz`/`classify_from_whz`): Z < -3 → `risk` (berat),
   Z < -2 → `watch` (perlu pemantauan), selebihnya → `normal`. Ini murni Tahap 1
   (rule-based) — model ML Tahap 2 nanti menambah lapisan di atasnya, bukan
