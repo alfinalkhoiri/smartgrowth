@@ -75,6 +75,7 @@ export default function ChildDashboard() {
   const latest = records[records.length - 1];
 
   const openResult = (record: GrowthRecord) => {
+    setError('');
     setResultRecord(record);
     setNoteDraft(record.notes ?? '');
   };
@@ -371,6 +372,7 @@ export default function ChildDashboard() {
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50 print:static print:bg-white print:p-0">
           <div className="print-area bg-white rounded-2xl shadow-lg p-6 w-full max-w-sm space-y-4">
             <h2 className="text-lg font-semibold">Hasil Pengukuran</h2>
+            {error && <p className="text-sm text-red-600">{error}</p>}
             {resultRecord.riskStatus && <RiskBadge status={resultRecord.riskStatus} />}
             <div className="text-sm text-gray-600 space-y-1">
               <p>Tanggal: {resultRecord.measuredAt} &middot; Usia: {resultRecord.ageMonths} bln</p>
@@ -438,7 +440,10 @@ export default function ChildDashboard() {
                 </button>
               )}
               <button
-                onClick={() => setResultRecord(null)}
+                onClick={() => {
+                  setResultRecord(null);
+                  setError('');
+                }}
                 className="flex-1 bg-teal-700 text-white rounded-lg py-2 font-medium"
               >
                 Tutup

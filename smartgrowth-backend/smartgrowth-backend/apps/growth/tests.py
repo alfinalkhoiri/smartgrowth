@@ -12,7 +12,7 @@ from types import SimpleNamespace
 
 from django.test import SimpleTestCase, TestCase
 
-from apps.growth.models import Child
+from apps.growth.models import Child, GrowthRecord
 from apps.growth.serializers import ChildSerializer, GrowthRecordSerializer
 from apps.growth.services.risk_engine import (
     calculate_haz,
@@ -245,6 +245,41 @@ class GrowthRecordSerializerPlausibilityValidationTests(TestCase):
             'age_months': 5,
         })
         self.assertTrue(serializer.is_valid(), serializer.errors)
+
+    def test_allows_updating_other_fields_on_an_already_bad_existing_record(self):
+        # Simulates real production data found with an implausible height
+        # already saved (predates this validation). Saving just a note on
+        # that record must not be blocked by re-flagging its untouched,
+        # already-bad height/weight — that's an existing-data cleanup
+        # problem, not something an unrelated field save should get stuck on.
+        bad_record = GrowthRecord.objects.create(
+            child=self.child, measured_at=date(2024, 6, 1),
+            weight_kg=10, height_cm=200, age_months=5,
+        )
+        serializer = GrowthRecordSerializer(bad_record, data={
+            'child_id': str(self.child.id),
+            'measured_at': '2024-06-01',
+            'weight_kg': 10,
+            'height_cm': 200,
+            'age_months': 5,
+            'notes': 'catatan baru',
+        })
+        self.assertTrue(serializer.is_valid(), serializer.errors)
+
+    def test_still_rejects_a_new_implausible_value_on_update(self):
+        record = GrowthRecord.objects.create(
+            child=self.child, measured_at=date(2024, 6, 1),
+            weight_kg=10, height_cm=70, age_months=5,
+        )
+        serializer = GrowthRecordSerializer(record, data={
+            'child_id': str(self.child.id),
+            'measured_at': '2024-06-01',
+            'weight_kg': 10,
+            'height_cm': 200,
+            'age_months': 5,
+        })
+        self.assertFalse(serializer.is_valid())
+        self.assertIn('height_cm', serializer.errors)
 
 
 class QuestionnaireRecommendationsTests(SimpleTestCase):

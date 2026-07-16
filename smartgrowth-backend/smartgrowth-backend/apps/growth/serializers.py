@@ -68,7 +68,20 @@ class GrowthRecordSerializer(serializers.ModelSerializer):
                 {'measured_at': 'Tanggal pengukuran tidak boleh sebelum tanggal lahir anak.'}
             )
 
-        if child and height_cm is not None and age_months is not None:
+        # Only re-check plausibility when the measurement itself is actually
+        # changing (a create, or an update that touches height/weight/age).
+        # Otherwise an update that only saves notes/questionnaire answers on
+        # an *already-existing* record would keep re-validating that record's
+        # untouched (and possibly already-bad) height/weight and get blocked
+        # forever — that's an existing-data cleanup problem, not something an
+        # unrelated field save should be stuck on.
+        measurement_unchanged = self.instance is not None and (
+            attrs.get('height_cm', self.instance.height_cm) == self.instance.height_cm
+            and attrs.get('weight_kg', self.instance.weight_kg) == self.instance.weight_kg
+            and attrs.get('age_months', self.instance.age_months) == self.instance.age_months
+        )
+
+        if child and height_cm is not None and age_months is not None and not measurement_unchanged:
             haz = calculate_haz(float(height_cm), age_months, child.sex)
             if not (_HAZ_PLAUSIBLE_RANGE[0] <= haz <= _HAZ_PLAUSIBLE_RANGE[1]):
                 raise serializers.ValidationError({
