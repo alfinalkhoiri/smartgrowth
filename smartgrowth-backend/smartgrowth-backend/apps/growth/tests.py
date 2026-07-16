@@ -20,6 +20,8 @@ from apps.growth.services.risk_engine import (
     classify_from_haz,
     classify_from_whz,
     classify_growth_record,
+    classify_weight_trend,
+    has_2t_alert,
     questionnaire_recommendations,
 )
 from apps.growth.services.who_reference import DAYS_PER_MONTH, lms_for_age, lms_for_weight
@@ -330,3 +332,77 @@ class QuestionnaireRecommendationsTests(SimpleTestCase):
             _record(clean_water_access=False, recurrent_illness=True, immunization_complete=False),
         )
         self.assertEqual(len(recs), 5)
+
+
+class ClassifyWeightTrendTests(SimpleTestCase):
+    def test_naik_when_weight_increased(self):
+        self.assertEqual(classify_weight_trend(10, 10.5), 'naik')
+
+    def test_tetap_turun_when_weight_dropped(self):
+        self.assertEqual(classify_weight_trend(10, 9.5), 'tetap_turun')
+
+    def test_tetap_turun_when_weight_unchanged(self):
+        self.assertEqual(classify_weight_trend(10, 10), 'tetap_turun')
+
+
+class Has2tAlertTests(SimpleTestCase):
+    def test_true_when_last_two_are_tetap_turun(self):
+        self.assertTrue(has_2t_alert(['naik', 'tetap_turun', 'tetap_turun']))
+
+    def test_false_when_only_one_tetap_turun(self):
+        self.assertFalse(has_2t_alert(['tetap_turun', 'naik']))
+
+    def test_false_when_fewer_than_two_trends(self):
+        self.assertFalse(has_2t_alert(['tetap_turun']))
+        self.assertFalse(has_2t_alert([]))
+
+    def test_false_when_most_recent_is_naik(self):
+        self.assertFalse(has_2t_alert(['tetap_turun', 'tetap_turun', 'naik']))
+
+
+class GrowthTrendIntegrationTests(TestCase):
+    """
+    End-to-end through the serializers (not just the pure risk_engine
+    functions) — confirms weight_trend/growth_alert are wired to real
+    GrowthRecord history in chronological order, not just unit-tested in
+    isolation.
+    """
+
+    def setUp(self):
+        self.child = Child.objects.create(name='Anak Uji', birth_date=date(2024, 1, 1), sex='male')
+
+    def _add_record(self, measured_at, weight_kg):
+        return GrowthRecord.objects.create(
+            child=self.child, measured_at=measured_at, weight_kg=weight_kg, height_cm=70, age_months=6,
+        )
+
+    def test_first_record_has_no_weight_trend(self):
+        record = self._add_record(date(2024, 6, 1), 8.0)
+        data = GrowthRecordSerializer(record).data
+        self.assertIsNone(data['weight_trend'])
+
+    def test_second_record_weight_trend_reflects_change(self):
+        self._add_record(date(2024, 6, 1), 8.0)
+        second = self._add_record(date(2024, 7, 1), 7.5)
+        data = GrowthRecordSerializer(second).data
+        self.assertEqual(data['weight_trend'], 'tetap_turun')
+
+    def test_growth_alert_none_with_fewer_than_three_records(self):
+        self._add_record(date(2024, 6, 1), 8.0)
+        self._add_record(date(2024, 7, 1), 7.5)
+        data = ChildSerializer(self.child).data
+        self.assertIsNone(data['growth_alert'])
+
+    def test_growth_alert_2t_after_two_consecutive_non_increases(self):
+        self._add_record(date(2024, 6, 1), 8.0)
+        self._add_record(date(2024, 7, 1), 7.8)
+        self._add_record(date(2024, 8, 1), 7.8)
+        data = ChildSerializer(self.child).data
+        self.assertEqual(data['growth_alert'], '2T')
+
+    def test_growth_alert_none_when_a_gain_breaks_the_streak(self):
+        self._add_record(date(2024, 6, 1), 8.0)
+        self._add_record(date(2024, 7, 1), 7.8)  # tetap_turun
+        self._add_record(date(2024, 8, 1), 8.5)  # naik — breaks it
+        data = ChildSerializer(self.child).data
+        self.assertIsNone(data['growth_alert'])

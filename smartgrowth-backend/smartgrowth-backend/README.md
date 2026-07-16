@@ -204,6 +204,30 @@ u.save()
   (rule-based) — model ML Tahap 2 nanti menambah lapisan di atasnya, bukan
   menggantikannya sepenuhnya (keputusan klinis, bukan cuma teknis).
 
+### Tren pertumbuhan (2T) — sinyal dari histori, bukan cuma satu titik waktu
+
+Z-score di atas cuma menilai satu momen pengukuran. Stunting sering baru
+kelihatan dari **lintasan** pertumbuhan (growth faltering), bukan angka
+tunggal — anak bisa saja masih "Normal" di satu pengukuran padahal
+pertumbuhannya sedang melambat. Fitur ini memaksimalkan data historis yang
+sudah tersimpan tanpa perlu input baru:
+
+- **`risk_engine.classify_weight_trend(previous, current)`** — `'naik'` kalau
+  berat naik dari pengukuran sebelumnya, `'tetap_turun'` kalau sama atau
+  turun. Ini konvensi N/T Posyandu Indonesia (Buku KIA/KMS, Kemenkes RI),
+  bukan ambang batas yang dikarang sendiri.
+- **`risk_engine.has_2t_alert(trends)`** — `True` kalau **2 pengukuran
+  berturut-turut** terakhir sama-sama `tetap_turun` ("2T") — pemicu rujukan
+  standar ke Puskesmas di praktik posyandu, terlepas dari HAZ/WHZ-nya masih
+  "normal" atau tidak.
+- Diekspos sebagai `weight_trend` (per `GrowthRecord`, dibanding pengukuran
+  sebelumnya untuk anak yang sama; `null` untuk pengukuran pertama) dan
+  `growth_alert` (per `Child`, `'2T'` atau `null`, butuh minimal 3 pengukuran
+  histori) — keduanya `SerializerMethodField`, dihitung ulang tiap request.
+- Ditampilkan di frontend sebagai label "Naik"/"Tetap/Turun" di tiap baris
+  riwayat (`ChildDashboard.tsx`), badge "2T" di kartu anak (`ChildrenList.tsx`),
+  dan banner peringatan di kedua halaman kalau `growth_alert === '2T'`.
+
 ## Permission berbasis role
 
 `apps/growth/permissions.py` → `RoleBasedGrowthPermission`, diterapkan di

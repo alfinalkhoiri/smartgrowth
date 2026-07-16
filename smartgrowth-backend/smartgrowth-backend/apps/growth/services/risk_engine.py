@@ -160,3 +160,28 @@ def questionnaire_recommendations(child, record) -> list:
         )
 
     return recommendations
+
+
+# Indonesia's own posyandu weight-monitoring convention (Buku KIA / KMS,
+# Kemenkes RI): N (Naik) if weight increased since the last weighing, T
+# (Tetap/Turun) if it stayed flat or dropped. Two consecutive T's — "2T" — is
+# the standard trigger for referral to Puskesmas, regardless of what the
+# absolute HAZ/WHZ says. This matters because growth *faltering* (a flattening
+# trend) is often visible before it's severe enough to show up as an
+# out-of-range Z-score on a single measurement — the trend is itself a signal,
+# not just a restatement of the point-in-time classification above.
+NAIK = 'naik'
+TETAP_TURUN = 'tetap_turun'
+
+
+def classify_weight_trend(previous_weight_kg, current_weight_kg) -> str:
+    return NAIK if float(current_weight_kg) > float(previous_weight_kg) else TETAP_TURUN
+
+
+def has_2t_alert(weight_trends: list) -> bool:
+    """
+    True if the two most recent weight_trend values (in chronological order)
+    are both TETAP_TURUN — i.e. weight failed to increase at two consecutive
+    measurements in a row.
+    """
+    return len(weight_trends) >= 2 and weight_trends[-1] == TETAP_TURUN and weight_trends[-2] == TETAP_TURUN

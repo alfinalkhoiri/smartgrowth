@@ -1,7 +1,13 @@
 from django.utils import timezone
 from rest_framework import serializers
 from .models import Child, GrowthRecord, RiskAssessment
-from .services.risk_engine import calculate_haz, calculate_whz, questionnaire_recommendations
+from .services.risk_engine import (
+    calculate_haz,
+    calculate_whz,
+    classify_weight_trend,
+    has_2t_alert,
+    questionnaire_recommendations,
+)
 
 # WHO Anthro / SMART survey's own "implausible value" flags — Z-scores this
 # far out are essentially never real measurements, they're data-entry errors
@@ -14,14 +20,33 @@ _WHZ_PLAUSIBLE_RANGE = (-5, 5)
 
 
 class ChildSerializer(serializers.ModelSerializer):
+    growth_alert = serializers.SerializerMethodField()
+
     class Meta:
         model = Child
         fields = [
             'id', 'name', 'birth_date', 'sex',
-            'exclusive_breastfeeding', 'birth_weight_kg',
+            'exclusive_breastfeeding', 'birth_weight_kg', 'growth_alert',
             'created_at', 'updated_at',
         ]
-        read_only_fields = ['id', 'created_at', 'updated_at']
+        read_only_fields = ['id', 'created_at', 'updated_at', 'growth_alert']
+
+    def get_growth_alert(self, obj):
+        """
+        '2T' (see risk_engine.has_2t_alert) if this child's weight failed to
+        increase at each of their last two measurements — Indonesia's
+        standard posyandu referral trigger, independent of the Z-score
+        status. None if there's no alert or fewer than 3 measurements
+        (need 3 points to have two consecutive trend comparisons).
+        """
+        records = list(obj.growth_records.order_by('measured_at'))
+        if len(records) < 3:
+            return None
+        trends = [
+            classify_weight_trend(records[i - 1].weight_kg, records[i].weight_kg)
+            for i in range(1, len(records))
+        ]
+        return '2T' if has_2t_alert(trends) else None
 
     def validate_birth_date(self, value):
         if value > timezone.localdate():
@@ -36,6 +61,7 @@ class ChildSerializer(serializers.ModelSerializer):
 class GrowthRecordSerializer(serializers.ModelSerializer):
     child_id = serializers.PrimaryKeyRelatedField(source='child', queryset=Child.objects.all())
     recommendations = serializers.SerializerMethodField()
+    weight_trend = serializers.SerializerMethodField()
 
     class Meta:
         model = GrowthRecord
@@ -43,14 +69,31 @@ class GrowthRecordSerializer(serializers.ModelSerializer):
             'id', 'child_id', 'measured_at', 'weight_kg', 'height_cm', 'age_months',
             'officer_name', 'location', 'notes',
             'clean_water_access', 'recurrent_illness', 'immunization_complete', 'recommendations',
-            'height_for_age_z', 'weight_for_height_z', 'risk_status', 'created_at',
+            'height_for_age_z', 'weight_for_height_z', 'risk_status', 'weight_trend', 'created_at',
         ]
         read_only_fields = [
-            'id', 'height_for_age_z', 'weight_for_height_z', 'risk_status', 'created_at', 'recommendations',
+            'id', 'height_for_age_z', 'weight_for_height_z', 'risk_status', 'created_at',
+            'recommendations', 'weight_trend',
         ]
 
     def get_recommendations(self, obj):
         return questionnaire_recommendations(obj.child, obj)
+
+    def get_weight_trend(self, obj):
+        """
+        'naik' / 'tetap_turun' vs. the immediately preceding measurement for
+        this child, or None if this is their first measurement (nothing to
+        compare against yet). See risk_engine.classify_weight_trend().
+        """
+        previous = (
+            GrowthRecord.objects
+            .filter(child_id=obj.child_id, measured_at__lt=obj.measured_at)
+            .order_by('-measured_at')
+            .first()
+        )
+        if previous is None:
+            return None
+        return classify_weight_trend(previous.weight_kg, obj.weight_kg)
 
     def validate(self, attrs):
         measured_at = attrs.get('measured_at', getattr(self.instance, 'measured_at', None))

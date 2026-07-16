@@ -1,7 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { Link } from 'react-router-dom';
 import axios from 'axios';
-import { Baby, Info, Loader2, Pencil, Plus, Printer, Trash2, Users, X } from 'lucide-react';
+import { AlertTriangle, Baby, Info, Loader2, Pencil, Plus, Printer, Trash2, Users, X } from 'lucide-react';
 import { growthApi } from '@/api/growth';
 import { firstErrorMessage } from '@/api/errors';
 import { authApi } from '@/api/auth';
@@ -258,7 +258,18 @@ export default function ChildrenList() {
                   <Baby className="h-5 w-5" aria-hidden="true" />
                 </span>
                 <span className="min-w-0">
-                  <p className="font-medium text-gray-900 truncate">{child.name}</p>
+                  <span className="flex items-center gap-1.5">
+                    <p className="font-medium text-gray-900 truncate">{child.name}</p>
+                    {child.growthAlert === '2T' && (
+                      <span
+                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-700 shrink-0"
+                        title="Berat badan tidak naik 2x berturut-turut"
+                      >
+                        <AlertTriangle className="h-3 w-3" aria-hidden="true" />
+                        2T
+                      </span>
+                    )}
+                  </span>
                   <p className="text-sm text-gray-500">Lahir: {child.birthDate}</p>
                 </span>
               </Link>
@@ -304,6 +315,12 @@ export default function ChildrenList() {
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50 print:static print:bg-white print:p-0">
           <div className="print-area bg-white rounded-2xl shadow-lg p-6 w-full max-w-sm space-y-3">
             <h2 className="text-lg font-semibold text-gray-900">{infoChild.name}</h2>
+            {infoChild.growthAlert === '2T' && (
+              <p className="flex items-center gap-2 text-sm text-red-700 bg-red-50 rounded-lg px-3 py-2">
+                <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden="true" />
+                Berat badan tidak naik 2x pengukuran berturut-turut (2T) — rujuk ke Puskesmas.
+              </p>
+            )}
             <div className="text-sm text-gray-600 space-y-1">
               <p>Tanggal Lahir: {infoChild.birthDate} ({ageLabel(infoChild.birthDate)})</p>
               <p>Jenis Kelamin: {infoChild.sex === 'male' ? 'Laki-laki' : 'Perempuan'}</p>

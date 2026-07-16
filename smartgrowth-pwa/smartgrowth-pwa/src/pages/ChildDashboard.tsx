@@ -2,6 +2,9 @@ import { useEffect, useState, type FormEvent } from 'react';
 import { useParams } from 'react-router-dom';
 import axios from 'axios';
 import {
+  AlertTriangle,
+  ArrowDownRight,
+  ArrowUpRight,
   Droplets,
   Info,
   Loader2,
@@ -130,6 +133,7 @@ export default function ChildDashboard() {
     try {
       await growthApi.deleteRecord(record.id);
       removeRecord(childId, record.id);
+      growthApi.getChild(childId).then((res) => setChild(res.data));
     } catch (err) {
       const message = axios.isAxiosError(err) ? firstErrorMessage(err.response?.data) : null;
       setError(message ?? 'Gagal menghapus pengukuran.');
@@ -181,6 +185,10 @@ export default function ChildDashboard() {
       setEditingId(null);
       setShowForm(false);
       openResult(saved);
+      // growth_alert ('2T') is computed from the child's full history, so a
+      // newly added/edited measurement can change it — refetch rather than
+      // let the header banner show a stale status.
+      growthApi.getChild(childId).then((res) => setChild(res.data));
     } catch (err) {
       const message = axios.isAxiosError(err) ? firstErrorMessage(err.response?.data) : null;
       setError(message ?? 'Gagal menyimpan pengukuran. Periksa kembali data yang diisi.');
@@ -237,6 +245,13 @@ export default function ChildDashboard() {
           )}
         </div>
       </div>
+
+      {child?.growthAlert === '2T' && (
+        <p className="flex items-center gap-2 text-sm text-red-700 bg-red-50 rounded-lg px-3 py-2">
+          <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden="true" />
+          Berat badan tidak naik 2x pengukuran berturut-turut (2T) — rujuk ke Puskesmas.
+        </p>
+      )}
 
       {error && (
         <p className="text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2" role="alert">
@@ -428,7 +443,21 @@ export default function ChildDashboard() {
                     />
                   )}
                   <div className="flex-1 min-w-0">
-                    <p className="font-medium text-gray-900">{record.measuredAt}</p>
+                    <p className="flex items-center gap-1.5 font-medium text-gray-900">
+                      {record.measuredAt}
+                      {record.weightTrend === 'naik' && (
+                        <span className="inline-flex items-center gap-0.5 text-xs font-medium text-green-700" title="Berat naik dari pengukuran sebelumnya">
+                          <ArrowUpRight className="h-3.5 w-3.5" aria-hidden="true" />
+                          Naik
+                        </span>
+                      )}
+                      {record.weightTrend === 'tetap_turun' && (
+                        <span className="inline-flex items-center gap-0.5 text-xs font-medium text-amber-700" title="Berat tetap/turun dari pengukuran sebelumnya">
+                          <ArrowDownRight className="h-3.5 w-3.5" aria-hidden="true" />
+                          Tetap/Turun
+                        </span>
+                      )}
+                    </p>
                     <p className="text-sm text-gray-500">
                       {record.weightKg} kg &middot; {record.heightCm} cm &middot; {record.ageMonths} bln
                     </p>

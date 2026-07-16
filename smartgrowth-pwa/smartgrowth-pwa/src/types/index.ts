@@ -8,6 +8,9 @@ export interface Child {
   // Optional risk-factor fields used by the predictive layer later on
   exclusiveBreastfeeding?: boolean;
   birthWeightKg?: number;
+  // '2T' (posyandu convention: weight failed to increase at the last two
+  // measurements in a row) or null/undefined if not currently flagged.
+  growthAlert?: '2T' | null;
 }
 
 export interface GrowthRecord {
@@ -31,6 +34,9 @@ export interface GrowthRecord {
   weightForHeightZ?: number;
   riskStatus?: RiskStatus;
   recommendations?: string[];
+  // vs. the immediately preceding measurement for this child; null on the
+  // child's first-ever record (nothing to compare against yet).
+  weightTrend?: 'naik' | 'tetap_turun' | null;
 }
 
 export interface RiskAssessment {
