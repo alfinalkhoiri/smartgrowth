@@ -19,6 +19,30 @@ Fakultas Ilmu Komputer × Fakultas Kedokteran, President University.
   di-cache tanpa koneksi internet, ditujukan untuk kader posyandu di area
   dengan konektivitas terbatas.
 
+## Alur sistem
+
+```mermaid
+flowchart TD
+    A[Login / Registrasi] --> B[Daftar Balita]
+    B -->|kader/nakes/admin| C[Tambah balita baru]
+    B --> D[Buka dashboard balita]
+    D -->|kader/nakes/admin| E["Input pengukuran<br/>+ kuesioner faktor risiko<br/>(air bersih, sakit berulang, imunisasi)"]
+    E --> F["Backend hitung Z-score WHO<br/>HAZ (stunting) + WHZ (wasting)"]
+    F --> G{"Nilai wajar?<br/>(HAZ dalam -6..+6,<br/>WHZ dalam -5..+5)"}
+    G -->|Tidak| H[Ditolak, minta periksa ulang input]
+    G -->|Ya| I["Status: Normal / Perlu Pemantauan / Berisiko"]
+    I --> J["Rekomendasi otomatis<br/>(khusus nakes/admin)"]
+    J --> K[Disampaikan ke orang tua/pasien]
+    I --> L[Grafik tinggi vs usia + riwayat pengukuran]
+```
+
+1. **Login/Registrasi** — kader/nakes/viewer bisa daftar sendiri; admin dibuat lewat `createsuperuser`.
+2. **Daftar Balita** — kader/nakes/admin bisa menambah balita baru; viewer read-only.
+3. **Input pengukuran** — dilakukan kader saat kunjungan lapangan, sekaligus mengisi kuesioner faktor risiko (kader yang langsung bertemu orang tua, jadi paling relevan mengisinya).
+4. **Perhitungan otomatis** — backend menghitung HAZ & WHZ dari tabel resmi WHO Child Growth Standards. Nilai yang tidak masuk akal (indikasi salah input) ditolak sebelum sempat tersimpan.
+5. **Status risiko** — Normal / Perlu Pemantauan / Berisiko, diambil dari kondisi **paling parah** antara HAZ dan WHZ.
+6. **Rekomendasi** — khusus tampil untuk nakes/admin di popup hasil pengukuran, untuk disampaikan langsung ke orang tua/pasien saat konsultasi.
+
 ## Struktur repo
 
 ```
