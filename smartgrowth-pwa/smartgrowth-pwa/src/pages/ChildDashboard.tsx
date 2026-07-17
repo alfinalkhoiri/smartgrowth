@@ -27,7 +27,6 @@ import { GrowthChart } from '@/components/GrowthChart';
 import { RiskBadge } from '@/components/RiskBadge';
 import { riskDescription } from '@/features/growth/zscore';
 import { monthsBetween } from '@/lib/dates';
-import { generateChildReport } from '@/lib/pdf';
 import type { Child, GrowthRecord, GrowthReference } from '@/types';
 
 type TriState = '' | 'yes' | 'no';
@@ -83,8 +82,23 @@ export default function ChildDashboard() {
   const [reference, setReference] = useState<GrowthReference | null>(null);
   const [noteDraft, setNoteDraft] = useState('');
   const [savingNote, setSavingNote] = useState(false);
+  const [generatingReport, setGeneratingReport] = useState(false);
   const canCreate = authApi.canCreate();
   const canEditDelete = authApi.canEditDelete();
+
+  // jspdf/jspdf-autotable are only loaded on demand (not in the main bundle)
+  // — most sessions never touch this button, and the PWA precache/initial
+  // load shouldn't carry that weight for everyone just in case they do.
+  const handleDownloadReport = async () => {
+    if (!child) return;
+    setGeneratingReport(true);
+    try {
+      const { generateChildReport } = await import('@/lib/pdf');
+      generateChildReport(child, records);
+    } finally {
+      setGeneratingReport(false);
+    }
+  };
 
   useEffect(() => {
     if (!childId) return;
@@ -265,8 +279,12 @@ export default function ChildDashboard() {
       </div>
 
       {records.length > 0 && child && (
-        <button onClick={() => generateChildReport(child, records)} className="btn-ghost">
-          <Download className="h-4 w-4" aria-hidden="true" />
+        <button onClick={handleDownloadReport} disabled={generatingReport} className="btn-ghost">
+          {generatingReport ? (
+            <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+          ) : (
+            <Download className="h-4 w-4" aria-hidden="true" />
+          )}
           Unduh Laporan PDF
         </button>
       )}

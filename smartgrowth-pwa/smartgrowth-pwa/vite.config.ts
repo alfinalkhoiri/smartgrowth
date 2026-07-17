@@ -61,6 +61,18 @@ export default defineConfig({
               cacheName: 'children-cache',
               expiration: { maxEntries: 100, maxAgeSeconds: 60 * 60 * 24 * 7 }
             }
+          },
+          {
+            // Beranda + Jadwal both fetch this list on load — without a
+            // cache entry, offline would 404 the request Promise.all is
+            // waiting on and blank out the whole page's data, not just the
+            // schedule list.
+            urlPattern: /\/api\/posyandu-schedules/,
+            handler: 'NetworkFirst',
+            options: {
+              cacheName: 'posyandu-schedules-cache',
+              expiration: { maxEntries: 100, maxAgeSeconds: 60 * 60 * 24 * 7 }
+            }
           }
         ]
       }
