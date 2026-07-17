@@ -8,18 +8,35 @@ without rewriting the UI.
 
 ```
 src/
-  api/            # axios client + endpoint calls (talks to Django/Flask backend)
+  api/             # axios client + endpoint calls (talks to the Django backend)
+    growth.ts      # children/growth-records/reference; auto-switches to
+                    # multipart when a photo File is included in a payload
+    schedule.ts    # posyandu-schedules CRUD
   features/growth/
-    zscore.ts     # Stage 1: rule-based WHO Z-score risk classification
-    store.ts      # Zustand store, offline-first state
-  components/      # GrowthChart, RiskBadge, etc.
-  pages/           # route-level screens (Login.tsx, Register.tsx, RequireAuth guard in App.tsx)
-  types/           # shared TS types (Child, GrowthRecord, RiskAssessment)
-vite.config.ts     # vite-plugin-pwa: manifest + offline caching rules +
-                   # navigateFallback (app-shell for offline SPA routes),
-                   # dev/preview proxy to Django, and the "@/*" alias (must
-                   # mirror tsconfig.json's "paths" — tsc only type-checks
-                   # aliases, it doesn't make Vite resolve them at runtime)
+    zscore.ts      # riskLabel()/riskDescription() — label/copy helpers only;
+                    # actual HAZ/WHZ/WAZ/HCZ classification is 100%
+                    # backend-side (score_risk() in risk_engine.py)
+    store.ts       # Zustand store, offline-first state
+  components/       # AppLayout (nav + disclaimer footer), GrowthChart,
+                    # RiskBadge (4-tier), Toggle (switch input), etc.
+  lib/
+    dates.ts        # monthsBetween()
+    pdf.ts          # jsPDF/jsPDF-autotable report generator, lazy-loaded
+                    # via dynamic import (see ChildDashboard.tsx) so the
+                    # ~450KB gzipped library isn't in the main bundle
+  pages/            # Dashboard (Beranda), Skrining, ChildrenList (Data
+                    # Balita), ChildDashboard, Riwayat, Edukasi, Jadwal,
+                    # Login, Register — RequireAuth + AppLayout wrap every
+                    # route except /login and /register (see App.tsx)
+  types/            # shared TS types (Child, GrowthRecord, RiskAssessment,
+                    # PosyanduSchedule, GrowthReference)
+vite.config.ts      # vite-plugin-pwa: manifest + offline caching rules
+                    # (NetworkFirst for children/growth-records/posyandu-
+                    # schedules) + navigateFallback (app-shell for offline
+                    # SPA routes), dev/preview proxy to Django, and the
+                    # "@/*" alias (must mirror tsconfig.json's "paths" — tsc
+                    # only type-checks aliases, it doesn't make Vite resolve
+                    # them at runtime)
 ```
 
 ## Why this is "Capacitor-ready"
@@ -39,11 +56,15 @@ vite.config.ts     # vite-plugin-pwa: manifest + offline caching rules +
    if you ever *do* need to rewrite the UI in React Native, this layer moves over
    almost unchanged.
 5. **Offline caching is verified working**, not just configured — Workbox
-   `runtimeCaching` (NetworkFirst for growth records/children) plus
-   `navigateFallback` for the app shell. Tested end-to-end with Playwright
-   against a production build (`npm run build && npm run preview`): log in,
-   view a child's growth chart, go offline, reload the same URL — data still
-   renders from cache. (`npm run dev` does **not** register the service
+   `runtimeCaching` (NetworkFirst for growth records/children/posyandu-
+   schedules — every page-load API call needs its own rule, or offline
+   `Promise.all()`s reject and blank out data that would otherwise still be
+   cached) plus `navigateFallback` for the app shell. Tested end-to-end with
+   Playwright against a production build (`npm run build && npm run
+   preview`): log in, browse Beranda/a child dashboard/Jadwal, go offline,
+   reload each URL — data still renders from cache, including generating a
+   PDF report (the lazy-loaded chunk is still precached even though it isn't
+   in the initial bundle). (`npm run dev` does **not** register the service
    worker at all — `devOptions.enabled` isn't set — so this can only be
    verified against a real build, not the dev server.)
 
@@ -101,27 +122,34 @@ redirects to `/login`; `client.ts`'s response interceptor does the same on a
 
 ## Design system
 
-Palette/typography/spacing were chosen data-driven (via the `ui-ux-pro-max`
-skill's design-system search for "healthcare medical dashboard government
-public-health"), not picked ad hoc: the **"Accessible & Ethical"** style —
-cyan primary (`#0891b2`, Tailwind's `cyan-600`) + emerald accent (`#059669`),
-Figtree typeface, WCAG AAA-oriented contrast. Tokens live in
-`tailwind.config.js` (`colors.primary` / `colors.accent`) and shared
-component classes (`.field-input`, `.btn-primary`, `.btn-secondary`,
-`.btn-ghost`, `.card`) in `src/index.css` under `@layer components` — reuse
-those instead of one-off utility strings on new pages.
+Palette/typography match the original Lovable prototype design this app was
+later aligned to (verified against its live preview's computed CSS via
+Playwright, not eyeballed from screenshots) — green primary (`#259d65`, from
+HSL `152 62% 38%`) + blue accent (`#119ad4`, from HSL `198 85% 45%`), a
+3-stop `bg-gradient-hero` used on the Beranda hero banner, Poppins for
+headings (`font-display`, extrabold/bold weights) + Plus Jakarta Sans for
+body text. Tokens live in `tailwind.config.js` (`colors.primary` /
+`colors.accent` / `backgroundImage.gradient-hero` / `boxShadow.card` etc.)
+and shared component classes (`.field-input`, `.btn-primary`,
+`.btn-secondary`, `.btn-ghost`, `.card`) in `src/index.css` under
+`@layer components` — reuse those instead of one-off utility strings on new
+pages. `AppLayout.tsx` also carries a permanent disclaimer footer bar
+present on every authenticated page.
 
-Baseline rules followed throughout (see the skill's `references/pro-rules.md`
-for the full checklist): 44×44px minimum touch targets, visible
-`:focus-visible` rings, `prefers-reduced-motion` respected, no emoji-as-icon
-(SVG only, via `lucide-react`), and risk status is never color-only — every
-`RiskBadge` and history-row status dot pairs an icon/color together.
+Baseline accessibility rules followed throughout: 44×44px minimum touch
+targets, visible `:focus-visible` rings, `prefers-reduced-motion` respected,
+no emoji-as-icon (SVG only, via `lucide-react`), and risk status is never
+color-only — every `RiskBadge` and history-row status dot pairs an
+icon/color together (4 tiers: normal/berisiko/stunting/malnutrisi, see
+`RiskBadge.tsx`).
 
-## Risk classification layers
+## Risk classification
 
-- **Stage 1 (ship first):** rule-based WHO Height-for-Age Z-score thresholds
-  (`src/features/growth/zscore.ts`) — clinically defensible, needs no training data.
-- **Stage 2 (later):** predictive model (e.g. logistic regression / random forest)
-  using historical growth + risk factors (exclusive breastfeeding, birth weight, etc.),
-  called via a `/risk-assessment/:childId` backend endpoint. Keep Stage 1 as the
-  fallback/baseline even after Stage 2 ships.
+All HAZ/WHZ/WAZ/HCZ Z-score math and the weighted 0-100 `score_risk()`
+classification happen **entirely backend-side**
+(`apps/growth/services/risk_engine.py`) — the frontend never computes a
+status itself. `src/features/growth/zscore.ts` only holds
+`riskLabel()`/`riskDescription()` copy helpers keyed off the `riskStatus`
+string the API already returns. Stage 2 (an ML layer on top of this
+rule-based baseline) is intentionally not started yet — see the backend
+README's TODO section.
