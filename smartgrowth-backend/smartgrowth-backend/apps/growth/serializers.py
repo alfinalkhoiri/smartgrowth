@@ -1,6 +1,6 @@
 from django.utils import timezone
 from rest_framework import serializers
-from .models import Child, GrowthRecord, RiskAssessment
+from .models import Child, GrowthRecord, PosyanduSchedule, RiskAssessment
 from .services.risk_engine import (
     calculate_haz,
     calculate_hcz,
@@ -188,3 +188,14 @@ class RiskAssessmentSerializer(serializers.ModelSerializer):
         model = RiskAssessment
         fields = ['id', 'child_id', 'risk_status', 'score', 'reason_codes', 'recommendations', 'assessed_at']
         read_only_fields = fields
+
+
+class PosyanduScheduleSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = PosyanduSchedule
+        fields = ['id', 'scheduled_at', 'location', 'notes', 'created_at']
+        read_only_fields = ['id', 'created_at']
+
+    def create(self, validated_data):
+        validated_data['created_by'] = self.context['request'].user
+        return super().create(validated_data)

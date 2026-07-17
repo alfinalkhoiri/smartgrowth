@@ -5,6 +5,7 @@ import {
   AlertTriangle,
   ArrowDownRight,
   ArrowUpRight,
+  Download,
   Droplets,
   Info,
   Loader2,
@@ -25,15 +26,9 @@ import { useGrowthStore } from '@/features/growth/store';
 import { GrowthChart } from '@/components/GrowthChart';
 import { RiskBadge } from '@/components/RiskBadge';
 import { riskDescription } from '@/features/growth/zscore';
+import { monthsBetween } from '@/lib/dates';
+import { generateChildReport } from '@/lib/pdf';
 import type { Child, GrowthRecord, GrowthReference } from '@/types';
-
-function monthsBetween(birthDate: string, measuredAt: string): number {
-  const birth = new Date(birthDate);
-  const measured = new Date(measuredAt);
-  let months = (measured.getFullYear() - birth.getFullYear()) * 12 + (measured.getMonth() - birth.getMonth());
-  if (measured.getDate() < birth.getDate()) months -= 1;
-  return Math.max(0, months);
-}
 
 type TriState = '' | 'yes' | 'no';
 
@@ -268,6 +263,13 @@ export default function ChildDashboard() {
           )}
         </div>
       </div>
+
+      {records.length > 0 && child && (
+        <button onClick={() => generateChildReport(child, records)} className="btn-ghost">
+          <Download className="h-4 w-4" aria-hidden="true" />
+          Unduh Laporan PDF
+        </button>
+      )}
 
       {child?.growthAlert === '2T' && (
         <p className="flex items-center gap-2 text-sm text-red-700 bg-red-50 rounded-lg px-3 py-2">

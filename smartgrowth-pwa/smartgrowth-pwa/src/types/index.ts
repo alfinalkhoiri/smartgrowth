@@ -67,3 +67,13 @@ export interface GrowthReference {
   weightMinKg?: number;
   weightMaxKg?: number;
 }
+
+// Jadwal kunjungan Posyandu — tidak terikat ke anak tertentu (satu jadwal
+// berlaku untuk semua balita di lokasi/waktu itu).
+export interface PosyanduSchedule {
+  id: string;
+  scheduledAt: string; // ISO datetime
+  location: string;
+  notes?: string;
+  createdAt: string;
+}

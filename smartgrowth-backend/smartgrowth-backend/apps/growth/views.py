@@ -4,9 +4,11 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from django_filters.rest_framework import DjangoFilterBackend
 
-from .models import Child, GrowthRecord, RiskAssessment
+from .models import Child, GrowthRecord, PosyanduSchedule, RiskAssessment
 from .permissions import RoleBasedGrowthPermission
-from .serializers import ChildSerializer, GrowthRecordSerializer, RiskAssessmentSerializer
+from .serializers import (
+    ChildSerializer, GrowthRecordSerializer, PosyanduScheduleSerializer, RiskAssessmentSerializer,
+)
 from .services.risk_engine import (
     assess_child_risk, calculate_haz, calculate_hcz, calculate_waz, calculate_whz, score_risk,
 )
@@ -127,3 +129,14 @@ class GrowthReferenceView(APIView):
             data['weight_max_kg'] = round(weight_max, 1)
 
         return Response(data)
+
+
+class PosyanduScheduleViewSet(viewsets.ModelViewSet):
+    """
+    Jadwal Posyandu — not tied to a specific child, so uses the same
+    RoleBasedGrowthPermission matrix as Child/GrowthRecord (kader can post a
+    new schedule, only nakes/admin can edit/delete, viewer is read-only).
+    """
+    queryset = PosyanduSchedule.objects.all()
+    serializer_class = PosyanduScheduleSerializer
+    permission_classes = [IsAuthenticated, RoleBasedGrowthPermission]

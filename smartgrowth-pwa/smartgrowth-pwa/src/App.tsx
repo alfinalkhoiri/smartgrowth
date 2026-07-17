@@ -1,19 +1,19 @@
 import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { AppLayout } from '@/components/AppLayout';
+import Dashboard from '@/pages/Dashboard';
+import Skrining from '@/pages/Skrining';
 import ChildrenList from '@/pages/ChildrenList';
 import ChildDashboard from '@/pages/ChildDashboard';
+import Riwayat from '@/pages/Riwayat';
+import Edukasi from '@/pages/Edukasi';
+import Jadwal from '@/pages/Jadwal';
 import Login from '@/pages/Login';
 import Register from '@/pages/Register';
-import { AppHeader } from '@/components/AppHeader';
 import { authApi } from '@/api/auth';
 
 function RequireAuth({ children }: { children: JSX.Element }) {
   if (!authApi.isAuthenticated()) return <Navigate to="/login" replace />;
-  return (
-    <>
-      <AppHeader />
-      {children}
-    </>
-  );
+  return children;
 }
 
 export default function App() {
@@ -26,28 +26,25 @@ export default function App() {
     // — verified with Playwright: reload while offline on /child/:id now
     // correctly re-renders from the Workbox precache.
     <HashRouter>
-      <div className="min-h-screen bg-primary-light/60 font-sans">
-        <Routes>
-          <Route path="/login" element={<Login />} />
-          <Route path="/register" element={<Register />} />
-          <Route
-            path="/"
-            element={
-              <RequireAuth>
-                <ChildrenList />
-              </RequireAuth>
-            }
-          />
-          <Route
-            path="/child/:childId"
-            element={
-              <RequireAuth>
-                <ChildDashboard />
-              </RequireAuth>
-            }
-          />
-        </Routes>
-      </div>
+      <Routes>
+        <Route path="/login" element={<Login />} />
+        <Route path="/register" element={<Register />} />
+        <Route
+          element={
+            <RequireAuth>
+              <AppLayout />
+            </RequireAuth>
+          }
+        >
+          <Route path="/" element={<Dashboard />} />
+          <Route path="/skrining" element={<Skrining />} />
+          <Route path="/balita" element={<ChildrenList />} />
+          <Route path="/child/:childId" element={<ChildDashboard />} />
+          <Route path="/riwayat" element={<Riwayat />} />
+          <Route path="/edukasi" element={<Edukasi />} />
+          <Route path="/jadwal" element={<Jadwal />} />
+        </Route>
+      </Routes>
     </HashRouter>
   );
 }

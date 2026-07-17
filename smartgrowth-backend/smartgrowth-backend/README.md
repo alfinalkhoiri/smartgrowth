@@ -111,9 +111,9 @@ Poin penting dari alur ini:
 config/              # settings, root urls, wsgi
 apps/accounts/        # custom User model dengan field role (admin/kader/nakes/viewer)
 apps/growth/
-  models.py           # Child, GrowthRecord, RiskAssessment
+  models.py           # Child, GrowthRecord, RiskAssessment, PosyanduSchedule
   serializers.py
-  views.py            # ChildViewSet, GrowthRecordViewSet, RiskAssessmentView, GrowthReferenceView
+  views.py            # ChildViewSet, GrowthRecordViewSet, RiskAssessmentView, GrowthReferenceView, PosyanduScheduleViewSet
   permissions.py       # RoleBasedGrowthPermission (matriks akses per role)
   urls.py
   tests.py            # validasi calculate_haz()/calculate_whz() vs tabel resmi WHO
@@ -353,6 +353,8 @@ tombolnya sesuai role.
 | GET/PUT/DELETE | `/api/growth-records/<id>/`        | `GrowthRecordViewSet` | PUT/DELETE butuh role nakes/admin                                                                                                      |
 | GET            | `/api/risk-assessment/<child_id>/` | `RiskAssessmentView`  | Membuat `RiskAssessment` baru setiap kali dipanggil; semua role boleh akses                                                            |
 | GET            | `/api/growth-reference/`           | `GrowthReferenceView` | Query params `sex`, `ageMonths` (wajib), `heightCm` (opsional); rentang -2SD..+2SD WHO sebagai panduan input, bukan validasi; `IsAuthenticated` saja, semua role boleh akses |
+| GET/POST       | `/api/posyandu-schedules/`         | `PosyanduScheduleViewSet` | Jadwal kunjungan Posyandu, tidak terikat ke anak tertentu; permission sama persis `RoleBasedGrowthPermission` (kader create-only, nakes/admin full CRUD, viewer read-only) |
+| GET/PUT/DELETE | `/api/posyandu-schedules/<id>/`    | `PosyanduScheduleViewSet` | PUT/DELETE butuh role nakes/admin |
 
 Semua endpoint mewajibkan autentikasi JWT (`IsAuthenticated`), ditambah
 `RoleBasedGrowthPermission` di atas untuk `children`/`growth-records`.

@@ -107,3 +107,25 @@ class RiskAssessment(models.Model):
 
     def __str__(self):
         return f'{self.child.name}: {self.risk_status} @ {self.assessed_at:%Y-%m-%d}'
+
+
+class PosyanduSchedule(models.Model):
+    """
+    A posyandu visit slot (date/time + location), not tied to a specific
+    child — one schedule covers a whole neighborhood's visit, kader/nakes
+    post it once and every parent/kader sees the same entry.
+    """
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    scheduled_at = models.DateTimeField()
+    location = models.CharField(max_length=200)
+    notes = models.TextField(blank=True, default='')
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name='posyandu_schedules'
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['scheduled_at']
+
+    def __str__(self):
+        return f'{self.location} @ {self.scheduled_at:%Y-%m-%d %H:%M}'

@@ -1,10 +1,13 @@
 from django.urls import path
 from rest_framework.routers import DefaultRouter
-from .views import ChildViewSet, GrowthRecordViewSet, RiskAssessmentView, GrowthReferenceView
+from .views import (
+    ChildViewSet, GrowthRecordViewSet, PosyanduScheduleViewSet, RiskAssessmentView, GrowthReferenceView,
+)
 
 router = DefaultRouter()
 router.register('children', ChildViewSet, basename='child')
 router.register('growth-records', GrowthRecordViewSet, basename='growth-record')
+router.register('posyandu-schedules', PosyanduScheduleViewSet, basename='posyandu-schedule')
 
 urlpatterns = router.urls + [
     path('risk-assessment/<uuid:child_id>/', RiskAssessmentView.as_view(), name='risk-assessment'),

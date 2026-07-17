@@ -7,13 +7,13 @@ on 2026-07-14. Each height figure below is WHO's own published SDxneg/SD0
 value for that exact day — this checks that calculate_haz() reproduces WHO's
 own Z-scores from WHO's own published heights, not just internal round-trips.
 """
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta, timezone as dt_timezone
 from types import SimpleNamespace
 
 from django.test import SimpleTestCase, TestCase
 
 from apps.growth.models import Child, GrowthRecord
-from apps.growth.serializers import ChildSerializer, GrowthRecordSerializer
+from apps.growth.serializers import ChildSerializer, GrowthRecordSerializer, PosyanduScheduleSerializer
 from apps.growth.services.risk_engine import (
     calculate_haz,
     calculate_hcz,
@@ -632,3 +632,32 @@ class GrowthRangeTests(SimpleTestCase):
     def test_range_min_is_always_less_than_max(self):
         lo, hi = height_range_for_age(30, 'female')
         self.assertLess(lo, hi)
+
+
+class PosyanduScheduleSerializerTests(SimpleTestCase):
+    def test_accepts_valid_schedule(self):
+        serializer = PosyanduScheduleSerializer(data={
+            'scheduled_at': datetime(2026, 8, 1, 9, 0, tzinfo=dt_timezone.utc).isoformat(),
+            'location': 'Posyandu Melati',
+            'notes': 'Bawa buku KIA',
+        })
+        self.assertTrue(serializer.is_valid(), serializer.errors)
+
+    def test_rejects_missing_location(self):
+        serializer = PosyanduScheduleSerializer(data={
+            'scheduled_at': datetime(2026, 8, 1, 9, 0, tzinfo=dt_timezone.utc).isoformat(),
+        })
+        self.assertFalse(serializer.is_valid())
+        self.assertIn('location', serializer.errors)
+
+    def test_rejects_missing_scheduled_at(self):
+        serializer = PosyanduScheduleSerializer(data={'location': 'Posyandu Melati'})
+        self.assertFalse(serializer.is_valid())
+        self.assertIn('scheduled_at', serializer.errors)
+
+    def test_notes_is_optional(self):
+        serializer = PosyanduScheduleSerializer(data={
+            'scheduled_at': datetime(2026, 8, 1, 9, 0, tzinfo=dt_timezone.utc).isoformat(),
+            'location': 'Posyandu Melati',
+        })
+        self.assertTrue(serializer.is_valid(), serializer.errors)
