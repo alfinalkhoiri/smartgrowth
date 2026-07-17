@@ -11,6 +11,11 @@ https://www.who.int/tools/child-growth-standards), converted from WHO's own
   indexed by length/height in 0.1cm steps — WFL covers 45.0-110.0cm, WFH
   covers 65.0-120.0cm. L varies (and is negative), so the general LMS formula
   in risk_engine matters here, not just the L=1 special case.
+- Weight-for-Age (WFA): indexed by day, 0-1856 days, same range as HFA. L
+  varies (and is positive here, unlike WFL/WFH). Sourced from `weianthro`, the
+  same WHO Anthro macro reference table underlying wfl/wfh above (cross-
+  checked against the existing WFL table's published L/M/S at 45cm, which
+  matched to 4 decimal places, confirming it's the same authoritative source).
 
 WHO's own convention (used by their Anthro software) is to pick WFL for
 children under 24 months and WFH from 24 months onward — see
@@ -39,6 +44,8 @@ _TABLE_FILES = {
     ('wfl', 'female'): 'wfl_girls.csv',
     ('wfh', 'male'): 'wfh_boys.csv',
     ('wfh', 'female'): 'wfh_girls.csv',
+    ('wfa', 'male'): 'wfa_boys.csv',
+    ('wfa', 'female'): 'wfa_girls.csv',
 }
 
 
@@ -88,6 +95,12 @@ def load_lms_table(sex: str) -> dict:
 def lms_for_age(age_months: float, sex: str) -> tuple:
     """Returns (L, M, S) for Height-for-Age at the given age in months."""
     table = load_lms_table(sex)
+    return _interpolate(table, age_months * DAYS_PER_MONTH)
+
+
+def lms_for_weight_age(age_months: float, sex: str) -> tuple:
+    """Returns (L, M, S) for Weight-for-Age at the given age in months."""
+    table = _load_table('wfa', sex, key_column='day')
     return _interpolate(table, age_months * DAYS_PER_MONTH)
 
 

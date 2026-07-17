@@ -7,7 +7,9 @@ from django_filters.rest_framework import DjangoFilterBackend
 from .models import Child, GrowthRecord, RiskAssessment
 from .permissions import RoleBasedGrowthPermission
 from .serializers import ChildSerializer, GrowthRecordSerializer, RiskAssessmentSerializer
-from .services.risk_engine import assess_child_risk, calculate_haz, calculate_whz, classify_growth_record
+from .services.risk_engine import (
+    assess_child_risk, calculate_haz, calculate_waz, calculate_whz, classify_growth_record,
+)
 from .services.who_reference import height_range_for_age, weight_range_for_height
 
 
@@ -39,10 +41,12 @@ class GrowthRecordViewSet(viewsets.ModelViewSet):
         sex = record.child.sex
         haz = calculate_haz(float(record.height_cm), record.age_months, sex)
         whz = calculate_whz(float(record.weight_kg), float(record.height_cm), record.age_months, sex)
+        waz = calculate_waz(float(record.weight_kg), record.age_months, sex)
         record.height_for_age_z = haz
         record.weight_for_height_z = whz
-        record.risk_status = classify_growth_record(haz, whz)
-        record.save(update_fields=['height_for_age_z', 'weight_for_height_z', 'risk_status'])
+        record.weight_for_age_z = waz
+        record.risk_status = classify_growth_record(haz, whz, waz)
+        record.save(update_fields=['height_for_age_z', 'weight_for_height_z', 'weight_for_age_z', 'risk_status'])
 
 
 class RiskAssessmentView(APIView):

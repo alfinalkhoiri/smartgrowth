@@ -3,6 +3,7 @@ from rest_framework import serializers
 from .models import Child, GrowthRecord, RiskAssessment
 from .services.risk_engine import (
     calculate_haz,
+    calculate_waz,
     calculate_whz,
     classify_weight_trend,
     has_2t_alert,
@@ -17,6 +18,7 @@ from .services.risk_engine import (
 # not implausible values on the high tail).
 _HAZ_PLAUSIBLE_RANGE = (-6, 6)
 _WHZ_PLAUSIBLE_RANGE = (-5, 5)
+_WAZ_PLAUSIBLE_RANGE = (-6, 5)
 
 
 class ChildSerializer(serializers.ModelSerializer):
@@ -69,10 +71,11 @@ class GrowthRecordSerializer(serializers.ModelSerializer):
             'id', 'child_id', 'measured_at', 'weight_kg', 'height_cm', 'age_months',
             'officer_name', 'location', 'notes',
             'clean_water_access', 'recurrent_illness', 'immunization_complete', 'recommendations',
-            'height_for_age_z', 'weight_for_height_z', 'risk_status', 'weight_trend', 'created_at',
+            'height_for_age_z', 'weight_for_height_z', 'weight_for_age_z', 'risk_status', 'weight_trend',
+            'created_at',
         ]
         read_only_fields = [
-            'id', 'height_for_age_z', 'weight_for_height_z', 'risk_status', 'created_at',
+            'id', 'height_for_age_z', 'weight_for_height_z', 'weight_for_age_z', 'risk_status', 'created_at',
             'recommendations', 'weight_trend',
         ]
 
@@ -140,6 +143,14 @@ class GrowthRecordSerializer(serializers.ModelSerializer):
                         'weight_kg': (
                             f'Berat {weight_kg}kg pada tinggi {height_cm}cm menghasilkan Z-score '
                             f'tidak wajar (WHZ={whz:.1f}). Periksa kembali berat dan tinggi yang diisi.'
+                        )
+                    })
+                waz = calculate_waz(float(weight_kg), age_months, child.sex)
+                if not (_WAZ_PLAUSIBLE_RANGE[0] <= waz <= _WAZ_PLAUSIBLE_RANGE[1]):
+                    raise serializers.ValidationError({
+                        'weight_kg': (
+                            f'Berat {weight_kg}kg pada usia {age_months} bulan menghasilkan Z-score '
+                            f'tidak wajar (WAZ={waz:.1f}). Periksa kembali berat dan usia yang diisi.'
                         )
                     })
 

@@ -32,6 +32,7 @@ export interface GrowthRecord {
   // Computed client- or server-side from WHO growth standards
   heightForAgeZ?: number;
   weightForHeightZ?: number;
+  weightForAgeZ?: number;
   riskStatus?: RiskStatus;
   recommendations?: string[];
   // vs. the immediately preceding measurement for this child; null on the

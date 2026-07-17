@@ -62,6 +62,7 @@ class GrowthRecord(models.Model):
     # Computed via WHO growth standards at save-time (see services/risk_engine.py)
     height_for_age_z = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
     weight_for_height_z = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
+    weight_for_age_z = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
     risk_status = models.CharField(max_length=10, blank=True)
 
     recorded_by = models.ForeignKey(

@@ -552,6 +552,7 @@ export default function ChildDashboard() {
               )}
               <p>Z-score Tinggi/Usia (HAZ): {resultRecord.heightForAgeZ ?? '-'}</p>
               <p>Z-score Berat/Tinggi (WHZ): {resultRecord.weightForHeightZ ?? '-'}</p>
+              <p>Z-score Berat/Usia (WAZ): {resultRecord.weightForAgeZ ?? '-'}</p>
             </div>
             {resultRecord.riskStatus && (
               <p className="text-sm text-gray-700">{riskDescription(resultRecord.riskStatus)}</p>

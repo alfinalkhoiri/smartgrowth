@@ -16,8 +16,10 @@ from apps.growth.models import Child, GrowthRecord
 from apps.growth.serializers import ChildSerializer, GrowthRecordSerializer
 from apps.growth.services.risk_engine import (
     calculate_haz,
+    calculate_waz,
     calculate_whz,
     classify_from_haz,
+    classify_from_waz,
     classify_from_whz,
     classify_growth_record,
     classify_weight_trend,
@@ -29,6 +31,7 @@ from apps.growth.services.who_reference import (
     height_range_for_age,
     lms_for_age,
     lms_for_weight,
+    lms_for_weight_age,
     weight_range_for_height,
 )
 
@@ -141,6 +144,49 @@ class CalculateWhzTests(SimpleTestCase):
         self.assertAlmostEqual(calculate_whz(5.5826, 65, 24, 'female'), -3.0, places=2)
 
 
+class LmsForWeightAgeTests(SimpleTestCase):
+    def test_boys_day0_matches_official_lms(self):
+        # WHO weianthro (WFA) boys, day 0: L=0.3487, M=3.3464, S=0.14602 —
+        # cross-checked against the existing WFL table's published L/M/S at
+        # 45cm (matched to 4 decimal places), confirming the same source.
+        L, M, S = lms_for_weight_age(0, 'male')
+        self.assertAlmostEqual(L, 0.3487, places=4)
+        self.assertAlmostEqual(M, 3.3464, places=4)
+        self.assertAlmostEqual(S, 0.14602, places=5)
+
+    def test_girls_day0_matches_official_lms(self):
+        # WHO weianthro (WFA) girls, day 0: L=0.3809, M=3.2322, S=0.14171
+        L, M, S = lms_for_weight_age(0, 'female')
+        self.assertAlmostEqual(L, 0.3809, places=4)
+        self.assertAlmostEqual(M, 3.2322, places=4)
+        self.assertAlmostEqual(S, 0.14171, places=5)
+
+
+class CalculateWazTests(SimpleTestCase):
+    def test_boys_newborn_minus2sd(self):
+        # SD2neg = 2.4593 kg — computed from the official LMS above via the
+        # same LMS-inverse formula that generates WHO's own SDneg/SD columns
+        # (see who_reference._lms_inverse / GrowthRangeTests).
+        self.assertAlmostEqual(calculate_waz(2.4593, 0, 'male'), -2.0, places=2)
+
+    def test_boys_newborn_minus3sd(self):
+        # SD3neg = 2.0803 kg, same derivation.
+        self.assertAlmostEqual(calculate_waz(2.0803, 0, 'male'), -3.0, places=2)
+
+    def test_girls_newborn_minus2sd(self):
+        # SD2neg = 2.3947 kg, derived from the official girls LMS above.
+        self.assertAlmostEqual(calculate_waz(2.3947, 0, 'female'), -2.0, places=2)
+
+    def test_boys_24_months_minus2sd(self):
+        # WHO weianthro boys, day 730 (~24mo): L=-0.0136, M=12.1482, S=0.11425;
+        # SD2neg = 9.6701 kg, same derivation.
+        age_months = 730 / DAYS_PER_MONTH
+        self.assertAlmostEqual(calculate_waz(9.6701, age_months, 'male'), -2.0, places=2)
+
+    def test_normal_weight_is_not_flagged(self):
+        self.assertAlmostEqual(calculate_waz(3.3464, 0, 'male'), 0.0, places=2)
+
+
 class ClassifyGrowthRecordTests(SimpleTestCase):
     def test_takes_the_more_severe_of_haz_and_whz(self):
         # Normal HAZ but severely wasted WHZ should still classify as risk.
@@ -152,10 +198,21 @@ class ClassifyGrowthRecordTests(SimpleTestCase):
         # No WHZ available (None) falls back to HAZ alone.
         self.assertEqual(classify_growth_record(haz=-2.5, whz=None), classify_from_haz(-2.5))
 
+    def test_waz_can_push_status_more_severe_than_haz_and_whz_alone(self):
+        # Normal HAZ/WHZ but severely underweight WAZ should still be risk.
+        self.assertEqual(classify_growth_record(haz=0.0, whz=0.0, waz=-3.5), 'risk')
+        # No WAZ available (None) doesn't affect the HAZ+WHZ result.
+        self.assertEqual(classify_growth_record(haz=-2.5, whz=0.0, waz=None), classify_from_haz(-2.5))
+
     def test_classify_from_whz_thresholds(self):
         self.assertEqual(classify_from_whz(-1.0), 'normal')
         self.assertEqual(classify_from_whz(-2.5), 'watch')
         self.assertEqual(classify_from_whz(-3.5), 'risk')
+
+    def test_classify_from_waz_thresholds(self):
+        self.assertEqual(classify_from_waz(-1.0), 'normal')
+        self.assertEqual(classify_from_waz(-2.5), 'watch')
+        self.assertEqual(classify_from_waz(-3.5), 'risk')
 
 
 class ChildSerializerDateValidationTests(SimpleTestCase):
@@ -240,6 +297,21 @@ class GrowthRecordSerializerPlausibilityValidationTests(TestCase):
             'weight_kg': 100,
             'height_cm': 70,
             'age_months': 5,
+        })
+        self.assertFalse(serializer.is_valid())
+        self.assertIn('weight_kg', serializer.errors)
+
+    def test_rejects_implausible_weight_for_age(self):
+        # A newborn at 54cm/6.5kg: HAZ=2.17 and WHZ=4.52 individually still
+        # pass their own (looser) plausible ranges, but WAZ=5.12 exceeds +5 —
+        # confirms WAZ catches implausible entries HAZ/WHZ miss on their own,
+        # not just unreachable dead code behind the other two checks.
+        serializer = GrowthRecordSerializer(data={
+            'child_id': str(self.child.id),
+            'measured_at': '2024-01-01',
+            'weight_kg': 6.5,
+            'height_cm': 54,
+            'age_months': 0,
         })
         self.assertFalse(serializer.is_valid())
         self.assertIn('weight_kg', serializer.errors)

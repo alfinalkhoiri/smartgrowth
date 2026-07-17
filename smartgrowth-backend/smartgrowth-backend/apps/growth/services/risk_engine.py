@@ -14,7 +14,7 @@ formula:
 import math
 from dataclasses import dataclass
 
-from .who_reference import lms_for_age, lms_for_weight
+from .who_reference import lms_for_age, lms_for_weight, lms_for_weight_age
 
 
 RISK = 'risk'
@@ -51,16 +51,29 @@ def classify_from_whz(whz: float) -> str:
     return NORMAL
 
 
-def classify_growth_record(haz: float, whz: float = None) -> str:
+def classify_from_waz(waz: float) -> str:
+    if waz < -3:
+        return RISK        # Berat badan sangat kurang — severely underweight
+    if waz < -2:
+        return WATCH        # Berat badan kurang — underweight, needs monitoring
+    return NORMAL
+
+
+def classify_growth_record(haz: float, whz: float = None, waz: float = None) -> str:
     """
-    Combines HAZ (stunting, chronic) and WHZ (wasting, acute) into the single
-    risk_status stored on a GrowthRecord — the more severe of the two, since
-    either alone signals malnutrition that needs attention, and a child can
-    be wasted without (yet) being stunted or vice versa.
+    Combines HAZ (stunting, chronic), WHZ (wasting, acute) and WAZ
+    (underweight) into the single risk_status stored on a GrowthRecord — the
+    most severe of the three, matching Indonesia's own "status gizi" practice
+    (Permenkes No. 2/2020: TB/U, BB/TB, BB/U are each assessed independently,
+    not folded into one number). A child can be underweight without (yet)
+    crossing the stunting or wasting cutoff alone, so WAZ still catches cases
+    HAZ/WHZ individually miss.
     """
     status = classify_from_haz(haz)
     if whz is not None:
         status = _more_severe(status, classify_from_whz(whz))
+    if waz is not None:
+        status = _more_severe(status, classify_from_waz(waz))
     return status
 
 
@@ -90,6 +103,18 @@ def calculate_whz(weight_kg: float, height_cm: float, age_months: float, sex: st
     return _lms_zscore(weight_kg, L, M, S)
 
 
+def calculate_waz(weight_kg: float, age_months: float, sex: str) -> float:
+    """
+    Weight-for-Age Z-score, per the WHO LMS method. Underweight is a
+    composite signal (reflects both chronic and acute deficits at once) —
+    historically the primary indicator on Indonesia's posyandu BB/U ("kurva
+    berat badan") growth chart, still tracked independently in current
+    Kemenkes nutritional-status guidance alongside HAZ/WHZ, not replaced by them.
+    """
+    L, M, S = lms_for_weight_age(age_months, sex)
+    return _lms_zscore(weight_kg, L, M, S)
+
+
 def assess_child_risk(child, latest_record) -> RiskResult:
     """
     Combines the HAZ/WHZ-based Stage 1 result with simple risk-factor flags.
@@ -110,6 +135,12 @@ def assess_child_risk(child, latest_record) -> RiskResult:
         if whz_status != NORMAL:
             reason_codes.append(f'WHZ_BELOW_{-2 if whz_status == WATCH else -3}')
         status = _more_severe(status, whz_status)
+
+    if latest_record.weight_for_age_z is not None:
+        waz_status = classify_from_waz(float(latest_record.weight_for_age_z))
+        if waz_status != NORMAL:
+            reason_codes.append(f'WAZ_BELOW_{-2 if waz_status == WATCH else -3}')
+        status = _more_severe(status, waz_status)
 
     if child.exclusive_breastfeeding is False:
         reason_codes.append('NO_EXCLUSIVE_BF')
