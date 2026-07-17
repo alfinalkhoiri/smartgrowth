@@ -34,7 +34,7 @@ export default function Riwayat() {
     .sort((a, b) => (a.measuredAt < b.measuredAt ? 1 : -1));
 
   return (
-    <div className="p-4 space-y-4 max-w-2xl mx-auto">
+    <div className="p-4 space-y-4 max-w-4xl mx-auto">
       <h1 className="text-xl font-display font-bold text-gray-900">Riwayat</h1>
 
       <div className="grid grid-cols-2 gap-3">

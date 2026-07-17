@@ -217,7 +217,7 @@ function TopicCard({ icon: Icon, title, points }: { icon: typeof Baby; title: st
 
 export default function Edukasi() {
   return (
-    <div className="p-4 space-y-4 max-w-3xl mx-auto">
+    <div className="p-4 space-y-4 max-w-5xl mx-auto">
       <div>
         <h1 className="flex items-center gap-2 font-display font-extrabold text-2xl text-gray-900">
           <BookOpen className="h-6 w-6 text-primary" aria-hidden="true" />

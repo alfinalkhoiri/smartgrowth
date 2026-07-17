@@ -255,7 +255,7 @@ export default function ChildDashboard() {
   const sortedRecords = records.slice().sort((a, b) => b.ageMonths - a.ageMonths);
 
   return (
-    <div className="p-4 space-y-4 max-w-2xl mx-auto">
+    <div className="p-4 space-y-4 max-w-4xl mx-auto">
       <div className="flex items-center justify-between gap-2">
         <h1 className="text-xl font-display font-bold text-gray-900 truncate">{child?.name ?? 'Grafik Pertumbuhan'}</h1>
         <div className="flex items-center gap-2 shrink-0">

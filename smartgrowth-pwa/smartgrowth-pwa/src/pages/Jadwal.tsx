@@ -111,7 +111,7 @@ export default function Jadwal() {
   };
 
   return (
-    <div className="p-4 space-y-4 max-w-2xl mx-auto">
+    <div className="p-4 space-y-4 max-w-4xl mx-auto">
       <div className="flex items-center justify-between gap-2">
         <h1 className="text-xl font-display font-bold text-gray-900">Jadwal Posyandu</h1>
         {canCreate && (
@@ -146,6 +146,7 @@ export default function Jadwal() {
 
       {showForm && (editingId ? canEditDelete : canCreate) && (
         <form onSubmit={handleSubmit} className="card p-4 space-y-3">
+          <div className="grid sm:grid-cols-2 gap-3">
           <div>
             <label htmlFor="jadwal-scheduled-at" className="field-label">
               Tanggal &amp; Waktu
@@ -171,6 +172,7 @@ export default function Jadwal() {
               onChange={(e) => setForm({ ...form, location: e.target.value })}
               required
             />
+          </div>
           </div>
           <div>
             <label htmlFor="jadwal-notes" className="field-label">
