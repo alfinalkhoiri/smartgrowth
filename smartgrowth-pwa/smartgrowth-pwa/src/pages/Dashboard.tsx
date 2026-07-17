@@ -71,7 +71,7 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="p-4 space-y-4 max-w-3xl mx-auto">
+    <div className="p-4 space-y-4">
       <div className="bg-gradient-hero rounded-3xl p-6 sm:p-8 shadow-elegant grid sm:grid-cols-[1.3fr_1fr] gap-6 items-center">
         <div className="space-y-4">
           <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-white/20 text-white">
