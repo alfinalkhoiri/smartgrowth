@@ -1,13 +1,20 @@
-export type RiskStatus = 'normal' | 'watch' | 'risk';
+// 4 tingkat, bukan 3 — "stunting" (kronis, HAZ) dan "malnutrisi" (akut parah)
+// dipisah karena urgensi rujukannya beda. Lihat risk_engine.py (score_risk).
+export type RiskStatus = 'normal' | 'berisiko' | 'stunting' | 'malnutrisi';
 
 export interface Child {
   id: string;
   name: string;
   birthDate: string; // ISO date
   sex: 'male' | 'female';
+  // Info orang tua/wali — opsional, untuk keperluan kontak/pencatatan
+  parentName?: string;
+  parentOccupation?: string;
   // Optional risk-factor fields used by the predictive layer later on
   exclusiveBreastfeeding?: boolean;
   birthWeightKg?: number;
+  birthLengthCm?: number;
+  gestationalAgeWeeks?: number; // usia kehamilan saat lahir — indikator prematuritas
   // '2T' (posyandu convention: weight failed to increase at the last two
   // measurements in a row) or null/undefined if not currently flagged.
   growthAlert?: '2T' | null;
@@ -19,6 +26,7 @@ export interface GrowthRecord {
   measuredAt: string; // ISO date
   weightKg: number;
   heightCm: number;
+  headCircumferenceCm?: number; // opsional, WHO Head-Circumference-for-Age
   ageMonths: number;
   officerName?: string;
   location?: string;
@@ -33,6 +41,7 @@ export interface GrowthRecord {
   heightForAgeZ?: number;
   weightForHeightZ?: number;
   weightForAgeZ?: number;
+  headCircumferenceZ?: number;
   riskStatus?: RiskStatus;
   recommendations?: string[];
   // vs. the immediately preceding measurement for this child; null on the
@@ -43,7 +52,9 @@ export interface GrowthRecord {
 export interface RiskAssessment {
   childId: string;
   riskStatus: RiskStatus;
-  reasonCodes: string[]; // e.g. ["HAZ_BELOW_-2", "NO_EXCLUSIVE_BF"]
+  score: number; // 0-100, higher = more severe
+  reasonCodes: string[]; // e.g. ["HAZ_STUNTED", "NO_EXCLUSIVE_BF"]
+  recommendations: string[];
   assessedAt: string;
 }
 

@@ -13,9 +13,17 @@ class Child(models.Model):
     birth_date = models.DateField()
     sex = models.CharField(max_length=10, choices=Sex.choices)
 
+    # Parent/guardian info — optional, for contact/record-keeping purposes
+    parent_name = models.CharField(max_length=150, blank=True, default='')
+    parent_occupation = models.CharField(max_length=150, blank=True, default='')
+
     # Risk-factor fields used by the Stage 2 predictive layer later on
     exclusive_breastfeeding = models.BooleanField(null=True, blank=True)
     birth_weight_kg = models.DecimalField(max_digits=4, decimal_places=2, null=True, blank=True)
+    birth_length_cm = models.DecimalField(max_digits=4, decimal_places=1, null=True, blank=True)
+    gestational_age_weeks = models.PositiveSmallIntegerField(
+        null=True, blank=True, help_text='Usia kehamilan saat lahir, dalam minggu — indikator prematuritas'
+    )
 
     registered_by = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name='registered_children'
@@ -36,6 +44,10 @@ class GrowthRecord(models.Model):
     measured_at = models.DateField()
     weight_kg = models.DecimalField(max_digits=5, decimal_places=2)
     height_cm = models.DecimalField(max_digits=5, decimal_places=2)
+    head_circumference_cm = models.DecimalField(
+        max_digits=4, decimal_places=1, null=True, blank=True,
+        help_text='Lingkar kepala — opsional, standar WHO Head-Circumference-for-Age, indikator tambahan mikrosefali'
+    )
     age_months = models.PositiveIntegerField(help_text='Usia anak saat pengukuran, dalam bulan')
     officer_name = models.CharField(
         max_length=150, blank=True, default='', help_text='Nama petugas yang melakukan pengukuran'
@@ -63,6 +75,7 @@ class GrowthRecord(models.Model):
     height_for_age_z = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
     weight_for_height_z = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
     weight_for_age_z = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
+    head_circumference_z = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
     risk_status = models.CharField(max_length=10, blank=True)
 
     recorded_by = models.ForeignKey(
@@ -84,7 +97,9 @@ class RiskAssessment(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     child = models.ForeignKey(Child, on_delete=models.CASCADE, related_name='risk_assessments')
     risk_status = models.CharField(max_length=10)
-    reason_codes = models.JSONField(default=list)  # e.g. ["HAZ_BELOW_-2", "NO_EXCLUSIVE_BF"]
+    score = models.PositiveSmallIntegerField(default=0, help_text='0-100, higher = more severe')
+    reason_codes = models.JSONField(default=list)  # e.g. ["HAZ_STUNTED", "NO_EXCLUSIVE_BF"]
+    recommendations = models.JSONField(default=list)  # e.g. ["Rujuk ke Puskesmas...", ...]
     assessed_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

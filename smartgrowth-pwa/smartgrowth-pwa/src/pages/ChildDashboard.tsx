@@ -51,14 +51,16 @@ function fromTriState(value: TriState): boolean | null {
 
 const riskDotStyles: Record<string, string> = {
   normal: 'bg-green-500',
-  watch: 'bg-amber-500',
-  risk: 'bg-red-500'
+  berisiko: 'bg-amber-500',
+  stunting: 'bg-orange-500',
+  malnutrisi: 'bg-red-500'
 };
 
 const emptyForm = {
   measuredAt: '',
   weightKg: '',
   heightCm: '',
+  headCircumferenceCm: '',
   officerName: '',
   location: '',
   cleanWaterAccess: '' as TriState,
@@ -137,6 +139,7 @@ export default function ChildDashboard() {
       measuredAt: record.measuredAt,
       weightKg: String(record.weightKg),
       heightCm: String(record.heightCm),
+      headCircumferenceCm: record.headCircumferenceCm != null ? String(record.headCircumferenceCm) : '',
       officerName: record.officerName ?? '',
       location: record.location ?? '',
       cleanWaterAccess: toTriState(record.cleanWaterAccess),
@@ -182,6 +185,7 @@ export default function ChildDashboard() {
       measuredAt: form.measuredAt,
       weightKg: Number(form.weightKg),
       heightCm: Number(form.heightCm),
+      headCircumferenceCm: form.headCircumferenceCm ? Number(form.headCircumferenceCm) : undefined,
       ageMonths: monthsBetween(child.birthDate, form.measuredAt),
       officerName: form.officerName,
       location: form.location,
@@ -244,7 +248,7 @@ export default function ChildDashboard() {
   return (
     <div className="p-4 space-y-4 max-w-2xl mx-auto">
       <div className="flex items-center justify-between gap-2">
-        <h1 className="text-xl font-semibold text-gray-900 truncate">{child?.name ?? 'Grafik Pertumbuhan'}</h1>
+        <h1 className="text-xl font-display font-semibold text-gray-900 truncate">{child?.name ?? 'Grafik Pertumbuhan'}</h1>
         <div className="flex items-center gap-2 shrink-0">
           {latest?.riskStatus && <RiskBadge status={latest.riskStatus} />}
           {canCreate && (
@@ -334,6 +338,20 @@ export default function ChildDashboard() {
                 </p>
               )}
             </div>
+          </div>
+          <div>
+            <label htmlFor="head-circumference-cm" className="field-label">
+              Lingkar Kepala (cm, opsional)
+            </label>
+            <input
+              id="head-circumference-cm"
+              type="number"
+              step="0.1"
+              className="field-input"
+              placeholder="Mis. 42.5"
+              value={form.headCircumferenceCm}
+              onChange={(e) => setForm({ ...form, headCircumferenceCm: e.target.value })}
+            />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
@@ -553,6 +571,9 @@ export default function ChildDashboard() {
               <p>Z-score Tinggi/Usia (HAZ): {resultRecord.heightForAgeZ ?? '-'}</p>
               <p>Z-score Berat/Tinggi (WHZ): {resultRecord.weightForHeightZ ?? '-'}</p>
               <p>Z-score Berat/Usia (WAZ): {resultRecord.weightForAgeZ ?? '-'}</p>
+              {resultRecord.headCircumferenceZ != null && (
+                <p>Z-score Lingkar Kepala/Usia (HCZ): {resultRecord.headCircumferenceZ}</p>
+              )}
             </div>
             {resultRecord.riskStatus && (
               <p className="text-sm text-gray-700">{riskDescription(resultRecord.riskStatus)}</p>

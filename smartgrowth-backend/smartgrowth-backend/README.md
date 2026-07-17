@@ -6,14 +6,16 @@
    viewer) lewat halaman Register, atau masuk lewat halaman Login kalau sudah
    punya akun. Admin tidak bisa daftar sendiri — dibuat lewat `createsuperuser`.
 2. **Tambah data balita** — di halaman "Daftar Balita", kader/nakes/admin bisa
-   menambahkan balita baru (nama, tanggal lahir, jenis kelamin, opsional berat
-   lahir & status ASI eksklusif). Viewer hanya bisa melihat daftar yang sudah ada.
+   menambahkan balita baru (nama, tanggal lahir, jenis kelamin, opsional nama/
+   pekerjaan orang tua, berat & panjang lahir, usia kehamilan, status ASI
+   eksklusif). Viewer hanya bisa melihat daftar yang sudah ada.
 3. **Input pengukuran pertumbuhan** — buka dashboard salah satu balita, lalu
-   catat pengukuran baru: tanggal ukur, berat (kg), tinggi (cm). Usia dalam
-   bulan dihitung otomatis dari tanggal lahir balita.
+   catat pengukuran baru: tanggal ukur, berat (kg), tinggi (cm), opsional
+   lingkar kepala (cm). Usia dalam bulan dihitung otomatis dari tanggal lahir
+   balita.
 4. **Sistem menghitung status risiko secara otomatis** — begitu pengukuran
    disimpan, backend langsung menghitung Z-score WHO dan menampilkan status
-   **Normal**, **Perlu Pemantauan**, atau **Berisiko Stunting** sebagai badge
+   **Normal**, **Berisiko**, **Stunting**, atau **Malnutrisi** sebagai badge
    di dashboard (lihat "Alur sistem" di bawah untuk detail perhitungannya).
 5. **Lihat riwayat & grafik** — dashboard menampilkan grafik tinggi terhadap
    usia serta daftar seluruh riwayat pengukuran balita tersebut.
@@ -58,24 +60,31 @@ GrowthRecordViewSet.perform_create() / perform_update()   (views.py)
             │                 └─► rumus LMS yang sama
             │                 = weight_for_age_z (WAZ, indikator BERAT BADAN KURANG)
             │
-            ▼
-classify_growth_record(haz, whz, waz)
-    - classify_from_haz(haz):  Z<-3 → risk · Z<-2 → watch · lainnya → normal
-    - classify_from_whz(whz):  Z<-3 → risk · Z<-2 → watch · lainnya → normal
-    - classify_from_waz(waz):  Z<-3 → risk · Z<-2 → watch · lainnya → normal
-    - ambil status yang PALING PARAH dari ketiganya
+            ├──► calculate_hcz(head_circumference_cm, age_months, sex)  [opsional]
+            │        └─► who_reference.lms_for_head_circumference()
+            │                 └─► baca tabel HCA WHO resmi (hca_boys.csv / hca_girls.csv)
+            │                 = head_circumference_z (HCZ, indikator MIKROSEFALI)
             │
             ▼
-Simpan ke GrowthRecord: height_for_age_z, weight_for_height_z, weight_for_age_z, risk_status
+score_risk(haz, whz, waz, hcz)
+    - skor tertimbang 0-100: HAZ<-3:+50/<-2:+30/<-1:+12; WHZ<-3:+45/<-2:+25/
+      >3:+25/>2:+12; WAZ<-3:+25/<-2:+15; HCZ<-2:+15 (kalau ada)
+    - status: skor>=45 → malnutrisi · HAZ<-2 → stunting (dipaksa walau
+      skor totalnya <45) · skor>=20 → berisiko · lainnya → normal
+            │
+            ▼
+Simpan ke GrowthRecord: height_for_age_z, weight_for_height_z, weight_for_age_z,
+head_circumference_z, risk_status
             │
             ▼
 Response JSON (camelCase) balik ke frontend
             │
             ▼
 <RiskBadge> di ChildDashboard.tsx menampilkan:
-    "normal" → hijau "Normal"
-    "watch"  → kuning "Perlu Pemantauan"
-    "risk"   → merah  "Berisiko Stunting"
+    "normal"     → hijau  "Normal"
+    "berisiko"   → kuning "Berisiko"
+    "stunting"   → oranye "Stunting"
+    "malnutrisi" → merah  "Malnutrisi"
 ```
 
 Poin penting dari alur ini:
@@ -83,14 +92,18 @@ Poin penting dari alur ini:
 - Perhitungan **selalu** memakai data resmi WHO (tabel CSV di
   `apps/growth/services/data/`), bukan rumus perkiraan — lihat bagian
   "Klasifikasi risiko" di bawah untuk sumber datanya.
-- Status yang tampil bisa dipicu oleh **stunting (HAZ), wasting (WHZ), maupun
-  berat badan kurang (WAZ)** secara independen — anak dengan tinggi normal
-  tapi berat sangat kurang tetap akan tampil "Berisiko" karena wasting/WAZ,
-  bukan cuma dilihat dari tinggi badan.
-- `GET /api/risk-assessment/<child_id>/` melakukan hal serupa tapi
-  berdasarkan pengukuran **terakhir** yang tersimpan, dan menambahkan faktor
-  risiko lain (status ASI eksklusif) — dipakai kalau butuh penilaian ulang
-  tanpa menambah data pengukuran baru.
+- Status 4-tier (bukan 3) karena "stunting" (kronis, HAZ) dan "malnutrisi"
+  (akut parah) punya urgensi rujukan yang beda — digabung jadi satu label
+  menghilangkan informasi klinis penting.
+- `score_risk()` **menjumlahkan** kontribusi tiap indikator, bukan cuma
+  mengambil yang paling parah — defisit sedang di beberapa indikator
+  sekaligus (mis. HAZ mendekati ambang + WAZ kurang) bisa jadi "berisiko"
+  meski tidak ada satu pun yang sendirian melewati ambang beratnya.
+- `score_risk()` dipakai di **dua tempat** (bukan dua rumus berbeda):
+  `GrowthRecordViewSet._score()` (status per pengukuran) dan
+  `assess_child_risk()`/`GET /api/risk-assessment/<child_id>/` (penilaian
+  ulang berdasarkan pengukuran **terakhir**, ditambah faktor risiko lain
+  seperti status ASI eksklusif) — supaya keduanya selalu konsisten.
 
 ## Struktur
 
@@ -116,6 +129,8 @@ apps/growth/
       wfh_girls.csv     # WHO Weight-for-Height LMS (2-5th), perempuan, 65-120cm
       wfa_boys.csv      # WHO Weight-for-Age LMS, laki-laki, day 0-1856
       wfa_girls.csv     # WHO Weight-for-Age LMS, perempuan, day 0-1856
+      hca_boys.csv      # WHO Head-Circumference-for-Age LMS, laki-laki, day 0-1856
+      hca_girls.csv     # WHO Head-Circumference-for-Age LMS, perempuan, day 0-1856
 
 apps/accounts/
   serializers.py        # RegisterSerializer (registrasi publik, role terbatas)
@@ -148,53 +163,70 @@ u.save()
 "
 ```
 
-## Klasifikasi risiko (WHO Height-for-Age + Weight-for-Length/Height + Weight-for-Age Z-score)
+## Klasifikasi risiko (WHO HAZ + WHZ + WAZ + HCZ, skor tertimbang 4-tier)
 
 - **Sumber data**: tabel LMS resmi WHO Child Growth Standards — Length/Height-for-Age
   (stunting, resolusi harian day 0–1856 / ≈0–60.97 bulan), Weight-for-Length
-  0–2th / Weight-for-Height 2–5th (wasting, resolusi 0.1cm), dan Weight-for-Age
-  (berat badan kurang, resolusi harian day 0–1856, sumber `weianthro` dari
-  paket macro WHO Anthro — cross-checked terhadap tabel WFL yang sudah ada,
-  cocok sampai 4 desimal, jadi sumber resminya sama) — untuk laki-laki dan
+  0–2th / Weight-for-Height 2–5th (wasting, resolusi 0.1cm), Weight-for-Age
+  (berat badan kurang, resolusi harian day 0–1856), dan Head-Circumference-for-Age
+  (lingkar kepala, opsional, resolusi harian day 0–1856) — WFA dan HCA
+  bersumber dari `weianthro`/`hcanthro`, tabel di paket macro WHO Anthro yang
+  sama dengan WFL/WFH, cross-checked terhadap tabel WFL yang sudah ada (cocok
+  sampai 4 desimal, jadi sumber resminya sama) — untuk laki-laki dan
   perempuan, diunduh dari https://www.who.int/tools/child-growth-standards
   dan disimpan sebagai CSV di `apps/growth/services/data/`.
-- **`who_reference.lms_for_age(age_months, sex)`** — (L, M, S) Height-for-Age
-  untuk usia tertentu. **`who_reference.lms_for_weight(height_cm, age_months, sex)`**
-  — (L, M, S) Weight-for-Length/Height, otomatis pilih tabel WFL (di bawah 24
-  bulan) atau WFH (24 bulan ke atas) sesuai konvensi resmi WHO.
-  **`who_reference.lms_for_weight_age(age_months, sex)`** — (L, M, S)
-  Weight-for-Age. Ketiganya interpolasi linear antar baris terdekat; nilai di
-  luar rentang tabel di-clamp ke ujung terdekat (tidak melempar error).
-- **`risk_engine.calculate_haz()`**, **`calculate_whz()`**, dan
-  **`calculate_waz()`** — rumus LMS standar WHO: `Z = (((ukuran/M)^L) - 1) / (L*S)`
-  (atau `ln(ukuran/M)/S` kalau L=0). Height-for-Age punya L=1 tetap;
-  Weight-for-Length/Height dan Weight-for-Age punya L yang bervariasi (ada
-  skewness), makanya rumus umum tetap dipakai, bukan hanya kasus khusus L=1.
-- **`risk_engine.classify_growth_record(haz, whz, waz)`** — mengambil status
-  yang **paling parah** di antara klasifikasi HAZ (stunting, kronis), WHZ
-  (wasting, akut), dan WAZ (berat badan kurang) — mengikuti cara Kemenkes
-  menilai status gizi (Permenkes No. 2/2020: TB/U, BB/TB, BB/U dinilai
-  masing-masing, bukan digabung jadi satu angka), karena anak bisa kekurangan
-  di salah satu indikator tanpa (belum) terdeteksi di dua indikator lainnya —
-  ketiganya sinyal klinis berbeda dan sama-sama penting.
+- **`who_reference.lms_for_age()`**, **`lms_for_weight()`** (otomatis pilih
+  WFL di bawah 24 bulan / WFH 24 bulan ke atas), **`lms_for_weight_age()`**,
+  dan **`lms_for_head_circumference()`** — masing-masing mengembalikan (L, M, S)
+  untuk indikatornya. Semuanya interpolasi linear antar baris terdekat; nilai
+  di luar rentang tabel di-clamp ke ujung terdekat (tidak melempar error).
+- **`risk_engine.calculate_haz()`**, **`calculate_whz()`**, **`calculate_waz()`**,
+  **`calculate_hcz()`** — rumus LMS standar WHO: `Z = (((ukuran/M)^L) - 1) / (L*S)`
+  (atau `ln(ukuran/M)/S` kalau L=0). Height-for-Age dan Head-Circumference-for-Age
+  punya L=1 tetap; Weight-for-Length/Height dan Weight-for-Age punya L yang
+  bervariasi (ada skewness), makanya rumus umum tetap dipakai, bukan hanya
+  kasus khusus L=1.
+- **`risk_engine.score_risk(haz, whz, waz, hcz=None)`** — **satu-satunya**
+  sumber kebenaran untuk `risk_status`, dipakai baik oleh
+  `GrowthRecordViewSet._score()` (status per pengukuran) maupun
+  `assess_child_risk()`/`RiskAssessmentView` (audit trail terpisah), supaya
+  keduanya tidak pernah saling kontradiksi. Menjumlahkan kontribusi tiap
+  indikator jadi skor 0-100 (bukan cuma ambil yang paling parah): HAZ<-3:+50/
+  <-2:+30/<-1:+12; WHZ<-3:+45/<-2:+25/>3:+25/>2:+12; WAZ<-3:+25/<-2:+15;
+  HCZ<-2:+15 (kalau lingkar kepala diisi). Status akhir: skor≥45 →
+  `malnutrisi`; HAZ<-2 → `stunting` (tetap dipaksa walau skor totalnya belum
+  45 — stunting kronis tidak boleh "terdilusi" oleh skor gabungan yang masih
+  rendah); skor≥20 → `berisiko`; selebihnya → `normal`. 4-tier
+  (`normal`/`berisiko`/`stunting`/`malnutrisi`), bukan 3, mengikuti cara
+  Kemenkes menilai status gizi (Permenkes No. 2/2020: TB/U, BB/TB, BB/U
+  dinilai masing-masing) — "stunting" (kronis) dan "malnutrisi" (akut parah)
+  sengaja dipisah karena urgensi rujukannya beda, bukan cuma "risiko" tunggal.
+- **`classify_from_haz`/`classify_from_whz`/`classify_from_waz`/`classify_from_hcz`**
+  — label tingkat per-indikator tunggal (dipakai untuk keterbacaan/test, bukan
+  penentu `risk_status` gabungan — itu wewenang `score_risk()`).
 - **Divalidasi** di `apps/growth/tests.py` (`python manage.py test apps.growth`)
   — test membandingkan hasil terhadap nilai SD/LMS yang benar-benar dikutip
   dari tabel resmi WHO (bukan cuma round-trip internal), untuk laki-laki &
-  perempuan di rentang usia/ukuran berbeda, termasuk kasus kombinasi
-  HAZ+WHZ+WAZ.
+  perempuan di rentang usia/ukuran berbeda, termasuk kombinasi HAZ+WHZ+WAZ+HCZ
+  dan kasus skor gabungan (`ScoreRiskTests`).
 - **Terpasang otomatis** di `GrowthRecordViewSet.perform_create()` **dan**
   `perform_update()` — tiap kali record dibuat/diedit, `height_for_age_z`,
-  `weight_for_height_z`, `weight_for_age_z`, dan `risk_status`
-  (`normal` / `watch` / `risk`) dihitung ulang dan disimpan.
+  `weight_for_height_z`, `weight_for_age_z`, `head_circumference_z` (kalau
+  lingkar kepala diisi), dan `risk_status` dihitung ulang dan disimpan.
 - **Validasi kewajaran** di `GrowthRecordSerializer.validate()` — HAZ di luar
-  [-6, +6], WHZ di luar [-5, +5], atau WAZ di luar [-6, +5] ditolak dengan
-  `400` sebelum sempat tersimpan (ambang batas ini persis konvensi
-  "implausible value flag" WHO Anthro/survei SMART, bukan angka buatan
-  sendiri). `classify_from_haz`/`classify_from_whz`/`classify_from_waz` cuma
-  mengecek ekor negatif untuk stunting/wasting/berat badan kurang, jadi
-  tanpa ini input yang salah ketik (mis. tinggi 200cm untuk bayi 6 bulan)
-  akan lolos dan diklasifikasikan "normal" begitu saja alih-alih ditandai
-  sebagai kemungkinan salah input.
+  [-6, +6], WHZ di luar [-5, +5], WAZ di luar [-6, +5], atau HCZ (kalau diisi)
+  di luar [-5, +5] ditolak dengan `400` sebelum sempat tersimpan (ambang batas
+  ini persis konvensi "implausible value flag" WHO Anthro/survei SMART, bukan
+  angka buatan sendiri) — tanpa ini input yang salah ketik (mis. tinggi 200cm
+  untuk bayi 6 bulan) akan lolos dan diklasifikasikan "normal" begitu saja
+  alih-alih ditandai sebagai kemungkinan salah input.
+- **Migrasi 3-tier → 4-tier**: `risk_status` yang tersimpan sebelumnya
+  (`normal`/`watch`/`risk`) dihitung ulang lewat migrasi data
+  (`0007_recompute_4tier_risk_status.py`) — `GrowthRecord` dihitung ulang dari
+  Z-score asli yang sudah tersimpan (bukan remap string kasar), sedangkan
+  `RiskAssessment` (log audit historis) cuma di-remap label
+  (`watch→berisiko`, `risk→malnutrisi`) karena itu catatan titik-waktu, bukan
+  status live.
 
 ### Kuesioner faktor risiko tambahan + rekomendasi (kader input, nakes baca)
 
@@ -219,8 +251,8 @@ u.save()
   **Nakes/admin** yang melihat `recommendations` di popup "Hasil Pengukuran"
   (kader/viewer tidak) — dimaksudkan untuk disampaikan langsung ke orang
   tua/pasien saat konsultasi.
-- Threshold (`classify_from_haz`/`classify_from_whz`): Z < -3 → `risk` (berat),
-  Z < -2 → `watch` (perlu pemantauan), selebihnya → `normal`. Ini murni Tahap 1
+- Lihat bagian "Klasifikasi risiko" di atas untuk ambang batas
+  `score_risk()` yang menentukan `risk_status`. Ini murni Tahap 1
   (rule-based) — model ML Tahap 2 nanti menambah lapisan di atasnya, bukan
   menggantikannya sepenuhnya (keputusan klinis, bukan cuma teknis).
 
@@ -261,9 +293,9 @@ kepindah) kelihatan lebih awal:
 - **`who_reference.height_range_for_age(age_months, sex)`** dan
   **`weight_range_for_height(height_cm, age_months, sex)`** — rentang -2SD
   s.d. +2SD, **band yang sama** dipakai `classify_from_haz`/`classify_from_whz`
-  untuk status "normal" vs "perlu pemantauan". Ini panduan, bukan aturan
-  validasi keras — anak nyata tetap bisa berada di luar rentang ini tanpa itu
-  berarti salah input.
+  untuk status "normal" vs tidak. Ini panduan, bukan aturan validasi keras —
+  anak nyata tetap bisa berada di luar rentang ini tanpa itu berarti salah
+  input.
 - Diekspos lewat `GET /api/growth-reference/?sex=male&ageMonths=18&heightCm=80`
   (`heightCm` opsional — kalau diisi, response juga menyertakan rentang berat;
   kalau tidak, hanya rentang tinggi). Endpoint ini `IsAuthenticated` saja,
@@ -317,7 +349,7 @@ tombolnya sesuai role.
 | POST           | `/api/auth/register`               | `RegisterView`        | Publik (`AllowAny`); role terbatas ke kader/nakes/viewer (admin tidak bisa daftar sendiri); mengembalikan `{access, refresh}` langsung, klaim role juga disematkan |
 | GET/POST       | `/api/children/`                   | `ChildViewSet`        | `?search=` berdasarkan nama; response array polos (tanpa pagination); POST butuh role kader/nakes/admin                                |
 | GET/PUT/DELETE | `/api/children/<id>/`              | `ChildViewSet`        | PUT/DELETE butuh role nakes/admin                                                                                                      |
-| GET/POST       | `/api/growth-records/`             | `GrowthRecordViewSet` | Filter dengan `?child=<uuid>`; field `officer_name`/`location`/`notes` opsional (bebas teks, tidak diikutkan saat update = nilai lama tidak berubah); `height_for_age_z`/`weight_for_height_z`/`risk_status` dihitung otomatis saat create/update |
+| GET/POST       | `/api/growth-records/`             | `GrowthRecordViewSet` | Filter dengan `?child=<uuid>`; field `officer_name`/`location`/`notes`/`head_circumference_cm` opsional (tidak diikutkan saat update = nilai lama tidak berubah); `height_for_age_z`/`weight_for_height_z`/`weight_for_age_z`/`head_circumference_z`/`risk_status` dihitung otomatis saat create/update |
 | GET/PUT/DELETE | `/api/growth-records/<id>/`        | `GrowthRecordViewSet` | PUT/DELETE butuh role nakes/admin                                                                                                      |
 | GET            | `/api/risk-assessment/<child_id>/` | `RiskAssessmentView`  | Membuat `RiskAssessment` baru setiap kali dipanggil; semua role boleh akses                                                            |
 | GET            | `/api/growth-reference/`           | `GrowthReferenceView` | Query params `sex`, `ageMonths` (wajib), `heightCm` (opsional); rentang -2SD..+2SD WHO sebagai panduan input, bukan validasi; `IsAuthenticated` saja, semua role boleh akses |

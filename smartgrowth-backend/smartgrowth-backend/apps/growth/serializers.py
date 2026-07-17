@@ -3,6 +3,7 @@ from rest_framework import serializers
 from .models import Child, GrowthRecord, RiskAssessment
 from .services.risk_engine import (
     calculate_haz,
+    calculate_hcz,
     calculate_waz,
     calculate_whz,
     classify_weight_trend,
@@ -19,6 +20,7 @@ from .services.risk_engine import (
 _HAZ_PLAUSIBLE_RANGE = (-6, 6)
 _WHZ_PLAUSIBLE_RANGE = (-5, 5)
 _WAZ_PLAUSIBLE_RANGE = (-6, 5)
+_HCZ_PLAUSIBLE_RANGE = (-5, 5)
 
 
 class ChildSerializer(serializers.ModelSerializer):
@@ -28,8 +30,9 @@ class ChildSerializer(serializers.ModelSerializer):
         model = Child
         fields = [
             'id', 'name', 'birth_date', 'sex',
-            'exclusive_breastfeeding', 'birth_weight_kg', 'growth_alert',
-            'created_at', 'updated_at',
+            'parent_name', 'parent_occupation',
+            'exclusive_breastfeeding', 'birth_weight_kg', 'birth_length_cm', 'gestational_age_weeks',
+            'growth_alert', 'created_at', 'updated_at',
         ]
         read_only_fields = ['id', 'created_at', 'updated_at', 'growth_alert']
 
@@ -68,15 +71,15 @@ class GrowthRecordSerializer(serializers.ModelSerializer):
     class Meta:
         model = GrowthRecord
         fields = [
-            'id', 'child_id', 'measured_at', 'weight_kg', 'height_cm', 'age_months',
+            'id', 'child_id', 'measured_at', 'weight_kg', 'height_cm', 'head_circumference_cm', 'age_months',
             'officer_name', 'location', 'notes',
             'clean_water_access', 'recurrent_illness', 'immunization_complete', 'recommendations',
-            'height_for_age_z', 'weight_for_height_z', 'weight_for_age_z', 'risk_status', 'weight_trend',
-            'created_at',
+            'height_for_age_z', 'weight_for_height_z', 'weight_for_age_z', 'head_circumference_z',
+            'risk_status', 'weight_trend', 'created_at',
         ]
         read_only_fields = [
-            'id', 'height_for_age_z', 'weight_for_height_z', 'weight_for_age_z', 'risk_status', 'created_at',
-            'recommendations', 'weight_trend',
+            'id', 'height_for_age_z', 'weight_for_height_z', 'weight_for_age_z', 'head_circumference_z',
+            'risk_status', 'created_at', 'recommendations', 'weight_trend',
         ]
 
     def get_recommendations(self, obj):
@@ -104,6 +107,9 @@ class GrowthRecordSerializer(serializers.ModelSerializer):
         height_cm = attrs.get('height_cm', getattr(self.instance, 'height_cm', None))
         weight_kg = attrs.get('weight_kg', getattr(self.instance, 'weight_kg', None))
         age_months = attrs.get('age_months', getattr(self.instance, 'age_months', None))
+        head_circumference_cm = attrs.get(
+            'head_circumference_cm', getattr(self.instance, 'head_circumference_cm', None)
+        )
 
         if measured_at and measured_at > timezone.localdate():
             raise serializers.ValidationError(
@@ -125,6 +131,8 @@ class GrowthRecordSerializer(serializers.ModelSerializer):
             attrs.get('height_cm', self.instance.height_cm) == self.instance.height_cm
             and attrs.get('weight_kg', self.instance.weight_kg) == self.instance.weight_kg
             and attrs.get('age_months', self.instance.age_months) == self.instance.age_months
+            and attrs.get('head_circumference_cm', self.instance.head_circumference_cm)
+            == self.instance.head_circumference_cm
         )
 
         if child and height_cm is not None and age_months is not None and not measurement_unchanged:
@@ -153,6 +161,15 @@ class GrowthRecordSerializer(serializers.ModelSerializer):
                             f'tidak wajar (WAZ={waz:.1f}). Periksa kembali berat dan usia yang diisi.'
                         )
                     })
+            if head_circumference_cm is not None:
+                hcz = calculate_hcz(float(head_circumference_cm), age_months, child.sex)
+                if not (_HCZ_PLAUSIBLE_RANGE[0] <= hcz <= _HCZ_PLAUSIBLE_RANGE[1]):
+                    raise serializers.ValidationError({
+                        'head_circumference_cm': (
+                            f'Lingkar kepala {head_circumference_cm}cm pada usia {age_months} bulan menghasilkan '
+                            f'Z-score tidak wajar (HCZ={hcz:.1f}). Periksa kembali lingkar kepala dan usia yang diisi.'
+                        )
+                    })
 
         return attrs
 
@@ -169,5 +186,5 @@ class RiskAssessmentSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = RiskAssessment
-        fields = ['id', 'child_id', 'risk_status', 'reason_codes', 'assessed_at']
+        fields = ['id', 'child_id', 'risk_status', 'score', 'reason_codes', 'recommendations', 'assessed_at']
         read_only_fields = fields

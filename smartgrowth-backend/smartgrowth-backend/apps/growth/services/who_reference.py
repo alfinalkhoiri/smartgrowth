@@ -16,6 +16,9 @@ https://www.who.int/tools/child-growth-standards), converted from WHO's own
   same WHO Anthro macro reference table underlying wfl/wfh above (cross-
   checked against the existing WFL table's published L/M/S at 45cm, which
   matched to 4 decimal places, confirming it's the same authoritative source).
+- Head-Circumference-for-Age (HCA): indexed by day, 0-1856 days, same range
+  as HFA. L is fixed at 1 (no skewness transform), same as HFA. Sourced from
+  `hcanthro`, the same WHO Anthro macro package as weianthro/wfl/wfh above.
 
 WHO's own convention (used by their Anthro software) is to pick WFL for
 children under 24 months and WFH from 24 months onward — see
@@ -46,6 +49,8 @@ _TABLE_FILES = {
     ('wfh', 'female'): 'wfh_girls.csv',
     ('wfa', 'male'): 'wfa_boys.csv',
     ('wfa', 'female'): 'wfa_girls.csv',
+    ('hca', 'male'): 'hca_boys.csv',
+    ('hca', 'female'): 'hca_girls.csv',
 }
 
 
@@ -101,6 +106,12 @@ def lms_for_age(age_months: float, sex: str) -> tuple:
 def lms_for_weight_age(age_months: float, sex: str) -> tuple:
     """Returns (L, M, S) for Weight-for-Age at the given age in months."""
     table = _load_table('wfa', sex, key_column='day')
+    return _interpolate(table, age_months * DAYS_PER_MONTH)
+
+
+def lms_for_head_circumference(age_months: float, sex: str) -> tuple:
+    """Returns (L, M, S) for Head-Circumference-for-Age at the given age in months."""
+    table = _load_table('hca', sex, key_column='day')
     return _interpolate(table, age_months * DAYS_PER_MONTH)
 
 

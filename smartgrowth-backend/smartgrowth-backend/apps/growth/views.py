@@ -8,7 +8,7 @@ from .models import Child, GrowthRecord, RiskAssessment
 from .permissions import RoleBasedGrowthPermission
 from .serializers import ChildSerializer, GrowthRecordSerializer, RiskAssessmentSerializer
 from .services.risk_engine import (
-    assess_child_risk, calculate_haz, calculate_waz, calculate_whz, classify_growth_record,
+    assess_child_risk, calculate_haz, calculate_hcz, calculate_waz, calculate_whz, score_risk,
 )
 from .services.who_reference import height_range_for_age, weight_range_for_height
 
@@ -42,11 +42,18 @@ class GrowthRecordViewSet(viewsets.ModelViewSet):
         haz = calculate_haz(float(record.height_cm), record.age_months, sex)
         whz = calculate_whz(float(record.weight_kg), float(record.height_cm), record.age_months, sex)
         waz = calculate_waz(float(record.weight_kg), record.age_months, sex)
+        hcz = (
+            calculate_hcz(float(record.head_circumference_cm), record.age_months, sex)
+            if record.head_circumference_cm is not None else None
+        )
         record.height_for_age_z = haz
         record.weight_for_height_z = whz
         record.weight_for_age_z = waz
-        record.risk_status = classify_growth_record(haz, whz, waz)
-        record.save(update_fields=['height_for_age_z', 'weight_for_height_z', 'weight_for_age_z', 'risk_status'])
+        record.head_circumference_z = hcz
+        record.risk_status = score_risk(haz, whz, waz, hcz).risk_status
+        record.save(update_fields=[
+            'height_for_age_z', 'weight_for_height_z', 'weight_for_age_z', 'head_circumference_z', 'risk_status',
+        ])
 
 
 class RiskAssessmentView(APIView):
@@ -73,7 +80,9 @@ class RiskAssessmentView(APIView):
         assessment = RiskAssessment.objects.create(
             child=child,
             risk_status=result.risk_status,
+            score=result.score,
             reason_codes=result.reason_codes,
+            recommendations=result.recommendations,
         )
         return Response(RiskAssessmentSerializer(assessment).data)
 

@@ -16,20 +16,23 @@ from apps.growth.models import Child, GrowthRecord
 from apps.growth.serializers import ChildSerializer, GrowthRecordSerializer
 from apps.growth.services.risk_engine import (
     calculate_haz,
+    calculate_hcz,
     calculate_waz,
     calculate_whz,
     classify_from_haz,
+    classify_from_hcz,
     classify_from_waz,
     classify_from_whz,
-    classify_growth_record,
     classify_weight_trend,
     has_2t_alert,
     questionnaire_recommendations,
+    score_risk,
 )
 from apps.growth.services.who_reference import (
     DAYS_PER_MONTH,
     height_range_for_age,
     lms_for_age,
+    lms_for_head_circumference,
     lms_for_weight,
     lms_for_weight_age,
     weight_range_for_height,
@@ -187,32 +190,123 @@ class CalculateWazTests(SimpleTestCase):
         self.assertAlmostEqual(calculate_waz(3.3464, 0, 'male'), 0.0, places=2)
 
 
-class ClassifyGrowthRecordTests(SimpleTestCase):
-    def test_takes_the_more_severe_of_haz_and_whz(self):
-        # Normal HAZ but severely wasted WHZ should still classify as risk.
-        self.assertEqual(classify_growth_record(haz=0.0, whz=-3.5), 'risk')
-        # Severely stunted HAZ but normal WHZ should still classify as risk.
-        self.assertEqual(classify_growth_record(haz=-3.5, whz=0.0), 'risk')
-        # Both normal stays normal.
-        self.assertEqual(classify_growth_record(haz=0.0, whz=0.0), 'normal')
-        # No WHZ available (None) falls back to HAZ alone.
-        self.assertEqual(classify_growth_record(haz=-2.5, whz=None), classify_from_haz(-2.5))
+class LmsForHeadCircumferenceTests(SimpleTestCase):
+    def test_boys_day0_matches_official_lms(self):
+        # WHO hcanthro (HCA) boys, day 0: L=1, M=34.4618, S=0.03686 —
+        # sourced from the same WHO Anthro macro package as wfl/wfh/weianthro.
+        L, M, S = lms_for_head_circumference(0, 'male')
+        self.assertEqual(L, 1)
+        self.assertAlmostEqual(M, 34.4618, places=4)
+        self.assertAlmostEqual(S, 0.03686, places=5)
 
-    def test_waz_can_push_status_more_severe_than_haz_and_whz_alone(self):
-        # Normal HAZ/WHZ but severely underweight WAZ should still be risk.
-        self.assertEqual(classify_growth_record(haz=0.0, whz=0.0, waz=-3.5), 'risk')
-        # No WAZ available (None) doesn't affect the HAZ+WHZ result.
-        self.assertEqual(classify_growth_record(haz=-2.5, whz=0.0, waz=None), classify_from_haz(-2.5))
+    def test_girls_day0_matches_official_lms(self):
+        # WHO hcanthro (HCA) girls, day 0: L=1, M=33.8787, S=0.03496
+        L, M, S = lms_for_head_circumference(0, 'female')
+        self.assertEqual(L, 1)
+        self.assertAlmostEqual(M, 33.8787, places=4)
+        self.assertAlmostEqual(S, 0.03496, places=5)
+
+
+class CalculateHczTests(SimpleTestCase):
+    def test_boys_newborn_minus2sd(self):
+        # SD2neg = 31.9213 cm — computed from the official LMS above via the
+        # same LMS-inverse formula that generates WHO's own SDneg/SD columns.
+        self.assertAlmostEqual(calculate_hcz(31.9213, 0, 'male'), -2.0, places=2)
+
+    def test_boys_newborn_minus3sd(self):
+        # SD3neg = 30.651 cm, same derivation.
+        self.assertAlmostEqual(calculate_hcz(30.651, 0, 'male'), -3.0, places=2)
+
+    def test_girls_newborn_minus2sd(self):
+        # SD2neg = 31.5099 cm, derived from the official girls LMS above.
+        self.assertAlmostEqual(calculate_hcz(31.5099, 0, 'female'), -2.0, places=2)
+
+    def test_normal_head_circumference_is_not_flagged(self):
+        self.assertAlmostEqual(calculate_hcz(34.4618, 0, 'male'), 0.0, places=2)
+
+
+class ClassifyThresholdTests(SimpleTestCase):
+    """Single-indicator tier labels — building blocks, not the overall
+    risk_status (see ScoreRiskTests for the combined 4-tier decision)."""
+
+    def test_classify_from_haz_thresholds(self):
+        self.assertEqual(classify_from_haz(-1.0), 'normal')
+        self.assertEqual(classify_from_haz(-2.5), 'stunting')
+        self.assertEqual(classify_from_haz(-3.5), 'malnutrisi')
 
     def test_classify_from_whz_thresholds(self):
         self.assertEqual(classify_from_whz(-1.0), 'normal')
-        self.assertEqual(classify_from_whz(-2.5), 'watch')
-        self.assertEqual(classify_from_whz(-3.5), 'risk')
+        self.assertEqual(classify_from_whz(-2.5), 'berisiko')
+        self.assertEqual(classify_from_whz(-3.5), 'malnutrisi')
 
     def test_classify_from_waz_thresholds(self):
         self.assertEqual(classify_from_waz(-1.0), 'normal')
-        self.assertEqual(classify_from_waz(-2.5), 'watch')
-        self.assertEqual(classify_from_waz(-3.5), 'risk')
+        self.assertEqual(classify_from_waz(-2.5), 'berisiko')
+        self.assertEqual(classify_from_waz(-3.5), 'malnutrisi')
+
+    def test_classify_from_hcz_thresholds(self):
+        self.assertEqual(classify_from_hcz(-1.0), 'normal')
+        self.assertEqual(classify_from_hcz(-2.5), 'berisiko')
+
+
+class ScoreRiskTests(SimpleTestCase):
+    """
+    score_risk() is the single source of truth for risk_status (used by both
+    GrowthRecordViewSet._score() and assess_child_risk()) — a weighted 0-100
+    combination of HAZ/WHZ/WAZ/HCZ, not just "most severe of N".
+    """
+
+    def test_all_normal_is_normal_with_zero_score(self):
+        result = score_risk(haz=0.0, whz=0.0, waz=0.0)
+        self.assertEqual(result.risk_status, 'normal')
+        self.assertEqual(result.score, 0)
+
+    def test_severely_stunted_haz_alone_is_malnutrisi(self):
+        # HAZ<-3 alone already scores 50 >= 45.
+        result = score_risk(haz=-3.5, whz=0.0, waz=0.0)
+        self.assertEqual(result.risk_status, 'malnutrisi')
+        self.assertEqual(result.score, 50)
+
+    def test_stunted_haz_alone_is_stunting_even_though_score_is_only_30(self):
+        # HAZ<-2 forces at least "stunting" even though 30 < 45 and < 20 isn't
+        # the trigger here — chronic stunting shouldn't get diluted away.
+        result = score_risk(haz=-2.5, whz=0.0, waz=0.0)
+        self.assertEqual(result.risk_status, 'stunting')
+        self.assertEqual(result.score, 30)
+
+    def test_severe_wasting_alone_is_malnutrisi(self):
+        # WHZ<-3 alone scores 45 >= 45, independent of HAZ.
+        result = score_risk(haz=0.0, whz=-3.5, waz=0.0)
+        self.assertEqual(result.risk_status, 'malnutrisi')
+
+    def test_moderate_waz_alone_stays_normal(self):
+        # WAZ<-2 alone scores 15, under the 20-point "berisiko" threshold.
+        result = score_risk(haz=0.0, whz=0.0, waz=-2.5)
+        self.assertEqual(result.score, 15)
+        self.assertEqual(result.risk_status, 'normal')
+
+    def test_combined_moderate_deficits_add_up_to_berisiko(self):
+        # HAZ approaching (-1.5: +12) + WAZ underweight (-2.5: +15) = 27 >= 20
+        # -> "berisiko" even though neither alone crosses its own cutoff.
+        result = score_risk(haz=-1.5, whz=0.0, waz=-2.5)
+        self.assertEqual(result.score, 27)
+        self.assertEqual(result.risk_status, 'berisiko')
+
+    def test_hcz_contributes_to_score_when_provided(self):
+        result_without = score_risk(haz=-1.5, whz=0.0, waz=0.0, hcz=None)
+        result_with = score_risk(haz=-1.5, whz=0.0, waz=0.0, hcz=-2.5)
+        self.assertEqual(result_without.score, 12)
+        self.assertEqual(result_with.score, 27)
+        self.assertIn('HCZ_MICROCEPHALY', result_with.reason_codes)
+
+    def test_score_is_capped_at_100(self):
+        result = score_risk(haz=-4.0, whz=-4.0, waz=-4.0, hcz=-4.0)
+        self.assertEqual(result.score, 100)
+
+    def test_recommendations_are_present_for_every_tier(self):
+        for haz, whz, waz in [(0.0, 0.0, 0.0), (-1.5, 0.0, -2.5), (-2.5, 0.0, 0.0), (-3.5, -3.5, -3.5)]:
+            result = score_risk(haz=haz, whz=whz, waz=waz)
+            self.assertTrue(len(result.recommendations) > 0)
 
 
 class ChildSerializerDateValidationTests(SimpleTestCase):
@@ -316,12 +410,38 @@ class GrowthRecordSerializerPlausibilityValidationTests(TestCase):
         self.assertFalse(serializer.is_valid())
         self.assertIn('weight_kg', serializer.errors)
 
+    def test_rejects_implausible_head_circumference(self):
+        # 15cm head circumference at 5 months (expected ~42cm) puts HCZ far
+        # beyond -5 — head_circumference_cm is optional, so this only fires
+        # when it's actually provided.
+        serializer = GrowthRecordSerializer(data={
+            'child_id': str(self.child.id),
+            'measured_at': '2024-06-01',
+            'weight_kg': 10,
+            'height_cm': 70,
+            'head_circumference_cm': 15,
+            'age_months': 5,
+        })
+        self.assertFalse(serializer.is_valid())
+        self.assertIn('head_circumference_cm', serializer.errors)
+
     def test_accepts_plausible_values(self):
         serializer = GrowthRecordSerializer(data={
             'child_id': str(self.child.id),
             'measured_at': '2024-06-01',
             'weight_kg': 10,
             'height_cm': 70,
+            'age_months': 5,
+        })
+        self.assertTrue(serializer.is_valid(), serializer.errors)
+
+    def test_accepts_plausible_head_circumference(self):
+        serializer = GrowthRecordSerializer(data={
+            'child_id': str(self.child.id),
+            'measured_at': '2024-06-01',
+            'weight_kg': 10,
+            'height_cm': 70,
+            'head_circumference_cm': 42,
             'age_months': 5,
         })
         self.assertTrue(serializer.is_valid(), serializer.errors)

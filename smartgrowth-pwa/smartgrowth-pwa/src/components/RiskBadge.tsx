@@ -1,19 +1,23 @@
-import { AlertTriangle, CheckCircle2, AlertCircle } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, AlertCircle, OctagonAlert } from 'lucide-react';
 import type { RiskStatus } from '@/types';
 import { riskLabel } from '@/features/growth/zscore';
 
 // Color is never the only signal — each status also gets its own icon, so
 // the badge still reads correctly for colorblind users or in grayscale print.
+// 4 tingkat: stunting (kronis) dan malnutrisi (akut parah) sengaja dipisah
+// warnanya (oranye vs merah) karena urgensi rujukannya beda.
 const styles: Record<RiskStatus, string> = {
   normal: 'bg-green-100 text-green-700',
-  watch: 'bg-amber-100 text-amber-700',
-  risk: 'bg-red-100 text-red-700'
+  berisiko: 'bg-amber-100 text-amber-700',
+  stunting: 'bg-orange-100 text-orange-700',
+  malnutrisi: 'bg-red-100 text-red-700'
 };
 
 const icons: Record<RiskStatus, typeof CheckCircle2> = {
   normal: CheckCircle2,
-  watch: AlertCircle,
-  risk: AlertTriangle
+  berisiko: AlertCircle,
+  stunting: AlertTriangle,
+  malnutrisi: OctagonAlert
 };
 
 export function RiskBadge({ status }: { status: RiskStatus }) {

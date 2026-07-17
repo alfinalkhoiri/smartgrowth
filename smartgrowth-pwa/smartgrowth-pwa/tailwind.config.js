@@ -4,31 +4,43 @@ export default {
   theme: {
     extend: {
       colors: {
-        // WHO growth-chart status colors, reused across risk badges/charts
+        // WHO growth-chart status colors, reused across risk badges/charts.
+        // 4 tingkat (normal/berisiko/stunting/malnutrisi) — lihat RiskBadge.tsx.
         risk: {
           normal: '#16a34a',
-          watch: '#f59e0b',
-          risk: '#dc2626'
+          berisiko: '#f59e0b',
+          stunting: '#ea580c',
+          malnutrisi: '#dc2626'
         },
-        // "Accessible & Ethical" design system (healthcare/government/public
-        // sector): calm cyan + health green, WCAG AAA contrast. Matches
-        // Tailwind's own cyan-600/emerald-600 exactly, defined as semantic
-        // tokens so components say `primary`/`accent`, not a raw hue.
+        // Hijau (kesehatan/pertumbuhan) + biru (medis/teknologi) — dikonversi
+        // dari token HSL hijau `152 62% 38%` / biru `198 85% 45%`, sama
+        // dengan skema yang dipakai versi awal aplikasi ini. Tetap didefinisikan
+        // sebagai token semantik (`primary`/`accent`) supaya komponen tidak
+        // perlu tahu nilai hue mentahnya.
         primary: {
-          DEFAULT: '#0891b2',
-          hover: '#0e7490',
-          light: '#ecfeff',
+          DEFAULT: '#259d65',
+          hover: '#1d7c50',
+          light: '#ebfaf3',
           foreground: '#ffffff'
         },
         accent: {
-          DEFAULT: '#059669',
-          hover: '#047857',
+          DEFAULT: '#119ad4',
+          hover: '#0e7baa',
           foreground: '#ffffff'
         }
       },
       fontFamily: {
         sans: [
-          'Figtree',
+          'Plus Jakarta Sans',
+          'ui-sans-serif',
+          'system-ui',
+          '-apple-system',
+          'Segoe UI',
+          'Roboto',
+          'sans-serif'
+        ],
+        display: [
+          'Poppins',
           'ui-sans-serif',
           'system-ui',
           '-apple-system',

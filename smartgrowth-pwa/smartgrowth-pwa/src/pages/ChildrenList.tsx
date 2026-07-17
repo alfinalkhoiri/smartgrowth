@@ -13,8 +13,12 @@ const emptyForm = {
   name: '',
   birthDate: '',
   sex: 'male' as Child['sex'],
+  parentName: '',
+  parentOccupation: '',
   exclusiveBreastfeeding: false,
-  birthWeightKg: ''
+  birthWeightKg: '',
+  birthLengthCm: '',
+  gestationalAgeWeeks: ''
 };
 
 const today = new Date().toISOString().slice(0, 10);
@@ -80,8 +84,12 @@ export default function ChildrenList() {
       name: child.name,
       birthDate: child.birthDate,
       sex: child.sex,
+      parentName: child.parentName ?? '',
+      parentOccupation: child.parentOccupation ?? '',
       exclusiveBreastfeeding: child.exclusiveBreastfeeding ?? false,
-      birthWeightKg: child.birthWeightKg != null ? String(child.birthWeightKg) : ''
+      birthWeightKg: child.birthWeightKg != null ? String(child.birthWeightKg) : '',
+      birthLengthCm: child.birthLengthCm != null ? String(child.birthLengthCm) : '',
+      gestationalAgeWeeks: child.gestationalAgeWeeks != null ? String(child.gestationalAgeWeeks) : ''
     });
     setShowForm(true);
   };
@@ -111,8 +119,12 @@ export default function ChildrenList() {
       name: form.name,
       birthDate: form.birthDate,
       sex: form.sex,
+      parentName: form.parentName,
+      parentOccupation: form.parentOccupation,
       exclusiveBreastfeeding: form.exclusiveBreastfeeding,
-      birthWeightKg: form.birthWeightKg ? Number(form.birthWeightKg) : undefined
+      birthWeightKg: form.birthWeightKg ? Number(form.birthWeightKg) : undefined,
+      birthLengthCm: form.birthLengthCm ? Number(form.birthLengthCm) : undefined,
+      gestationalAgeWeeks: form.gestationalAgeWeeks ? Number(form.gestationalAgeWeeks) : undefined
     };
     try {
       if (editingId) {
@@ -136,7 +148,7 @@ export default function ChildrenList() {
   return (
     <div className="p-4 space-y-3 max-w-2xl mx-auto">
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold text-gray-900">Daftar Balita</h1>
+        <h1 className="text-xl font-display font-semibold text-gray-900">Daftar Balita</h1>
         {canCreate && (
           <button onClick={() => (showForm ? setShowForm(false) : startAdd())} className="btn-primary">
             {showForm ? (
@@ -176,6 +188,30 @@ export default function ChildrenList() {
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
+              <label htmlFor="parent-name" className="field-label">
+                Nama Orang Tua (opsional)
+              </label>
+              <input
+                id="parent-name"
+                className="field-input"
+                value={form.parentName}
+                onChange={(e) => setForm({ ...form, parentName: e.target.value })}
+              />
+            </div>
+            <div>
+              <label htmlFor="parent-occupation" className="field-label">
+                Pekerjaan Orang Tua (opsional)
+              </label>
+              <input
+                id="parent-occupation"
+                className="field-input"
+                value={form.parentOccupation}
+                onChange={(e) => setForm({ ...form, parentOccupation: e.target.value })}
+              />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
               <label htmlFor="child-birthdate" className="field-label">
                 Tanggal Lahir
               </label>
@@ -204,18 +240,45 @@ export default function ChildrenList() {
               </select>
             </div>
           </div>
-          <div>
-            <label htmlFor="child-birthweight" className="field-label">
-              Berat Lahir (kg, opsional)
-            </label>
-            <input
-              id="child-birthweight"
-              type="number"
-              step="0.01"
-              className="field-input"
-              value={form.birthWeightKg}
-              onChange={(e) => setForm({ ...form, birthWeightKg: e.target.value })}
-            />
+          <div className="grid grid-cols-3 gap-3">
+            <div>
+              <label htmlFor="child-birthweight" className="field-label">
+                Berat Lahir (kg, opsional)
+              </label>
+              <input
+                id="child-birthweight"
+                type="number"
+                step="0.01"
+                className="field-input"
+                value={form.birthWeightKg}
+                onChange={(e) => setForm({ ...form, birthWeightKg: e.target.value })}
+              />
+            </div>
+            <div>
+              <label htmlFor="child-birthlength" className="field-label">
+                Panjang Lahir (cm, opsional)
+              </label>
+              <input
+                id="child-birthlength"
+                type="number"
+                step="0.1"
+                className="field-input"
+                value={form.birthLengthCm}
+                onChange={(e) => setForm({ ...form, birthLengthCm: e.target.value })}
+              />
+            </div>
+            <div>
+              <label htmlFor="gestational-age" className="field-label">
+                Usia Kehamilan (minggu, opsional)
+              </label>
+              <input
+                id="gestational-age"
+                type="number"
+                className="field-input"
+                value={form.gestationalAgeWeeks}
+                onChange={(e) => setForm({ ...form, gestationalAgeWeeks: e.target.value })}
+              />
+            </div>
           </div>
           <label className="flex items-center gap-2 text-sm text-gray-600 min-h-[44px]">
             <input

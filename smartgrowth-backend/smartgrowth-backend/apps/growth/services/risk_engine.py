@@ -1,51 +1,55 @@
 """
-Stage 1 risk classification: rule-based, using WHO Height-for-Age Z-score (HAZ).
-This is the clinically-grounded baseline that ships first; the ML/predictive
-layer (Stage 2) sits ON TOP of this later, not instead of it. Keep both layers
-producing a risk_status + reason_codes so the frontend RiskBadge never needs
-to know which layer produced the result.
+Stage 1 risk classification: rule-based, combining WHO Height-for-Age (HAZ),
+Weight-for-Length/Height (WHZ), Weight-for-Age (WAZ) and, optionally,
+Head-Circumference-for-Age (HCZ) Z-scores into a single weighted 0-100 score
+and a 4-tier risk_status. This is the clinically-grounded baseline that ships
+first; the ML/predictive layer (Stage 2) sits ON TOP of this later, not
+instead of it.
 
-`calculate_haz()` and `calculate_whz()` use the official WHO Child Growth
-Standards LMS reference tables (see who_reference.py) via the standard LMS
-formula:
+`calculate_haz()`, `calculate_whz()`, `calculate_waz()` and `calculate_hcz()`
+use the official WHO Child Growth Standards LMS reference tables (see
+who_reference.py) via the standard LMS formula:
     Z = (((measurement / M) ** L) - 1) / (L * S)   if L != 0
     Z = ln(measurement / M) / S                     if L == 0
+
+Four-tier status (normal/berisiko/stunting/malnutrisi, not the earlier
+3-tier normal/watch/risk) because "stunting kronis" (chronic, HAZ-driven)
+and "malnutrisi akut parah" (acute, severe wasting/underweight) carry
+different referral urgency and shouldn't be collapsed into one label —
+matches how Indonesia's own posyandu/Kemenkes practice names these.
 """
 import math
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from typing import Optional
 
-from .who_reference import lms_for_age, lms_for_weight, lms_for_weight_age
+from .who_reference import lms_for_age, lms_for_head_circumference, lms_for_weight, lms_for_weight_age
 
 
-RISK = 'risk'
-WATCH = 'watch'
 NORMAL = 'normal'
+WATCH = 'berisiko'
+STUNTING = 'stunting'
+MALNUTRISI = 'malnutrisi'
 
 
 @dataclass
 class RiskResult:
     risk_status: str
-    reason_codes: list
-
-
-_SEVERITY = {NORMAL: 0, WATCH: 1, RISK: 2}
-
-
-def _more_severe(a: str, b: str) -> str:
-    return a if _SEVERITY[a] >= _SEVERITY[b] else b
+    score: int = 0  # 0-100, higher = more severe
+    reason_codes: list = field(default_factory=list)
+    recommendations: list = field(default_factory=list)
 
 
 def classify_from_haz(haz: float) -> str:
     if haz < -3:
-        return RISK        # Severely stunted
+        return MALNUTRISI   # Severely stunted
     if haz < -2:
-        return WATCH        # Stunted — needs monitoring
+        return STUNTING     # Stunted — needs monitoring
     return NORMAL
 
 
 def classify_from_whz(whz: float) -> str:
     if whz < -3:
-        return RISK        # Gizi buruk — severe acute malnutrition (wasting)
+        return MALNUTRISI   # Gizi buruk — severe acute malnutrition (wasting)
     if whz < -2:
         return WATCH        # Gizi kurang — moderate wasting, needs monitoring
     return NORMAL
@@ -53,28 +57,16 @@ def classify_from_whz(whz: float) -> str:
 
 def classify_from_waz(waz: float) -> str:
     if waz < -3:
-        return RISK        # Berat badan sangat kurang — severely underweight
+        return MALNUTRISI   # Berat badan sangat kurang — severely underweight
     if waz < -2:
         return WATCH        # Berat badan kurang — underweight, needs monitoring
     return NORMAL
 
 
-def classify_growth_record(haz: float, whz: float = None, waz: float = None) -> str:
-    """
-    Combines HAZ (stunting, chronic), WHZ (wasting, acute) and WAZ
-    (underweight) into the single risk_status stored on a GrowthRecord — the
-    most severe of the three, matching Indonesia's own "status gizi" practice
-    (Permenkes No. 2/2020: TB/U, BB/TB, BB/U are each assessed independently,
-    not folded into one number). A child can be underweight without (yet)
-    crossing the stunting or wasting cutoff alone, so WAZ still catches cases
-    HAZ/WHZ individually miss.
-    """
-    status = classify_from_haz(haz)
-    if whz is not None:
-        status = _more_severe(status, classify_from_whz(whz))
-    if waz is not None:
-        status = _more_severe(status, classify_from_waz(waz))
-    return status
+def classify_from_hcz(hcz: float) -> str:
+    if hcz < -2:
+        return WATCH        # Mikrosefali — needs monitoring/referral evaluation
+    return NORMAL
 
 
 def _lms_zscore(measurement: float, L: float, M: float, S: float) -> float:
@@ -115,38 +107,137 @@ def calculate_waz(weight_kg: float, age_months: float, sex: str) -> float:
     return _lms_zscore(weight_kg, L, M, S)
 
 
+def calculate_hcz(head_circumference_cm: float, age_months: float, sex: str) -> float:
+    """
+    Head-Circumference-for-Age Z-score, per the WHO LMS method. An optional
+    supplementary indicator (mainly for microcephaly screening) — not every
+    posyandu measurement includes head circumference, so callers treat this
+    as absent (None) rather than required.
+    """
+    L, M, S = lms_for_head_circumference(age_months, sex)
+    return _lms_zscore(head_circumference_cm, L, M, S)
+
+
+def _tier_recommendations(status: str) -> list:
+    """
+    Advisory recommendations keyed to the overall risk tier (distinct from
+    questionnaire_recommendations() below, which is keyed to specific
+    answered risk-factor fields). Intentionally only ever suggests monitoring/
+    referral/consultation, never a diagnosis.
+    """
+    if status == NORMAL:
+        return [
+            'Pertumbuhan dalam batas normal — lanjutkan pemantauan bulanan di Posyandu.',
+            'Pertahankan pola makan bergizi seimbang sesuai usia.',
+        ]
+    if status == WATCH:
+        return [
+            'Tingkatkan asupan protein hewani (telur, ikan, daging, susu) sesuai usia.',
+            'Pantau berat/tinggi setiap 2 minggu, bukan hanya jadwal bulanan biasa.',
+            'Konsultasikan ke bidan/nakes Posyandu untuk evaluasi lebih lanjut.',
+        ]
+    if status == STUNTING:
+        return [
+            'Rujuk ke Puskesmas untuk evaluasi status gizi lebih lanjut.',
+            'Pertimbangkan pemberian makanan tambahan (PMT) sesuai panduan nakes.',
+            'Periksa riwayat infeksi/sakit berulang yang bisa memperparah stunting.',
+            'Pantau berat/tinggi setiap 2 minggu.',
+        ]
+    return [  # MALNUTRISI
+        'Rujukan segera ke Puskesmas/fasilitas kesehatan — kondisi butuh penanganan cepat.',
+        'Ikuti protokol pemberian makan terapeutik sesuai arahan tenaga kesehatan.',
+        'Periksa kemungkinan penyakit penyerta (komorbiditas) yang memperberat kondisi.',
+        'Pemantauan intensif sampai kondisi membaik.',
+    ]
+
+
+def score_risk(haz: float, whz: float, waz: float, hcz: Optional[float] = None) -> RiskResult:
+    """
+    Weighted scoring combining HAZ (stunting, chronic), WHZ (wasting, acute),
+    WAZ (underweight) and optionally HCZ (head circumference) into a single
+    0-100 risk score, rather than just taking the single worst indicator —
+    lets moderate deficits across multiple indicators add up to something
+    that needs attention even if no single Z-score alone crosses a severe
+    cutoff. HAZ can still force at least the "stunting" tier on its own
+    (chronic stunting shouldn't get diluted away by an otherwise-ok score).
+    """
+    score = 0
+    reasons = []
+
+    if haz < -3:
+        score += 50
+        reasons.append('HAZ_SEVERELY_STUNTED')
+    elif haz < -2:
+        score += 30
+        reasons.append('HAZ_STUNTED')
+    elif haz < -1:
+        score += 12
+        reasons.append('HAZ_APPROACHING_THRESHOLD')
+
+    if whz < -3:
+        score += 45
+        reasons.append('WHZ_SEVERE_WASTING')
+    elif whz < -2:
+        score += 25
+        reasons.append('WHZ_WASTING')
+    elif whz > 3:
+        score += 25
+        reasons.append('WHZ_OBESITY')
+    elif whz > 2:
+        score += 12
+        reasons.append('WHZ_OVERWEIGHT_RISK')
+
+    if waz < -3:
+        score += 25
+        reasons.append('WAZ_SEVERELY_UNDERWEIGHT')
+    elif waz < -2:
+        score += 15
+        reasons.append('WAZ_UNDERWEIGHT')
+
+    if hcz is not None and hcz < -2:
+        score += 15
+        reasons.append('HCZ_MICROCEPHALY')
+
+    score = min(100, score)
+
+    if score >= 45:
+        status = MALNUTRISI
+    elif haz < -2:
+        status = STUNTING   # HAZ alone forces this tier even if total score is lower
+    elif score >= 20:
+        status = WATCH      # "berisiko"
+    else:
+        status = NORMAL
+
+    return RiskResult(
+        risk_status=status, score=score, reason_codes=reasons,
+        recommendations=_tier_recommendations(status),
+    )
+
+
 def assess_child_risk(child, latest_record) -> RiskResult:
     """
-    Combines the HAZ/WHZ-based Stage 1 result with simple risk-factor flags.
-    Stage 2 (ML) should call this first for the baseline, then layer its
-    own prediction as an additional reason code / confidence score.
+    Combines the score_risk() Stage 1 result (HAZ/WHZ/WAZ/HCZ) with simple
+    risk-factor flags from the child's profile. Stage 2 (ML) should call this
+    first for the baseline, then layer its own prediction as an additional
+    reason code / confidence score.
     """
-    reason_codes = []
-    status = NORMAL
+    if latest_record.height_for_age_z is None:
+        return RiskResult(risk_status=NORMAL, score=0)
 
-    if latest_record.height_for_age_z is not None:
-        haz_status = classify_from_haz(float(latest_record.height_for_age_z))
-        if haz_status != NORMAL:
-            reason_codes.append(f'HAZ_BELOW_{-2 if haz_status == WATCH else -3}')
-        status = _more_severe(status, haz_status)
-
-    if latest_record.weight_for_height_z is not None:
-        whz_status = classify_from_whz(float(latest_record.weight_for_height_z))
-        if whz_status != NORMAL:
-            reason_codes.append(f'WHZ_BELOW_{-2 if whz_status == WATCH else -3}')
-        status = _more_severe(status, whz_status)
-
-    if latest_record.weight_for_age_z is not None:
-        waz_status = classify_from_waz(float(latest_record.weight_for_age_z))
-        if waz_status != NORMAL:
-            reason_codes.append(f'WAZ_BELOW_{-2 if waz_status == WATCH else -3}')
-        status = _more_severe(status, waz_status)
+    result = score_risk(
+        haz=float(latest_record.height_for_age_z),
+        whz=float(latest_record.weight_for_height_z) if latest_record.weight_for_height_z is not None else 0.0,
+        waz=float(latest_record.weight_for_age_z) if latest_record.weight_for_age_z is not None else 0.0,
+        hcz=float(latest_record.head_circumference_z) if latest_record.head_circumference_z is not None else None,
+    )
 
     if child.exclusive_breastfeeding is False:
-        reason_codes.append('NO_EXCLUSIVE_BF')
-        status = WATCH if status == NORMAL else status
+        result.reason_codes.append('NO_EXCLUSIVE_BF')
+        if result.risk_status == NORMAL:
+            result.risk_status = WATCH
 
-    return RiskResult(risk_status=status, reason_codes=reason_codes)
+    return result
 
 
 _LOW_BIRTH_WEIGHT_KG = 2.5

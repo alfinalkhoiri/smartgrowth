@@ -15,7 +15,7 @@ export function AppHeader() {
 
   return (
     <div className="sticky top-0 z-40 flex items-center justify-between gap-3 px-4 py-3 bg-white/90 backdrop-blur border-b border-primary-light shadow-sm">
-      <span className="flex items-center gap-1.5 font-semibold text-primary">
+      <span className="flex items-center gap-1.5 font-display font-semibold text-primary">
         <Sprout className="h-5 w-5" strokeWidth={2.25} aria-hidden="true" />
         SmartGrowth
       </span>
