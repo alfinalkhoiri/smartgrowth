@@ -257,7 +257,7 @@ export default function ChildDashboard() {
   return (
     <div className="p-4 space-y-4 max-w-4xl mx-auto">
       <div className="flex items-center justify-between gap-2">
-        <h1 className="text-xl font-display font-bold text-gray-900 truncate">{child?.name ?? 'Grafik Pertumbuhan'}</h1>
+        <h1 className="font-display font-extrabold text-2xl text-gray-900 truncate">{child?.name ?? 'Grafik Pertumbuhan'}</h1>
         <div className="flex items-center gap-2 shrink-0">
           {latest?.riskStatus && <RiskBadge status={latest.riskStatus} />}
           {canCreate && (

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Loader2 } from 'lucide-react';
+import { BarChart3, Loader2 } from 'lucide-react';
 import { growthApi } from '@/api/growth';
 import { RiskBadge } from '@/components/RiskBadge';
 import type { Child, GrowthRecord, RiskStatus } from '@/types';
@@ -35,7 +35,13 @@ export default function Riwayat() {
 
   return (
     <div className="p-4 space-y-4 max-w-4xl mx-auto">
-      <h1 className="text-xl font-display font-bold text-gray-900">Riwayat</h1>
+      <div>
+        <h1 className="flex items-center gap-2 font-display font-extrabold text-2xl text-gray-900">
+          <BarChart3 className="h-6 w-6 text-primary" aria-hidden="true" />
+          Riwayat Skrining
+        </h1>
+        <p className="text-sm text-primary font-medium">{records.length} total pemeriksaan</p>
+      </div>
 
       <div className="grid grid-cols-2 gap-3">
         <div>

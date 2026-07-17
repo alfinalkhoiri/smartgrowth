@@ -1,7 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { Link } from 'react-router-dom';
 import axios from 'axios';
-import { AlertTriangle, Baby, Info, Loader2, Pencil, Plus, Printer, Trash2, Users, X } from 'lucide-react';
+import { AlertTriangle, Baby, Info, Loader2, Pencil, Plus, Printer, Trash2, X } from 'lucide-react';
 import { growthApi } from '@/api/growth';
 import { firstErrorMessage } from '@/api/errors';
 import { authApi } from '@/api/auth';
@@ -149,7 +149,13 @@ export default function ChildrenList() {
   return (
     <div className="p-4 space-y-3 max-w-4xl mx-auto">
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-display font-bold text-gray-900">Daftar Balita</h1>
+        <div>
+          <h1 className="flex items-center gap-2 font-display font-extrabold text-2xl text-gray-900">
+            <Baby className="h-6 w-6 text-primary" aria-hidden="true" />
+            Data Balita
+          </h1>
+          <p className="text-sm text-primary font-medium">{children.length} balita terdaftar</p>
+        </div>
         {canCreate && (
           <button onClick={() => (showForm ? setShowForm(false) : startAdd())} className="btn-primary">
             {showForm ? (
@@ -365,7 +371,7 @@ export default function ChildrenList() {
           ))}
           {children.length === 0 && !showForm && (
             <div className="flex flex-col items-center gap-3 text-center py-12 border-2 border-dashed border-gray-200 rounded-xl">
-              <Users className="h-10 w-10 text-gray-300" aria-hidden="true" />
+              <Baby className="h-14 w-14 text-gray-300" aria-hidden="true" />
               <p className="text-sm text-gray-500">Belum ada balita terdaftar</p>
               {canCreate && (
                 <button onClick={startAdd} className="btn-primary">

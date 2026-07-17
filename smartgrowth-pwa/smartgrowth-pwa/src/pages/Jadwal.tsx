@@ -113,7 +113,13 @@ export default function Jadwal() {
   return (
     <div className="p-4 space-y-4 max-w-4xl mx-auto">
       <div className="flex items-center justify-between gap-2">
-        <h1 className="text-xl font-display font-bold text-gray-900">Jadwal Posyandu</h1>
+        <div>
+          <h1 className="flex items-center gap-2 font-display font-extrabold text-2xl text-gray-900">
+            <CalendarClock className="h-6 w-6 text-primary" aria-hidden="true" />
+            Jadwal Posyandu
+          </h1>
+          <p className="text-sm text-gray-500">Atur dan pantau jadwal kunjungan Posyandu berikutnya.</p>
+        </div>
         {canCreate && (
           <button onClick={() => (showForm ? setShowForm(false) : startAdd())} className="btn-primary">
             {showForm ? (
@@ -206,12 +212,15 @@ export default function Jadwal() {
           <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
           Memuat data...
         </div>
-      ) : schedules.length === 0 ? (
-        <div className="text-center py-12 border-2 border-dashed border-gray-200 rounded-xl">
-          <p className="text-sm text-gray-500">Tidak ada jadwal mendatang.</p>
-        </div>
       ) : (
-        <div className="card divide-y divide-gray-100">
+        <>
+          <p className="font-display font-bold text-gray-900">Akan Datang ({schedules.length})</p>
+          {schedules.length === 0 ? (
+            <div className="text-center py-12 border-2 border-dashed border-gray-200 rounded-xl">
+              <p className="text-sm text-gray-500">Tidak ada jadwal mendatang.</p>
+            </div>
+          ) : (
+            <div className="card divide-y divide-gray-100">
           {schedules.map((schedule) => (
             <div key={schedule.id} className="flex items-center gap-3 p-4">
               <span className="flex items-center justify-center h-10 w-10 rounded-full bg-primary-light text-primary shrink-0">
@@ -246,8 +255,10 @@ export default function Jadwal() {
                 </div>
               )}
             </div>
-          ))}
-        </div>
+              ))}
+            </div>
+          )}
+        </>
       )}
     </div>
   );
