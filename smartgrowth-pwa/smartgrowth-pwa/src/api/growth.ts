@@ -1,6 +1,20 @@
 import { apiClient } from './client';
 import type { Child, GrowthRecord, RiskAssessment, GrowthReference } from '@/types';
 
+// Only growth-record writes can include a photo (File), which requires
+// multipart/form-data — everything else stays plain JSON. Keys stay
+// camelCase; djangorestframework-camel-case's CamelCaseMultiPartParser
+// converts them server-side same as it does for JSON bodies.
+function toRecordBody(payload: Omit<GrowthRecord, 'id'>): Omit<GrowthRecord, 'id'> | FormData {
+  if (!(payload.photo instanceof File)) return payload;
+  const formData = new FormData();
+  for (const [key, value] of Object.entries(payload)) {
+    if (value === undefined || value === null) continue;
+    formData.append(key, value instanceof File ? value : String(value));
+  }
+  return formData;
+}
+
 // Every path below ends in a trailing slash to match DRF's DefaultRouter
 // URL patterns exactly. Django's APPEND_SLASH can't transparently redirect
 // POST/PUT/DELETE without dropping the request body, so a missing slash
@@ -18,9 +32,9 @@ export const growthApi = {
   // Tanpa filter child -> semua pengukuran lintas anak, dipakai halaman Riwayat.
   listAllRecords: () => apiClient.get<GrowthRecord[]>('/growth-records/'),
   createRecord: (payload: Omit<GrowthRecord, 'id'>) =>
-    apiClient.post<GrowthRecord>('/growth-records/', payload),
+    apiClient.post<GrowthRecord>('/growth-records/', toRecordBody(payload)),
   updateRecord: (id: string, payload: Omit<GrowthRecord, 'id'>) =>
-    apiClient.put<GrowthRecord>(`/growth-records/${id}/`, payload),
+    apiClient.put<GrowthRecord>(`/growth-records/${id}/`, toRecordBody(payload)),
   deleteRecord: (id: string) => apiClient.delete(`/growth-records/${id}/`),
 
   getRiskAssessment: (childId: string) =>

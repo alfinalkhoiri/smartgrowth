@@ -3,6 +3,7 @@ smartgrowth-backend/smartgrowth-backend/venv/
 smartgrowth-backend/smartgrowth-backend/.venv/
 smartgrowth-backend/smartgrowth-backend/.env
 smartgrowth-backend/smartgrowth-backend/staticfiles/
+smartgrowth-backend/smartgrowth-backend/media/
 **/__pycache__/
 *.pyc
 *.sqlite3

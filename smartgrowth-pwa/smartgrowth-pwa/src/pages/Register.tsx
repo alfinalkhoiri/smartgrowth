@@ -41,7 +41,7 @@ export default function Register() {
           <span className="flex items-center justify-center h-12 w-12 rounded-2xl bg-primary text-primary-foreground shadow-sm">
             <Sprout className="h-6 w-6" strokeWidth={2.25} aria-hidden="true" />
           </span>
-          <h1 className="text-xl font-display font-semibold text-gray-900">Daftar Akun SmartGrowth</h1>
+          <h1 className="text-xl font-display font-bold text-gray-900">Daftar Akun SmartGrowth</h1>
           <p className="text-sm text-gray-500">Untuk kader posyandu &amp; tenaga kesehatan</p>
         </div>
 

@@ -72,7 +72,7 @@ class GrowthRecordSerializer(serializers.ModelSerializer):
         model = GrowthRecord
         fields = [
             'id', 'child_id', 'measured_at', 'weight_kg', 'height_cm', 'head_circumference_cm', 'age_months',
-            'officer_name', 'location', 'notes',
+            'photo', 'officer_name', 'location', 'notes',
             'clean_water_access', 'recurrent_illness', 'immunization_complete', 'recommendations',
             'height_for_age_z', 'weight_for_height_z', 'weight_for_age_z', 'head_circumference_z',
             'risk_status', 'weight_trend', 'created_at',

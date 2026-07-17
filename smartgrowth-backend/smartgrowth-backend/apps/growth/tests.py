@@ -7,9 +7,11 @@ on 2026-07-14. Each height figure below is WHO's own published SDxneg/SD0
 value for that exact day — this checks that calculate_haz() reproduces WHO's
 own Z-scores from WHO's own published heights, not just internal round-trips.
 """
+import base64
 from datetime import date, datetime, timedelta, timezone as dt_timezone
 from types import SimpleNamespace
 
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import SimpleTestCase, TestCase
 
 from apps.growth.models import Child, GrowthRecord
@@ -659,5 +661,45 @@ class PosyanduScheduleSerializerTests(SimpleTestCase):
         serializer = PosyanduScheduleSerializer(data={
             'scheduled_at': datetime(2026, 8, 1, 9, 0, tzinfo=dt_timezone.utc).isoformat(),
             'location': 'Posyandu Melati',
+        })
+        self.assertTrue(serializer.is_valid(), serializer.errors)
+
+
+# Minimal valid 1x1 transparent PNG — real image bytes so Django's ImageField
+# (which uses Pillow to verify the upload is actually an image) accepts it.
+_ONE_PIXEL_PNG = base64.b64decode(
+    'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII='
+)
+
+
+class GrowthRecordPhotoTests(TestCase):
+    """
+    Documentation-only photo field (see GrowthRecord.photo docstring) — not
+    used for AI-vision estimation, so the only thing worth verifying is that
+    it's genuinely optional and that a real image upload round-trips.
+    """
+
+    def setUp(self):
+        self.child = Child.objects.create(name='Anak Uji', birth_date=date(2024, 1, 1), sex='male')
+
+    def test_photo_is_optional(self):
+        serializer = GrowthRecordSerializer(data={
+            'child_id': str(self.child.id),
+            'measured_at': '2024-06-01',
+            'weight_kg': 10,
+            'height_cm': 70,
+            'age_months': 5,
+        })
+        self.assertTrue(serializer.is_valid(), serializer.errors)
+
+    def test_accepts_a_real_image_upload(self):
+        photo = SimpleUploadedFile('balita.png', _ONE_PIXEL_PNG, content_type='image/png')
+        serializer = GrowthRecordSerializer(data={
+            'child_id': str(self.child.id),
+            'measured_at': '2024-06-01',
+            'weight_kg': 10,
+            'height_cm': 70,
+            'age_months': 5,
+            'photo': photo,
         })
         self.assertTrue(serializer.is_valid(), serializer.errors)

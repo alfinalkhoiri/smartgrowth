@@ -257,7 +257,7 @@ export default function ChildDashboard() {
   return (
     <div className="p-4 space-y-4 max-w-2xl mx-auto">
       <div className="flex items-center justify-between gap-2">
-        <h1 className="text-xl font-display font-semibold text-gray-900 truncate">{child?.name ?? 'Grafik Pertumbuhan'}</h1>
+        <h1 className="text-xl font-display font-bold text-gray-900 truncate">{child?.name ?? 'Grafik Pertumbuhan'}</h1>
         <div className="flex items-center gap-2 shrink-0">
           {latest?.riskStatus && <RiskBadge status={latest.riskStatus} />}
           {canCreate && (
@@ -572,6 +572,13 @@ export default function ChildDashboard() {
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50 print:static print:bg-white print:p-0">
           <div className="print-area bg-white rounded-2xl shadow-lg p-6 w-full max-w-sm space-y-4">
             <h2 className="text-lg font-semibold text-gray-900">Hasil Pengukuran</h2>
+            {typeof resultRecord.photo === 'string' && (
+              <img
+                src={resultRecord.photo}
+                alt={`Foto dokumentasi pengukuran ${resultRecord.measuredAt}`}
+                className="w-full h-40 object-cover rounded-lg"
+              />
+            )}
             {error && (
               <p className="text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2" role="alert">
                 {error}

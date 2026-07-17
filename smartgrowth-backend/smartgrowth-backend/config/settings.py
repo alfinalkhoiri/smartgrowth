@@ -85,6 +85,13 @@ STATIC_URL = 'static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'  # populated by `collectstatic`, served by nginx in production
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
+# Growth-record documentation photos (see GrowthRecord.photo). Served
+# directly by Django (config/urls.py), not nginx — traffic here is kader
+# documentation photos, not public-scale, so skipping a dedicated nginx
+# `location /media/` block is an acceptable simplification for now.
+MEDIA_URL = 'media/'
+MEDIA_ROOT = BASE_DIR / 'media'
+
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
         'rest_framework_simplejwt.authentication.JWTAuthentication',

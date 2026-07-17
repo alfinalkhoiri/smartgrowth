@@ -7,6 +7,7 @@ import { firstErrorMessage } from '@/api/errors';
 import { authApi } from '@/api/auth';
 import { useGrowthStore } from '@/features/growth/store';
 import { RiskBadge } from '@/components/RiskBadge';
+import { Toggle } from '@/components/Toggle';
 import type { Child, GrowthRecord } from '@/types';
 
 const emptyForm = {
@@ -148,7 +149,7 @@ export default function ChildrenList() {
   return (
     <div className="p-4 space-y-3 max-w-2xl mx-auto">
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-display font-semibold text-gray-900">Daftar Balita</h1>
+        <h1 className="text-xl font-display font-bold text-gray-900">Daftar Balita</h1>
         {canCreate && (
           <button onClick={() => (showForm ? setShowForm(false) : startAdd())} className="btn-primary">
             {showForm ? (
@@ -280,15 +281,12 @@ export default function ChildrenList() {
               />
             </div>
           </div>
-          <label className="flex items-center gap-2 text-sm text-gray-600 min-h-[44px]">
-            <input
-              type="checkbox"
-              className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary/30"
-              checked={form.exclusiveBreastfeeding}
-              onChange={(e) => setForm({ ...form, exclusiveBreastfeeding: e.target.checked })}
-            />
-            ASI eksklusif
-          </label>
+          <Toggle
+            id="child-exclusive-breastfeeding"
+            label="ASI Eksklusif 0-6 bulan"
+            checked={form.exclusiveBreastfeeding}
+            onChange={(checked) => setForm({ ...form, exclusiveBreastfeeding: checked })}
+          />
           <button type="submit" disabled={saving} className="btn-primary w-full">
             {saving ? (
               <>
@@ -366,9 +364,14 @@ export default function ChildrenList() {
             </div>
           ))}
           {children.length === 0 && !showForm && (
-            <div className="flex flex-col items-center gap-2 text-center py-12 text-gray-400">
-              <Users className="h-10 w-10" aria-hidden="true" />
-              <p className="text-sm">Belum ada data. Tambahkan balita baru.</p>
+            <div className="flex flex-col items-center gap-3 text-center py-12 border-2 border-dashed border-gray-200 rounded-xl">
+              <Users className="h-10 w-10 text-gray-300" aria-hidden="true" />
+              <p className="text-sm text-gray-500">Belum ada balita terdaftar</p>
+              {canCreate && (
+                <button onClick={startAdd} className="btn-primary">
+                  Tambah Balita Pertama
+                </button>
+              )}
             </div>
           )}
         </>

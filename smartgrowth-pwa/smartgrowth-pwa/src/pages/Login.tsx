@@ -31,7 +31,7 @@ export default function Login() {
           <span className="flex items-center justify-center h-12 w-12 rounded-2xl bg-primary text-primary-foreground shadow-sm">
             <Sprout className="h-6 w-6" strokeWidth={2.25} aria-hidden="true" />
           </span>
-          <h1 className="text-xl font-display font-semibold text-gray-900">Masuk SmartGrowth</h1>
+          <h1 className="text-xl font-display font-bold text-gray-900">Masuk SmartGrowth</h1>
           <p className="text-sm text-gray-500">Deteksi dini risiko stunting &amp; wasting balita</p>
         </div>
 

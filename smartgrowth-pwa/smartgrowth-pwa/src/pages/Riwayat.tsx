@@ -35,7 +35,7 @@ export default function Riwayat() {
 
   return (
     <div className="p-4 space-y-4 max-w-2xl mx-auto">
-      <h1 className="text-xl font-display font-semibold text-gray-900">Riwayat</h1>
+      <h1 className="text-xl font-display font-bold text-gray-900">Riwayat</h1>
 
       <div className="grid grid-cols-2 gap-3">
         <div>
@@ -81,7 +81,9 @@ export default function Riwayat() {
           Memuat data...
         </div>
       ) : filtered.length === 0 ? (
-        <p className="text-sm text-gray-400 text-center py-10">Tidak ada riwayat pengukuran.</p>
+        <div className="text-center py-12 border-2 border-dashed border-gray-200 rounded-xl">
+          <p className="text-sm text-gray-500">Belum ada riwayat skrining.</p>
+        </div>
       ) : (
         <div className="card divide-y divide-gray-100">
           {filtered.map((record) => (

@@ -9,6 +9,7 @@ import {
   LayoutDashboard,
   LogOut,
   Menu,
+  ShieldAlert,
   Sprout,
   X
 } from 'lucide-react';
@@ -34,14 +35,14 @@ export function AppLayout() {
   };
 
   const linkClass = ({ isActive }: { isActive: boolean }) =>
-    `flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+    `flex items-center gap-1.5 px-2.5 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${
       isActive ? 'bg-primary-light text-primary' : 'text-gray-600 hover:bg-primary-light hover:text-primary'
     }`;
 
   return (
     <div className="min-h-screen bg-primary-light/60 font-sans">
       <div className="sticky top-0 z-40 bg-white/90 backdrop-blur border-b border-primary-light shadow-sm">
-        <div className="flex items-center gap-3 px-4 py-3 max-w-5xl mx-auto">
+        <div className="flex items-center gap-2 px-4 py-3 max-w-6xl mx-auto">
           <button
             className="md:hidden flex items-center justify-center h-11 w-11 rounded-lg text-gray-600 hover:bg-primary-light"
             onClick={() => setOpen(!open)}
@@ -49,9 +50,12 @@ export function AppLayout() {
           >
             {open ? <X className="h-5 w-5" aria-hidden="true" /> : <Menu className="h-5 w-5" aria-hidden="true" />}
           </button>
-          <span className="flex items-center gap-1.5 font-display font-semibold text-primary">
-            <Sprout className="h-5 w-5" strokeWidth={2.25} aria-hidden="true" />
-            SmartGrowth
+          <span className="flex items-center gap-1.5">
+            <Sprout className="h-5 w-5 text-primary shrink-0" strokeWidth={2.25} aria-hidden="true" />
+            <span className="leading-tight">
+              <span className="block font-display font-semibold text-primary">SmartGrowth</span>
+              <span className="hidden sm:block text-[11px] text-gray-400">Tele-Screening Stunting &middot; Posyandu</span>
+            </span>
           </span>
           <nav className="ml-auto hidden md:flex items-center gap-1">
             {nav.map((n) => (
@@ -89,9 +93,22 @@ export function AppLayout() {
           </nav>
         )}
       </div>
-      <main className="max-w-5xl mx-auto">
+      <main className="max-w-6xl mx-auto">
         <Outlet />
       </main>
+      <footer className="border-t border-primary-light bg-white mt-10">
+        <div className="max-w-6xl mx-auto px-4 py-4 text-xs text-gray-500 flex flex-col sm:flex-row gap-2 sm:items-center sm:justify-between">
+          <p className="flex items-start gap-1.5 max-w-3xl">
+            <ShieldAlert className="h-4 w-4 mt-0.5 text-amber-500 shrink-0" aria-hidden="true" />
+            <span>
+              <span className="font-semibold text-gray-700">Disclaimer:</span> Aplikasi ini adalah alat skrining awal
+              berbasis standar WHO dan AI sederhana. Tidak menggantikan diagnosis dokter atau ahli gizi. Selalu
+              konsultasikan hasil ke tenaga kesehatan.
+            </span>
+          </p>
+          <p className="shrink-0">&copy; {new Date().getFullYear()} SmartGrowth</p>
+        </div>
+      </footer>
     </div>
   );
 }

@@ -113,7 +113,7 @@ export default function Jadwal() {
   return (
     <div className="p-4 space-y-4 max-w-2xl mx-auto">
       <div className="flex items-center justify-between gap-2">
-        <h1 className="text-xl font-display font-semibold text-gray-900">Jadwal Posyandu</h1>
+        <h1 className="text-xl font-display font-bold text-gray-900">Jadwal Posyandu</h1>
         {canCreate && (
           <button onClick={() => (showForm ? setShowForm(false) : startAdd())} className="btn-primary">
             {showForm ? (
@@ -205,7 +205,9 @@ export default function Jadwal() {
           Memuat data...
         </div>
       ) : schedules.length === 0 ? (
-        <p className="text-sm text-gray-400 text-center py-10">Belum ada jadwal posyandu.</p>
+        <div className="text-center py-12 border-2 border-dashed border-gray-200 rounded-xl">
+          <p className="text-sm text-gray-500">Tidak ada jadwal mendatang.</p>
+        </div>
       ) : (
         <div className="card divide-y divide-gray-100">
           {schedules.map((schedule) => (

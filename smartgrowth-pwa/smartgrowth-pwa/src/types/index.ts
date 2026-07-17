@@ -27,6 +27,9 @@ export interface GrowthRecord {
   weightKg: number;
   heightCm: number;
   headCircumferenceCm?: number; // opsional, WHO Head-Circumference-for-Age
+  // Dokumentasi saja, bukan input AI-vision. String (URL) saat dibaca dari
+  // API; File saat dikirim ke growthApi.createRecord() untuk diunggah.
+  photo?: string | File;
   ageMonths: number;
   officerName?: string;
   location?: string;

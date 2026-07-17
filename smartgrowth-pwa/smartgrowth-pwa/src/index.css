@@ -45,29 +45,29 @@ body {
     @apply block text-sm font-medium text-gray-700 mb-1;
   }
   .field-input {
-    @apply w-full min-h-[44px] border border-gray-300 rounded-lg px-3 py-2 text-gray-900
+    @apply w-full min-h-[44px] border border-gray-300 rounded-[0.625rem] px-3 py-2 text-gray-900
       placeholder:text-gray-400 focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none;
   }
   .btn-primary {
-    @apply inline-flex items-center justify-center gap-2 min-h-[44px] px-4 rounded-lg
+    @apply inline-flex items-center justify-center gap-2 min-h-[44px] px-4 rounded-[0.625rem]
       bg-primary text-primary-foreground font-medium hover:bg-primary-hover active:bg-primary-hover
       disabled:opacity-50 disabled:pointer-events-none;
   }
   .btn-secondary {
-    @apply inline-flex items-center justify-center gap-2 min-h-[44px] px-4 rounded-lg
+    @apply inline-flex items-center justify-center gap-2 min-h-[44px] px-4 rounded-[0.625rem]
       bg-gray-100 text-gray-700 font-medium hover:bg-gray-200 active:bg-gray-200
       disabled:opacity-50 disabled:pointer-events-none;
   }
   .btn-ghost {
-    @apply inline-flex items-center justify-center gap-1.5 min-h-[44px] px-3 rounded-lg
+    @apply inline-flex items-center justify-center gap-1.5 min-h-[44px] px-3 rounded-[0.625rem]
       text-gray-600 font-medium hover:bg-primary-light active:bg-primary-light;
   }
   .btn-ghost-danger {
-    @apply inline-flex items-center justify-center gap-1.5 min-h-[44px] px-3 rounded-lg
+    @apply inline-flex items-center justify-center gap-1.5 min-h-[44px] px-3 rounded-[0.625rem]
       text-red-600 font-medium hover:bg-red-50 active:bg-red-50;
   }
   .card {
-    @apply bg-white rounded-2xl shadow-sm;
+    @apply bg-white rounded-xl shadow-card;
   }
 }
 

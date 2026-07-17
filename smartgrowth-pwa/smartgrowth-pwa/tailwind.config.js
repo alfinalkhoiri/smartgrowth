@@ -29,6 +29,18 @@ export default {
           foreground: '#ffffff'
         }
       },
+      backgroundImage: {
+        // 3-stop hero gradient (hijau -> teal -> biru) — dipakai di banner
+        // Beranda. Nilai hex diambil dari computed style asli (hsl(152 70%
+        // 45%)/hsl(180 65% 45%)/hsl(198 85% 50%)).
+        'gradient-hero': 'linear-gradient(135deg, #22c378 0%, #28bdbd 50%, #13abec 100%)'
+      },
+      boxShadow: {
+        // Nilai persis diambil dari computed style, bukan tebakan.
+        soft: '0 2px 12px -2px rgba(37, 92, 61, 0.08)',
+        card: '0 4px 20px -4px rgba(31, 58, 71, 0.08)',
+        elegant: '0 12px 40px -8px rgba(31, 92, 61, 0.18)'
+      },
       fontFamily: {
         sans: [
           'Plus Jakarta Sans',

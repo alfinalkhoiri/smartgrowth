@@ -349,7 +349,7 @@ tombolnya sesuai role.
 | POST           | `/api/auth/register`               | `RegisterView`        | Publik (`AllowAny`); role terbatas ke kader/nakes/viewer (admin tidak bisa daftar sendiri); mengembalikan `{access, refresh}` langsung, klaim role juga disematkan |
 | GET/POST       | `/api/children/`                   | `ChildViewSet`        | `?search=` berdasarkan nama; response array polos (tanpa pagination); POST butuh role kader/nakes/admin                                |
 | GET/PUT/DELETE | `/api/children/<id>/`              | `ChildViewSet`        | PUT/DELETE butuh role nakes/admin                                                                                                      |
-| GET/POST       | `/api/growth-records/`             | `GrowthRecordViewSet` | Filter dengan `?child=<uuid>`; field `officer_name`/`location`/`notes`/`head_circumference_cm` opsional (tidak diikutkan saat update = nilai lama tidak berubah); `height_for_age_z`/`weight_for_height_z`/`weight_for_age_z`/`head_circumference_z`/`risk_status` dihitung otomatis saat create/update |
+| GET/POST       | `/api/growth-records/`             | `GrowthRecordViewSet` | Filter dengan `?child=<uuid>`; field `officer_name`/`location`/`notes`/`head_circumference_cm`/`photo` opsional (tidak diikutkan saat update = nilai lama tidak berubah); `photo` butuh `multipart/form-data` (sudah didukung `CamelCaseMultiPartParser`) kalau diisi; `height_for_age_z`/`weight_for_height_z`/`weight_for_age_z`/`head_circumference_z`/`risk_status` dihitung otomatis saat create/update |
 | GET/PUT/DELETE | `/api/growth-records/<id>/`        | `GrowthRecordViewSet` | PUT/DELETE butuh role nakes/admin                                                                                                      |
 | GET            | `/api/risk-assessment/<child_id>/` | `RiskAssessmentView`  | Membuat `RiskAssessment` baru setiap kali dipanggil; semua role boleh akses                                                            |
 | GET            | `/api/growth-reference/`           | `GrowthReferenceView` | Query params `sex`, `ageMonths` (wajib), `heightCm` (opsional); rentang -2SD..+2SD WHO sebagai panduan input, bukan validasi; `IsAuthenticated` saja, semua role boleh akses |
@@ -362,6 +362,20 @@ Semua request/response JSON otomatis dikonversi camelCase ⇄ snake_case oleh
 `djangorestframework-camel-case`, jadi frontend (yang pakai camelCase di
 `src/types/index.ts`) dan backend (yang pakai snake_case di model Django)
 tidak perlu saling menyesuaikan penamaan secara manual.
+
+## Foto balita (dokumentasi, bukan AI-vision)
+
+- `GrowthRecord.photo` (opsional, `ImageField`) — dokumentasi pertumbuhan
+  saja, **tidak** dipakai untuk estimasi ukuran otomatis dari gambar
+  (butuh sensor depth/ToF + dataset besar yang tidak tersedia di sini).
+- Perlu `Pillow` (validasi file benar-benar gambar) — sudah di
+  `requirements.txt`.
+- Disimpan di `MEDIA_ROOT` (`media/`) dan disajikan langsung oleh Django
+  lewat `config/urls.py` (bukan lewat nginx) — trafiknya kecil (foto
+  dokumentasi kader, bukan skala publik), jadi ini simplifikasi yang
+  disengaja, bukan kelalaian konfigurasi produksi.
+- Butuh folder `media/` dengan permission `www-data` di VPS setelah
+  deploy pertama kali (`mkdir -p media && chown www-data:www-data media`).
 
 ## TODO (sisa pekerjaan)
 

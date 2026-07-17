@@ -49,6 +49,13 @@ class GrowthRecord(models.Model):
         help_text='Lingkar kepala — opsional, standar WHO Head-Circumference-for-Age, indikator tambahan mikrosefali'
     )
     age_months = models.PositiveIntegerField(help_text='Usia anak saat pengukuran, dalam bulan')
+    # Documentation only — NOT used for automated size estimation from image.
+    # Photo-based anthropometry (e.g. depth/ToF-sensor apps) needs hardware
+    # and a labeled dataset this project doesn't have; out of scope here.
+    photo = models.ImageField(
+        upload_to='growth_photos/%Y/%m/', null=True, blank=True,
+        help_text='Foto balita opsional — dokumentasi pertumbuhan, bukan input AI-vision'
+    )
     officer_name = models.CharField(
         max_length=150, blank=True, default='', help_text='Nama petugas yang melakukan pengukuran'
     )
