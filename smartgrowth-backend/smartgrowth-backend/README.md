@@ -5,8 +5,9 @@
 1. **Daftar / Masuk** — buka frontend, daftar akun baru lewat halaman
    Register sebagai **Kader/Nakes** (satu-satunya peran yang bisa
    self-register lewat form ini, butuh kode posyandu — lihat "Peran &
-   tautan orang tua" di bawah), atau masuk lewat halaman Login kalau sudah
-   punya akun. Admin tidak bisa daftar sendiri — dibuat lewat
+   tautan orang tua" di bawah), dengan email dan no. HP **wajib** diisi
+   (lokasi klinik/posyandu opsional), atau masuk lewat halaman Login kalau
+   sudah punya akun. Admin tidak bisa daftar sendiri — dibuat lewat
    `createsuperuser`. Orang tua tidak mendaftar akun sama sekali — lihat
    "Fase 2: dashboard orang tua tanpa login" di bawah, jalur yang mereka
    pakai sekarang.
@@ -250,14 +251,18 @@ u.save()
   `GrowthRecordSerializer` — selalu konsisten dengan logic terbaru tanpa perlu
   migrasi data lama.
 - Pembagian kerja di frontend: **kader/nakes** mengisi kuesionernya langsung
-  di form tambah/edit pengukuran (`ChildDashboard.tsx`) — masuk akal karena
+  di form tambah/edit pengukuran (`Skrining.tsx`) — masuk akal karena
   merekalah yang langsung berhadapan dengan orang tua saat pengukuran di
-  lapangan. **kader_nakes** yang melihat `recommendations` di popup "Hasil
-  Pengukuran" (`canEditDelete` gate, jadi otomatis tersembunyi dari
-  orangtua untuk saat ini) — bahasanya masih ditujukan untuk disampaikan
-  petugas ke orang tua saat konsultasi, belum ditulis ulang jadi bahasa
-  awam untuk tampil langsung ke orangtua (bagian dari UI orangtua yang
-  belum dikerjakan, lihat "Peran & tautan orang tua").
+  lapangan. `recommendations` (dan `notes`) ditampilkan di tab
+  **Rekomendasi** (`RecommendationsPanel.tsx`) — tab ini tampil identik di
+  `ChildDashboard.tsx` (kader/nakes) **maupun** `PublicChildView.tsx`
+  (orang tua lewat link/QR Fase 2, tanpa login), jadi orang tua sekarang
+  juga langsung melihat rekomendasi ini, bukan cuma kader/nakes. Popup
+  "Hasil Pengukuran" di `ChildDashboard.tsx` yang lama masih menampilkan
+  `recommendations` di balik `canEditDelete` gate (khusus per-record), tapi
+  itu terpisah dari tab Rekomendasi yang sudah tidak digerbangi role.
+  Bahasanya masih ditujukan gaya "petugas ke orang tua saat konsultasi",
+  belum ditulis ulang jadi bahasa awam murni.
 - Lihat bagian "Klasifikasi risiko" di atas untuk ambang batas
   `score_risk()` yang menentukan `risk_status`. Ini murni Tahap 1
   (rule-based) — model ML Tahap 2 nanti menambah lapisan di atasnya, bukan
@@ -403,9 +408,20 @@ kebetulan salah lihat data anak keluarga lain.
   ketik manual.
 - **`GET /api/auth/users`** (`UserListView`, admin-only lewat `IsAppAdmin`)
   — daftar seluruh akun terdaftar (`UserListSerializer`: username, email,
-  role, phone_number, is_superuser, is_active, date_joined), read-only.
-  Frontend merender ini sebagai halaman "List User", juga di bawah menu
-  **Setting**.
+  role, phone_number, posyandu_location, is_superuser, is_active,
+  date_joined), read-only. Frontend merender ini sebagai halaman "List
+  User", juga di bawah menu **Setting**.
+- **`DELETE /api/auth/users/<id>`** (`UserDetailView`, admin-only lewat
+  `IsAppAdmin`) — menghapus akun. Menolak (`400`) kalau admin mencoba
+  menghapus akunnya sendiri lewat `perform_destroy()` — satu-satunya
+  jebakan nyata di sini: admin yang terkunci dari akunnya sendiri tidak
+  punya jalan pulih dari UI, cuma lewat `createsuperuser`/shell. Frontend
+  menyembunyikan tombol hapus di baris akun yang sedang login (pakai klaim
+  `user_id` bawaan SimpleJWT di JWT) sebagai lapisan UX tambahan, bukan
+  pengganti validasi di atas.
+- **`User.posyandu_location`** (`apps/accounts/models.py`) — informasional
+  saja (klinik/posyandu tempat kader/nakes bertugas), terpisah dari
+  `Child.posyandu_location` yang scoping-nya per balita, bukan per akun.
 - **Menu Setting** (`pages/Setting.tsx`, `AppLayout.tsx`) — satu item nav
   "Setting" yang hanya tampil untuk admin, membuka halaman menu berisi dua
   tautan: **List User** (`/admin/setting/users`) dan **Kode Posyandu**
@@ -460,9 +476,10 @@ mengganggu apa pun kalau dibiarkan.
 | -------------- | ---------------------------------- | --------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
 | POST           | `/api/auth/login`                  | `RoleTokenObtainPairView` | Mengembalikan `{access, refresh}` dari SimpleJWT, dengan klaim `role`/`is_superuser`/`username` disematkan ke JWT (dipakai frontend untuk show/hide tombol) |
 | POST           | `/api/auth/refresh`                | `TokenRefreshView`    |                                                                                                                                        |
-| POST           | `/api/auth/register`               | `RegisterView`        | Publik (`AllowAny`); role terbatas ke kader_nakes/orangtua (admin tidak bisa daftar sendiri); kader_nakes butuh `invite_code` yang cocok dengan `RegistrationInviteCode.load().code`; mengembalikan `{access, refresh}` langsung, klaim role juga disematkan |
+| POST           | `/api/auth/register`               | `RegisterView`        | Publik (`AllowAny`); role terbatas ke kader_nakes/orangtua (admin tidak bisa daftar sendiri); `email`/`phone_number` wajib diisi (khusus lewat serializer ini, field model tetap `blank=True`); kader_nakes butuh `invite_code` yang cocok dengan `RegistrationInviteCode.load().code`; mengembalikan `{access, refresh}` langsung, klaim role juga disematkan |
 | GET/POST       | `/api/auth/invite-code`            | `InviteCodeView`      | Admin-only (`IsAppAdmin`); GET lihat kode saat ini, POST bikin kode baru (kode lama langsung tidak berlaku) |
 | GET            | `/api/auth/users`                  | `UserListView`        | Admin-only (`IsAppAdmin`); daftar seluruh akun terdaftar, read-only, tanpa pagination |
+| DELETE         | `/api/auth/users/<id>`             | `UserDetailView`      | Admin-only (`IsAppAdmin`); menolak (`400`) kalau admin menghapus akunnya sendiri |
 | GET/POST       | `/api/children/`                   | `ChildViewSet`        | `?search=` berdasarkan nama; response array polos (tanpa pagination); daftar sudah discoping lewat `visible_children()`; POST/PUT/DELETE butuh role kader_nakes/admin |
 | GET/PUT/DELETE | `/api/children/<id>/`              | `ChildViewSet`        | GET balita yang belum ditautkan (orangtua) → 404; PUT/DELETE butuh role kader_nakes/admin |
 | POST           | `/api/children/link/`              | `LinkChildView`       | `{code}` — orangtua menautkan diri sendiri ke balita lewat `link_code`; kode salah → 400 |

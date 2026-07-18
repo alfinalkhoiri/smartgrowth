@@ -94,6 +94,7 @@ export default function Register() {
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               autoComplete="username"
+              placeholder="cth: kader_melati"
               required
             />
             <FieldError message={fieldErrors.username} />
@@ -109,6 +110,7 @@ export default function Register() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               autoComplete="new-password"
+              placeholder="Minimal 8 karakter"
               required
             />
             <FieldError message={fieldErrors.password} />

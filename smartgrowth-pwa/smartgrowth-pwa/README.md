@@ -21,9 +21,13 @@ src/
                     # RiskBadge (4-tier), Toggle (switch input), etc.
   lib/
     dates.ts        # monthsBetween()
-    pdf.ts          # jsPDF/jsPDF-autotable report generator, lazy-loaded
-                    # via dynamic import (see ChildDashboard.tsx) so the
-                    # ~450KB gzipped library isn't in the main bundle
+    pdf.ts          # jsPDF/jsPDF-autotable report generator (branded
+                    # header, risk callout, history table, Rekomendasi &
+                    # Catatan Petugas, nutrition tips, QR call-to-action),
+                    # lazy-loaded via dynamic import (see ChildDashboard.tsx)
+                    # so the ~450KB gzipped library isn't in the main bundle
+                    # — exports generateChildReport() (download) and
+                    # printChildReport() (print, see "Laporan PDF" below)
   pages/            # Dashboard (Beranda), Skrining, ChildrenList (Data
                     # Balita), ChildDashboard, Riwayat, Edukasi, Jadwal,
                     # Login, Register, Setting + UserList + KodePosyandu
@@ -122,10 +126,14 @@ the app (`src/api/auth.ts`). Registration is public but only for
 at all (the role selector was removed entirely; the payload always sends
 `role: 'kader_nakes'`), and the `inviteCode` field (matching the backend's
 `RegistrationInviteCode`, managed on the Setting → Kode Posyandu page) is
-always shown and required, not conditional on a role pick anymore. The
-`orangtua` role still exists server-side (`PUBLIC_ROLE_CHOICES` in the
-backend still lists it) but nothing in the UI creates one anymore — parents
-use the no-login QR flow below instead. Admin accounts aren't publicly
+always shown and required, not conditional on a role pick anymore. Username,
+password, email, and phone number all have placeholders and `required` on
+the `<input>` (browser-level validation, not just server-side); email/phone
+are enforced server-side too (`RegisterSerializer`), while the optional
+"Lokasi Klinik/Posyandu" field (`posyanduLocation`) isn't. The `orangtua`
+role still exists server-side (`PUBLIC_ROLE_CHOICES` in the backend still
+lists it) but nothing in the UI creates one anymore — parents use the
+no-login QR flow below instead. Admin accounts aren't publicly
 self-serviceable. `authApi.canCreate()`/`canEditDelete()` are both true for
 kader_nakes/admin and both false for orangtua — there's no longer a
 create-vs-edit split like the old kader/nakes roles had. `RequireAuth` in
@@ -151,10 +159,19 @@ the latest measurement's data: the "Hasil" tab has the latest result
 and `metric="weight"`, shown as soon as there's **1+** record — the gate used
 to require 2+, changed once single-measurement children were found to render
 no chart at all) plus the read-only measurement history list;
-"Rekomendasi" renders `RecommendationsPanel`; "Edukasi" renders
-`EducationTips` (tips + concrete food/drink examples from
-`lib/nutritionTips.ts`, keyed off risk status). A 404 renders as "Link tidak
-valid atau sudah tidak berlaku" rather than any kind of login prompt.
+"Rekomendasi" renders `RecommendationsPanel` — one card with the latest
+measurement's date/weight/height/HAZ/WHZ/WAZ (plus officer name/posyandu
+location, but **only** when rendered from `ChildDashboard.tsx`; this page's
+`PublicGrowthRecord` doesn't carry those fields, so that line just doesn't
+appear here — see the backend README's privacy note on
+`PublicGrowthRecordSerializer`), then a "Dari Kuesioner" subsection that
+**always** renders — either the specific recommendations or, if none were
+flagged, a "tidak ada faktor risiko tambahan" confirmation, so it never
+looks like the questionnaire silently did nothing — and a "Catatan Petugas"
+block when `notes` is present. "Edukasi" renders `EducationTips` (tips +
+concrete food/drink examples from `lib/nutritionTips.ts`, keyed off risk
+status). A 404 renders as "Link tidak valid atau sudah tidak berlaku" rather
+than any kind of login prompt.
 
 `GrowthChart.tsx` takes a `metric: 'height' | 'weight'` prop and a
 structurally-typed `{ ageMonths, heightCm, weightKg }[]` records array (not
@@ -190,8 +207,14 @@ just hidden from nav):
 
 - **`pages/UserList.tsx`** (`/admin/setting/users`) — fetches
   `GET /api/auth/users` (`authApi.listUsers()`) and renders every registered
-  account in a table (username, role badge, email, phone, join date). Read
-  only — no edit/deactivate actions, since none were asked for.
+  account in a table (username, role badge, email, phone, posyandu/clinic
+  location, join date). Each row has a delete button (`authApi.deleteUser()`
+  → `DELETE /api/auth/users/<id>`, `window.confirm`'d first) **except** the
+  row matching the logged-in admin's own `user_id` (decoded from the JWT —
+  SimpleJWT's default claim, not one `RoleTokenObtainPairSerializer` adds
+  itself) — the backend also rejects self-deletion with a 400, this is just
+  the UI not offering a button that would always fail anyway. No edit action,
+  since none was asked for.
 - **`pages/KodePosyandu.tsx`** (`/admin/setting/kode-posyandu`, moved from
   the old standalone `/admin/kode-posyandu`) — shows the current
   kader_nakes registration code as text (with a copy button) and as a QR
@@ -205,6 +228,35 @@ just hidden from nav):
   invalidates the old code/QR — confirmed via `window.confirm` before
   calling it, since anyone who hasn't registered yet with the old QR would
   need a reprint.
+
+## Laporan PDF (unduh & cetak)
+
+`lib/pdf.ts` builds one jsPDF doc (`buildChildReportDoc()`) shared by two
+entry points:
+
+- **`generateChildReport()`** — `doc.save(...)`, triggered by "Unduh Laporan
+  PDF" in `ChildDashboard.tsx`.
+- **`printChildReport()`** — triggers the browser's native print dialog for
+  the same report, from the "Cetak Laporan" button next to it. This does
+  **not** `window.open()` a new tab — an earlier version did, and it turned
+  out to fail silently in real testing: building the doc needs a few awaits
+  (dynamic imports + the QR fetch), and by the time `window.open()` would
+  run, the browser had often already dropped the click's "user activation",
+  so the popup opened but a *later* navigation to the blob PDF URL inside it
+  got silently blocked (no error, just a permanently blank tab). The fix was
+  a hidden same-page `<iframe>` instead: set its `src` to the blob URL, wait
+  for `onload`, then call `.contentWindow.print()` — no new-tab/popup
+  machinery involved at all, so there's no activation window to lose.
+
+The report itself: a branded header band, child profile, a colored risk
+status callout (same 4-tier palette as `RiskBadge.tsx`), the full
+measurement history table (now with a weight-trend column and a 2T alert
+banner when `child.growthAlert === '2T'`), a "Rekomendasi & Catatan
+Petugas" section mirroring `RecommendationsPanel.tsx`, nutrition tips +
+concrete food examples from `lib/nutritionTips.ts`, and — when
+`child.publicToken` is set — a QR call-to-action box encoding the same
+`#/p/:token` link as `ParentDashboardQr.tsx`, framed as "keep monitoring
+progress" rather than just a bare QR code.
 
 ## Design system
 
