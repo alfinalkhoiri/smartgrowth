@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import axios from 'axios';
 import {
@@ -8,21 +8,25 @@ import {
   Download,
   Info,
   Loader2,
+  Pencil,
   Plus,
   Printer,
   Ruler,
   Scale,
-  Trash2
+  Trash2,
+  X
 } from 'lucide-react';
 import { growthApi } from '@/api/growth';
-import { firstErrorMessage } from '@/api/errors';
+import { firstErrorMessage, parseFieldErrors } from '@/api/errors';
 import { authApi } from '@/api/auth';
 import { useGrowthStore } from '@/features/growth/store';
+import { FieldError } from '@/components/FieldError';
 import { GrowthChart } from '@/components/GrowthChart';
 import { ParentDashboardQr } from '@/components/ParentDashboardQr';
 import { RiskBadge } from '@/components/RiskBadge';
 import { riskDescription } from '@/features/growth/zscore';
-import type { Child, GrowthRecord } from '@/types';
+import { monthsBetween } from '@/lib/dates';
+import type { Child, GrowthRecord, GrowthReference } from '@/types';
 
 const riskDotStyles: Record<string, string> = {
   normal: 'bg-green-500',
@@ -30,6 +34,19 @@ const riskDotStyles: Record<string, string> = {
   stunting: 'bg-orange-500',
   malnutrisi: 'bg-red-500'
 };
+
+// Edit-only (correcting an existing measurement) — creating new ones only
+// ever happens via Skrining.tsx now, so officerName/kuesioner/notes aren't
+// here: those are entered once at Skrining and not meant to be re-editable
+// from this page, avoiding a second input path for the same data.
+const emptyForm = {
+  measuredAt: '',
+  weightKg: '',
+  heightCm: '',
+  headCircumferenceCm: '',
+  location: ''
+};
+const today = new Date().toISOString().slice(0, 10);
 
 export default function ChildDashboard() {
   const { childId } = useParams<{ childId: string }>();
@@ -41,13 +58,18 @@ export default function ChildDashboard() {
 
   const [child, setChild] = useState<Child | null>(null);
   const [loadingData, setLoadingData] = useState(true);
+  const [showForm, setShowForm] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [form, setForm] = useState(emptyForm);
+  const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [resultRecord, setResultRecord] = useState<GrowthRecord | null>(null);
-  const [noteDraft, setNoteDraft] = useState('');
-  const [savingNote, setSavingNote] = useState(false);
+  const [reference, setReference] = useState<GrowthReference | null>(null);
   const [generatingReport, setGeneratingReport] = useState(false);
   const canCreate = authApi.canCreate();
   const canEditDelete = authApi.canEditDelete();
+  const inputClass = (field: string) => `field-input${fieldErrors[field] ? ' field-input-error' : ''}`;
 
   // jspdf/jspdf-autotable are only loaded on demand (not in the main bundle)
   // — most sessions never touch this button, and the PWA precache/initial
@@ -84,10 +106,40 @@ export default function ChildDashboard() {
 
   const latest = records[records.length - 1];
 
+  // Debounced so retyping the height doesn't fire a request per keystroke;
+  // only shown while the edit form is open since it's just an input-time guide.
+  useEffect(() => {
+    if (!showForm || !child || !form.measuredAt) {
+      setReference(null);
+      return;
+    }
+    const ageMonths = monthsBetween(child.birthDate, form.measuredAt);
+    const heightCm = Number(form.heightCm);
+    const timer = setTimeout(() => {
+      growthApi
+        .getReference(child.sex, ageMonths, heightCm > 0 ? heightCm : undefined)
+        .then((res) => setReference(res.data))
+        .catch(() => setReference(null));
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [showForm, child, form.measuredAt, form.heightCm]);
+
   const openResult = (record: GrowthRecord) => {
     setError('');
     setResultRecord(record);
-    setNoteDraft(record.notes ?? '');
+  };
+
+  const startEdit = (record: GrowthRecord) => {
+    setEditingId(record.id);
+    setFieldErrors({});
+    setForm({
+      measuredAt: record.measuredAt,
+      weightKg: String(record.weightKg),
+      heightCm: String(record.heightCm),
+      headCircumferenceCm: record.headCircumferenceCm != null ? String(record.headCircumferenceCm) : '',
+      location: record.location ?? ''
+    });
+    setShowForm(true);
   };
 
   const handleDelete = async (record: GrowthRecord) => {
@@ -103,26 +155,61 @@ export default function ChildDashboard() {
     }
   };
 
-  const handleSaveNote = async () => {
-    if (!resultRecord || !childId) return;
-    setSavingNote(true);
+  const handleSubmit = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!childId || !child || !editingId) return;
+    setError('');
+    setFieldErrors({});
+
+    if (form.measuredAt > today) {
+      setFieldErrors({ measuredAt: 'Tanggal pengukuran tidak boleh di masa depan.' });
+      setError('Periksa kembali data yang ditandai merah di bawah.');
+      return;
+    }
+    if (form.measuredAt < child.birthDate) {
+      setFieldErrors({ measuredAt: 'Tanggal pengukuran tidak boleh sebelum tanggal lahir anak.' });
+      setError('Periksa kembali data yang ditandai merah di bawah.');
+      return;
+    }
+
+    setSaving(true);
+    // officerName/cleanWaterAccess/recurrentIllness/immunizationComplete/notes
+    // are deliberately omitted — those are entered once via Skrining.tsx and
+    // omitting them here leaves whatever was set there untouched.
+    const payload = {
+      childId,
+      measuredAt: form.measuredAt,
+      weightKg: Number(form.weightKg),
+      heightCm: Number(form.heightCm),
+      headCircumferenceCm: form.headCircumferenceCm ? Number(form.headCircumferenceCm) : undefined,
+      ageMonths: monthsBetween(child.birthDate, form.measuredAt),
+      location: form.location
+    };
     try {
-      const payload = {
-        childId,
-        measuredAt: resultRecord.measuredAt,
-        weightKg: Number(resultRecord.weightKg),
-        heightCm: Number(resultRecord.heightCm),
-        ageMonths: resultRecord.ageMonths,
-        notes: noteDraft
-      };
-      const res = await growthApi.updateRecord(resultRecord.id, payload);
+      const res = await growthApi.updateRecord(editingId, payload);
       updateRecord(res.data);
-      setResultRecord(res.data);
+      setForm(emptyForm);
+      setEditingId(null);
+      setShowForm(false);
+      openResult(res.data);
+      // growth_alert ('2T') is computed from the child's full history, so an
+      // edited measurement can change it — refetch rather than let the
+      // header banner show a stale status.
+      growthApi.getChild(childId).then((res2) => setChild(res2.data));
     } catch (err) {
-      const message = axios.isAxiosError(err) ? firstErrorMessage(err.response?.data) : null;
-      setError(message ?? 'Gagal menyimpan catatan.');
+      if (axios.isAxiosError(err) && err.response?.data) {
+        const fields = parseFieldErrors(err.response.data);
+        setFieldErrors(fields);
+        setError(
+          Object.keys(fields).length > 0
+            ? 'Periksa kembali data yang ditandai merah di bawah.'
+            : firstErrorMessage(err.response.data) ?? 'Gagal menyimpan pengukuran. Periksa kembali data yang diisi.'
+        );
+      } else {
+        setError('Gagal menyimpan pengukuran. Periksa kembali data yang diisi.');
+      }
     } finally {
-      setSavingNote(false);
+      setSaving(false);
     }
   };
 
@@ -173,6 +260,116 @@ export default function ChildDashboard() {
         <p className="text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2" role="alert">
           {error}
         </p>
+      )}
+
+      {showForm && editingId && canEditDelete && (
+        <form onSubmit={handleSubmit} className="card p-4 space-y-3">
+          <div>
+            <label htmlFor="measured-at" className="field-label">
+              Tanggal Pengukuran
+            </label>
+            <input
+              id="measured-at"
+              type="date"
+              className={inputClass('measuredAt')}
+              value={form.measuredAt}
+              onChange={(e) => setForm({ ...form, measuredAt: e.target.value })}
+              min={child?.birthDate}
+              max={today}
+              required
+            />
+            <FieldError message={fieldErrors.measuredAt} />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label htmlFor="weight-kg" className="field-label">
+                Berat (kg)
+              </label>
+              <input
+                id="weight-kg"
+                type="number"
+                step="0.01"
+                className={inputClass('weightKg')}
+                value={form.weightKg}
+                onChange={(e) => setForm({ ...form, weightKg: e.target.value })}
+                required
+              />
+              <FieldError message={fieldErrors.weightKg} />
+              {reference?.weightMinKg != null && (
+                <p className="text-xs text-gray-400 mt-1">
+                  Normal: {reference.weightMinKg}&ndash;{reference.weightMaxKg} kg
+                </p>
+              )}
+            </div>
+            <div>
+              <label htmlFor="height-cm" className="field-label">
+                Tinggi (cm)
+              </label>
+              <input
+                id="height-cm"
+                type="number"
+                step="0.01"
+                className={inputClass('heightCm')}
+                value={form.heightCm}
+                onChange={(e) => setForm({ ...form, heightCm: e.target.value })}
+                required
+              />
+              <FieldError message={fieldErrors.heightCm} />
+              {reference && (
+                <p className="text-xs text-gray-400 mt-1">
+                  Normal: {reference.heightMinCm}&ndash;{reference.heightMaxCm} cm
+                </p>
+              )}
+            </div>
+          </div>
+          <div>
+            <label htmlFor="head-circumference-cm" className="field-label">
+              Lingkar Kepala (cm, opsional)
+            </label>
+            <input
+              id="head-circumference-cm"
+              type="number"
+              step="0.1"
+              className={inputClass('headCircumferenceCm')}
+              placeholder="Mis. 42.5"
+              value={form.headCircumferenceCm}
+              onChange={(e) => setForm({ ...form, headCircumferenceCm: e.target.value })}
+            />
+            <FieldError message={fieldErrors.headCircumferenceCm} />
+          </div>
+          <div>
+            <label htmlFor="measure-location" className="field-label">
+              Lokasi Pengukuran
+            </label>
+            <input
+              id="measure-location"
+              className="field-input"
+              placeholder="Mis. Posyandu Melati"
+              value={form.location}
+              onChange={(e) => setForm({ ...form, location: e.target.value })}
+            />
+          </div>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => setShowForm(false)}
+              className="btn-secondary flex-1"
+            >
+              <X className="h-4 w-4" aria-hidden="true" />
+              Batal
+            </button>
+            <button type="submit" disabled={saving} className="btn-primary flex-1">
+              {saving ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+                  Menyimpan...
+                </>
+              ) : (
+                'Simpan Perubahan'
+              )}
+            </button>
+          </div>
+        </form>
       )}
 
       {loadingData ? (
@@ -248,13 +445,22 @@ export default function ChildDashboard() {
                       <Info className="h-5 w-5" aria-hidden="true" />
                     </button>
                     {canEditDelete && (
-                      <button
-                        onClick={() => handleDelete(record)}
-                        aria-label={`Hapus pengukuran ${record.measuredAt}`}
-                        className="flex items-center justify-center h-11 w-11 rounded-lg text-red-600 hover:bg-red-50"
-                      >
-                        <Trash2 className="h-5 w-5" aria-hidden="true" />
-                      </button>
+                      <>
+                        <button
+                          onClick={() => startEdit(record)}
+                          aria-label={`Edit pengukuran ${record.measuredAt}`}
+                          className="flex items-center justify-center h-11 w-11 rounded-lg text-primary hover:bg-primary-light"
+                        >
+                          <Pencil className="h-5 w-5" aria-hidden="true" />
+                        </button>
+                        <button
+                          onClick={() => handleDelete(record)}
+                          aria-label={`Hapus pengukuran ${record.measuredAt}`}
+                          className="flex items-center justify-center h-11 w-11 rounded-lg text-red-600 hover:bg-red-50"
+                        >
+                          <Trash2 className="h-5 w-5" aria-hidden="true" />
+                        </button>
+                      </>
                     )}
                   </div>
                 </div>
@@ -315,41 +521,11 @@ export default function ChildDashboard() {
               </div>
             )}
 
-            {canEditDelete ? (
-              <div className="space-y-2">
-                <label htmlFor="note-draft" className="field-label">
-                  Catatan
-                </label>
-                <textarea
-                  id="note-draft"
-                  className="field-input text-sm"
-                  rows={2}
-                  placeholder="Mis. anak rewel saat diukur, sudah dirujuk ke puskesmas, dll."
-                  value={noteDraft}
-                  onChange={(e) => setNoteDraft(e.target.value)}
-                />
-                <button
-                  onClick={handleSaveNote}
-                  disabled={savingNote || noteDraft === (resultRecord.notes ?? '')}
-                  className="btn-secondary w-full"
-                >
-                  {savingNote ? (
-                    <>
-                      <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
-                      Menyimpan catatan...
-                    </>
-                  ) : (
-                    'Simpan Catatan'
-                  )}
-                </button>
+            {resultRecord.notes && (
+              <div className="text-sm bg-gray-50 rounded-lg p-3">
+                <p className="text-gray-500 mb-1">Catatan:</p>
+                <p className="text-gray-700 whitespace-pre-wrap">{resultRecord.notes}</p>
               </div>
-            ) : (
-              resultRecord.notes && (
-                <div className="text-sm bg-gray-50 rounded-lg p-3">
-                  <p className="text-gray-500 mb-1">Catatan:</p>
-                  <p className="text-gray-700 whitespace-pre-wrap">{resultRecord.notes}</p>
-                </div>
-              )
             )}
             <div className="flex gap-2 print:hidden">
               {resultRecord.notes && (

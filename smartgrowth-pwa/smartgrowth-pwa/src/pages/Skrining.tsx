@@ -43,7 +43,8 @@ const emptyMeasurementForm = {
   officerName: '',
   cleanWaterAccess: '' as TriState,
   recurrentIllness: '' as TriState,
-  immunizationComplete: '' as TriState
+  immunizationComplete: '' as TriState,
+  notes: ''
 };
 
 export default function Skrining() {
@@ -155,7 +156,8 @@ export default function Skrining() {
         officerName: measurementForm.officerName,
         cleanWaterAccess: fromTriState(measurementForm.cleanWaterAccess),
         recurrentIllness: fromTriState(measurementForm.recurrentIllness),
-        immunizationComplete: fromTriState(measurementForm.immunizationComplete)
+        immunizationComplete: fromTriState(measurementForm.immunizationComplete),
+        notes: measurementForm.notes
       });
       navigate(`/child/${childId}`);
     } catch (err) {
@@ -542,6 +544,19 @@ export default function Skrining() {
               <option value="yes">Ya</option>
               <option value="no">Tidak</option>
             </select>
+          </div>
+          <div>
+            <label htmlFor="skrining-notes" className="field-label">
+              Catatan (opsional)
+            </label>
+            <textarea
+              id="skrining-notes"
+              className="field-input text-sm"
+              rows={2}
+              placeholder="Mis. anak rewel saat diukur, sudah dirujuk ke puskesmas, dll."
+              value={measurementForm.notes}
+              onChange={(e) => setMeasurementForm({ ...measurementForm, notes: e.target.value })}
+            />
           </div>
         </div>
 
