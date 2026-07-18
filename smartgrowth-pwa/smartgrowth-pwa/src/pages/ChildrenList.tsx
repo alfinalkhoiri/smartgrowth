@@ -1,30 +1,13 @@
-import { useEffect, useState, type FormEvent } from 'react';
-import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { AlertTriangle, Baby, Info, Loader2, MapPin, Pencil, Plus, Printer, Trash2 } from 'lucide-react';
 import axios from 'axios';
-import { AlertTriangle, Baby, Info, Loader2, MapPin, Pencil, Plus, Printer, Trash2, X } from 'lucide-react';
 import { growthApi } from '@/api/growth';
-import { firstErrorMessage, parseFieldErrors } from '@/api/errors';
+import { firstErrorMessage } from '@/api/errors';
 import { authApi } from '@/api/auth';
 import { useGrowthStore } from '@/features/growth/store';
-import { FieldError } from '@/components/FieldError';
 import { RiskBadge } from '@/components/RiskBadge';
-import { Toggle } from '@/components/Toggle';
 import type { Child, GrowthRecord } from '@/types';
-
-const emptyForm = {
-  name: '',
-  birthDate: '',
-  sex: 'male' as Child['sex'],
-  parentName: '',
-  parentOccupation: '',
-  posyanduLocation: '',
-  exclusiveBreastfeeding: false,
-  birthWeightKg: '',
-  birthLengthCm: '',
-  gestationalAgeWeeks: ''
-};
-
-const today = new Date().toISOString().slice(0, 10);
 
 function ageLabel(birthDate: string): string {
   const birth = new Date(birthDate);
@@ -40,31 +23,18 @@ function ageLabel(birthDate: string): string {
 
 export default function ChildrenList() {
   const navigate = useNavigate();
-  // Arrived via the Edit (pencil) button on a child's detail page — open
-  // that child's edit form here directly instead of making the kader find
-  // it in the list again.
-  const [searchParams] = useSearchParams();
-  const editChildId = searchParams.get('edit');
   const children = useGrowthStore((s) => s.children);
   const setChildren = useGrowthStore((s) => s.setChildren);
-  const addChild = useGrowthStore((s) => s.addChild);
-  const updateChild = useGrowthStore((s) => s.updateChild);
   const removeChild = useGrowthStore((s) => s.removeChild);
 
   const [loadingChildren, setLoadingChildren] = useState(true);
-  const [showForm, setShowForm] = useState(false);
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [form, setForm] = useState(emptyForm);
-  const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
-  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [infoChild, setInfoChild] = useState<Child | null>(null);
   const [latestRecord, setLatestRecord] = useState<GrowthRecord | null>(null);
   const [loadingRecord, setLoadingRecord] = useState(false);
   const [locationFilter, setLocationFilter] = useState('');
   const canCreate = authApi.canCreate();
   const canEditDelete = authApi.canEditDelete();
-  const inputClass = (field: string) => `field-input${fieldErrors[field] ? ' field-input-error' : ''}`;
 
   const locationOptions = Array.from(
     new Set(children.map((c) => c.posyanduLocation).filter((v): v is string => !!v?.trim()))
@@ -80,16 +50,6 @@ export default function ChildrenList() {
       .finally(() => setLoadingChildren(false));
   }, [setChildren]);
 
-  // Runs once, right after the initial fetch settles — deliberately not
-  // re-triggered on later `children` updates (e.g. after saving this same
-  // edit), or it would keep resetting the form and clobber unsaved input.
-  useEffect(() => {
-    if (loadingChildren || !editChildId) return;
-    const target = children.find((c) => c.id === editChildId);
-    if (target) startEdit(target);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [loadingChildren]);
-
   const openInfo = async (child: Child) => {
     setInfoChild(child);
     setLatestRecord(null);
@@ -102,24 +62,6 @@ export default function ChildrenList() {
     }
   };
 
-  const startEdit = (child: Child) => {
-    setEditingId(child.id);
-    setFieldErrors({});
-    setForm({
-      name: child.name,
-      birthDate: child.birthDate,
-      sex: child.sex,
-      parentName: child.parentName ?? '',
-      parentOccupation: child.parentOccupation ?? '',
-      posyanduLocation: child.posyanduLocation ?? '',
-      exclusiveBreastfeeding: child.exclusiveBreastfeeding ?? false,
-      birthWeightKg: child.birthWeightKg != null ? String(child.birthWeightKg) : '',
-      birthLengthCm: child.birthLengthCm != null ? String(child.birthLengthCm) : '',
-      gestationalAgeWeeks: child.gestationalAgeWeeks != null ? String(child.gestationalAgeWeeks) : ''
-    });
-    setShowForm(true);
-  };
-
   const handleDelete = async (child: Child) => {
     if (!window.confirm(`Hapus data ${child.name}? Riwayat pengukurannya juga akan terhapus.`)) return;
     try {
@@ -128,58 +70,6 @@ export default function ChildrenList() {
     } catch (err) {
       const message = axios.isAxiosError(err) ? firstErrorMessage(err.response?.data) : null;
       setError(message ?? 'Gagal menghapus balita.');
-    }
-  };
-
-  const handleSubmit = async (e: FormEvent) => {
-    e.preventDefault();
-    setError('');
-    setFieldErrors({});
-
-    if (form.birthDate > today) {
-      setFieldErrors({ birthDate: 'Tanggal lahir tidak boleh di masa depan.' });
-      setError('Periksa kembali data yang ditandai merah di bawah.');
-      return;
-    }
-
-    setSaving(true);
-    const payload = {
-      name: form.name,
-      birthDate: form.birthDate,
-      sex: form.sex,
-      parentName: form.parentName,
-      parentOccupation: form.parentOccupation,
-      posyanduLocation: form.posyanduLocation,
-      exclusiveBreastfeeding: form.exclusiveBreastfeeding,
-      birthWeightKg: form.birthWeightKg ? Number(form.birthWeightKg) : undefined,
-      birthLengthCm: form.birthLengthCm ? Number(form.birthLengthCm) : undefined,
-      gestationalAgeWeeks: form.gestationalAgeWeeks ? Number(form.gestationalAgeWeeks) : undefined
-    };
-    try {
-      if (editingId) {
-        const res = await growthApi.updateChild(editingId, payload);
-        updateChild(res.data);
-      } else {
-        const res = await growthApi.createChild(payload);
-        addChild(res.data);
-      }
-      setForm(emptyForm);
-      setEditingId(null);
-      setShowForm(false);
-    } catch (err) {
-      if (axios.isAxiosError(err) && err.response?.data) {
-        const fields = parseFieldErrors(err.response.data);
-        setFieldErrors(fields);
-        setError(
-          Object.keys(fields).length > 0
-            ? 'Periksa kembali data yang ditandai merah di bawah.'
-            : firstErrorMessage(err.response.data) ?? 'Gagal menyimpan balita. Periksa kembali data yang diisi.'
-        );
-      } else {
-        setError('Gagal menyimpan balita. Periksa kembali data yang diisi.');
-      }
-    } finally {
-      setSaving(false);
     }
   };
 
@@ -198,18 +88,9 @@ export default function ChildrenList() {
           </p>
         </div>
         {canCreate && (
-          <button onClick={() => (showForm ? setShowForm(false) : navigate('/skrining'))} className="btn-primary">
-            {showForm ? (
-              <>
-                <X className="h-4 w-4" aria-hidden="true" />
-                Batal
-              </>
-            ) : (
-              <>
-                <Plus className="h-4 w-4" aria-hidden="true" />
-                Tambah Balita
-              </>
-            )}
+          <button onClick={() => navigate('/skrining')} className="btn-primary">
+            <Plus className="h-4 w-4" aria-hidden="true" />
+            Tambah Balita
           </button>
         )}
       </div>
@@ -237,158 +118,6 @@ export default function ChildrenList() {
         <p className="text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2" role="alert">
           {error}
         </p>
-      )}
-
-      {showForm && (editingId ? canEditDelete : canCreate) && (
-        <form onSubmit={handleSubmit} className="card p-4 space-y-3">
-          <div>
-            <label htmlFor="child-name" className="field-label">
-              Nama
-            </label>
-            <input
-              id="child-name"
-              className="field-input"
-              value={form.name}
-              onChange={(e) => setForm({ ...form, name: e.target.value })}
-              required
-            />
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label htmlFor="parent-name" className="field-label">
-                Nama Orang Tua (opsional)
-              </label>
-              <input
-                id="parent-name"
-                className="field-input"
-                value={form.parentName}
-                onChange={(e) => setForm({ ...form, parentName: e.target.value })}
-              />
-            </div>
-            <div>
-              <label htmlFor="parent-occupation" className="field-label">
-                Pekerjaan Orang Tua (opsional)
-              </label>
-              <input
-                id="parent-occupation"
-                className="field-input"
-                value={form.parentOccupation}
-                onChange={(e) => setForm({ ...form, parentOccupation: e.target.value })}
-              />
-            </div>
-          </div>
-          <div>
-            <label htmlFor="child-posyandu-location" className="field-label flex items-center gap-1.5">
-              <MapPin className="h-3.5 w-3.5 text-gray-400" aria-hidden="true" />
-              Lokasi Posyandu/Klinik (opsional)
-            </label>
-            <input
-              id="child-posyandu-location"
-              list="child-posyandu-location-options"
-              className="field-input"
-              placeholder="cth: Posyandu Melati"
-              value={form.posyanduLocation}
-              onChange={(e) => setForm({ ...form, posyanduLocation: e.target.value })}
-            />
-            <datalist id="child-posyandu-location-options">
-              {locationOptions.map((loc) => (
-                <option key={loc} value={loc} />
-              ))}
-            </datalist>
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label htmlFor="child-birthdate" className="field-label">
-                Tanggal Lahir
-              </label>
-              <input
-                id="child-birthdate"
-                type="date"
-                className={inputClass('birthDate')}
-                value={form.birthDate}
-                onChange={(e) => setForm({ ...form, birthDate: e.target.value })}
-                max={today}
-                required
-              />
-              <FieldError message={fieldErrors.birthDate} />
-            </div>
-            <div>
-              <label htmlFor="child-sex" className="field-label">
-                Jenis Kelamin
-              </label>
-              <select
-                id="child-sex"
-                className="field-input"
-                value={form.sex}
-                onChange={(e) => setForm({ ...form, sex: e.target.value as Child['sex'] })}
-              >
-                <option value="male">Laki-laki</option>
-                <option value="female">Perempuan</option>
-              </select>
-            </div>
-          </div>
-          <div className="grid grid-cols-3 gap-3">
-            <div>
-              <label htmlFor="child-birthweight" className="field-label">
-                Berat Lahir (kg, opsional)
-              </label>
-              <input
-                id="child-birthweight"
-                type="number"
-                step="0.01"
-                className={inputClass('birthWeightKg')}
-                value={form.birthWeightKg}
-                onChange={(e) => setForm({ ...form, birthWeightKg: e.target.value })}
-              />
-              <FieldError message={fieldErrors.birthWeightKg} />
-            </div>
-            <div>
-              <label htmlFor="child-birthlength" className="field-label">
-                Panjang Lahir (cm, opsional)
-              </label>
-              <input
-                id="child-birthlength"
-                type="number"
-                step="0.1"
-                className={inputClass('birthLengthCm')}
-                value={form.birthLengthCm}
-                onChange={(e) => setForm({ ...form, birthLengthCm: e.target.value })}
-              />
-              <FieldError message={fieldErrors.birthLengthCm} />
-            </div>
-            <div>
-              <label htmlFor="gestational-age" className="field-label">
-                Usia Kehamilan (minggu, opsional)
-              </label>
-              <input
-                id="gestational-age"
-                type="number"
-                className={inputClass('gestationalAgeWeeks')}
-                value={form.gestationalAgeWeeks}
-                onChange={(e) => setForm({ ...form, gestationalAgeWeeks: e.target.value })}
-              />
-              <FieldError message={fieldErrors.gestationalAgeWeeks} />
-            </div>
-          </div>
-          <Toggle
-            id="child-exclusive-breastfeeding"
-            label="ASI Eksklusif 0-6 bulan"
-            checked={form.exclusiveBreastfeeding}
-            onChange={(checked) => setForm({ ...form, exclusiveBreastfeeding: checked })}
-          />
-          <button type="submit" disabled={saving} className="btn-primary w-full">
-            {saving ? (
-              <>
-                <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
-                Menyimpan...
-              </>
-            ) : editingId ? (
-              'Simpan Perubahan'
-            ) : (
-              'Simpan'
-            )}
-          </button>
-        </form>
       )}
 
       {loadingChildren ? (
@@ -440,7 +169,7 @@ export default function ChildrenList() {
                 {canEditDelete && (
                   <>
                     <button
-                      onClick={() => startEdit(child)}
+                      onClick={() => navigate(`/skrining?editChild=${child.id}`)}
                       aria-label={`Edit ${child.name}`}
                       className="flex items-center justify-center h-11 w-11 rounded-lg text-primary hover:bg-primary-light"
                     >
@@ -458,7 +187,7 @@ export default function ChildrenList() {
               </div>
             </div>
           ))}
-          {filteredChildren.length === 0 && !showForm && (
+          {filteredChildren.length === 0 && (
             <div className="flex flex-col items-center gap-3 text-center py-12 border-2 border-dashed border-gray-200 rounded-xl">
               <Baby className="h-14 w-14 text-gray-300" aria-hidden="true" />
               {children.length === 0 ? (

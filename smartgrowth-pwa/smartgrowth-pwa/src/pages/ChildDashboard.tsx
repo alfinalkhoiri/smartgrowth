@@ -224,8 +224,8 @@ export default function ChildDashboard() {
                     {canEditDelete && (
                       <>
                         <button
-                          onClick={() => navigate(`/balita?edit=${childId}`)}
-                          aria-label={`Edit data balita ${child?.name ?? ''}`}
+                          onClick={() => navigate(`/skrining?editRecord=${record.id}&child=${childId}`)}
+                          aria-label={`Edit pengukuran ${record.measuredAt}`}
                           className="flex items-center justify-center h-11 w-11 rounded-lg text-primary hover:bg-primary-light"
                         >
                           <Pencil className="h-5 w-5" aria-hidden="true" />

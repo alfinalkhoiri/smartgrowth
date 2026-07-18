@@ -32,6 +32,7 @@ export const growthApi = {
 
   listRecords: (childId: string) =>
     apiClient.get<GrowthRecord[]>('/growth-records/', { params: { child: childId } }),
+  getRecord: (id: string) => apiClient.get<GrowthRecord>(`/growth-records/${id}/`),
   // Tanpa filter child -> semua pengukuran lintas anak, dipakai halaman Riwayat.
   listAllRecords: () => apiClient.get<GrowthRecord[]>('/growth-records/'),
   createRecord: (payload: Omit<GrowthRecord, 'id'>) =>
