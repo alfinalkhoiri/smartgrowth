@@ -1,8 +1,7 @@
-from django.conf import settings
 from django.contrib.auth.password_validation import validate_password
 from rest_framework import serializers
 
-from .models import Role, User
+from .models import RegistrationInviteCode, Role, User
 
 # Public self-registration deliberately excludes the 'admin' role — admin
 # accounts are provisioned via `createsuperuser` / Django admin only, so a
@@ -27,7 +26,7 @@ class RegisterSerializer(serializers.ModelSerializer):
 
     def validate(self, attrs):
         if attrs.get('role') == Role.KADER_NAKES:
-            if attrs.get('invite_code') != settings.KADER_NAKES_INVITE_CODE:
+            if attrs.get('invite_code') != RegistrationInviteCode.load().code:
                 raise serializers.ValidationError({
                     'invite_code': 'Kode posyandu salah atau belum diisi. Minta kode ini ke koordinator posyandu Anda.'
                 })
@@ -40,3 +39,12 @@ class RegisterSerializer(serializers.ModelSerializer):
         user.set_password(password)
         user.save()
         return user
+
+
+class InviteCodeSerializer(serializers.ModelSerializer):
+    updated_by = serializers.CharField(source='updated_by.username', read_only=True, default=None)
+
+    class Meta:
+        model = RegistrationInviteCode
+        fields = ['code', 'updated_at', 'updated_by']
+        read_only_fields = fields

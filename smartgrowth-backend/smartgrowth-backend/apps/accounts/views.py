@@ -1,8 +1,11 @@
 from rest_framework import generics, permissions, status
 from rest_framework.response import Response
+from rest_framework.views import APIView
 from rest_framework_simplejwt.views import TokenObtainPairView
 
-from .serializers import RegisterSerializer
+from .models import RegistrationInviteCode, generate_invite_code
+from .permissions import IsAppAdmin
+from .serializers import InviteCodeSerializer, RegisterSerializer
 from .tokens import RoleTokenObtainPairSerializer, tokens_with_claims
 
 
@@ -26,3 +29,23 @@ class RegisterView(generics.CreateAPIView):
         serializer.is_valid(raise_exception=True)
         user = serializer.save()
         return Response(tokens_with_claims(user), status=status.HTTP_201_CREATED)
+
+
+class InviteCodeView(APIView):
+    """
+    GET/POST /api/auth/invite-code — admin-only. GET returns the code
+    currently required to self-register as kader_nakes (frontend renders it
+    as text + a QR deep link on the "Kode Posyandu" admin page); POST
+    regenerates it, immediately invalidating the old one/QR.
+    """
+    permission_classes = [IsAppAdmin]
+
+    def get(self, request):
+        return Response(InviteCodeSerializer(RegistrationInviteCode.load()).data)
+
+    def post(self, request):
+        obj = RegistrationInviteCode.load()
+        obj.code = generate_invite_code()
+        obj.updated_by = request.user
+        obj.save()
+        return Response(InviteCodeSerializer(obj).data)

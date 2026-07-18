@@ -27,6 +27,12 @@ interface TokenPayload {
   is_superuser?: boolean;
 }
 
+export interface InviteCodeInfo {
+  code: string;
+  updatedAt: string;
+  updatedBy: string | null;
+}
+
 // Decodes the JWT payload (middle segment) client-side — no signature check,
 // this is only for showing/hiding UI actions, never a security boundary.
 // The backend's RoleBasedGrowthPermission is the real authority; a user
@@ -85,5 +91,14 @@ export const authApi = {
     if (!user) return false;
     return user.is_superuser === true || user.role === 'kader_nakes' || user.role === 'admin';
   },
-  isOrangtua: (): boolean => authApi.getCurrentUser()?.role === 'orangtua'
+  isOrangtua: (): boolean => authApi.getCurrentUser()?.role === 'orangtua',
+  isAdmin: (): boolean => {
+    const user = authApi.getCurrentUser();
+    return Boolean(user && (user.is_superuser === true || user.role === 'admin'));
+  },
+  // Admin-only — current shared code required to self-register as
+  // kader_nakes (see "Kode Posyandu" page). Backend also enforces this via
+  // IsAppAdmin, these calls just 403 for anyone else.
+  getInviteCode: () => apiClient.get<InviteCodeInfo>('/auth/invite-code'),
+  regenerateInviteCode: () => apiClient.post<InviteCodeInfo>('/auth/invite-code')
 };

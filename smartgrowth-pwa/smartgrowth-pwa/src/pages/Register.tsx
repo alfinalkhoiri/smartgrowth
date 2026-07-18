@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import axios from 'axios';
-import { Loader2, Sprout, UserPlus } from 'lucide-react';
+import { Loader2, QrCode, Sprout, UserPlus } from 'lucide-react';
 import { authApi, type PublicRole } from '@/api/auth';
 import { firstErrorMessage } from '@/api/errors';
 
@@ -11,10 +11,16 @@ const roleLabels: Record<PublicRole, string> = {
 };
 
 export default function Register() {
+  // Prefilled when arriving via the QR/link from the admin "Kode Posyandu"
+  // page (?code=...&role=kader_nakes) — HashRouter reads the query string
+  // from the part after the '#' just like any other route.
+  const [searchParams] = useSearchParams();
+  const prefilledCode = searchParams.get('code') ?? '';
+
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
-  const [role, setRole] = useState<PublicRole>('orangtua');
-  const [inviteCode, setInviteCode] = useState('');
+  const [role, setRole] = useState<PublicRole>(prefilledCode ? 'kader_nakes' : 'orangtua');
+  const [inviteCode, setInviteCode] = useState(prefilledCode);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
@@ -54,6 +60,12 @@ export default function Register() {
           {error && (
             <p className="text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2" role="alert">
               {error}
+            </p>
+          )}
+          {prefilledCode && (
+            <p className="flex items-center gap-1.5 text-sm text-primary bg-primary-light/60 rounded-lg px-3 py-2">
+              <QrCode className="h-4 w-4 shrink-0" aria-hidden="true" />
+              Kode posyandu sudah terisi dari QR — tinggal lengkapi username &amp; password.
             </p>
           )}
           <div>

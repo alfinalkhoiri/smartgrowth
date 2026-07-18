@@ -377,15 +377,30 @@ kebetulan salah lihat data anak keluarga lain.
   untuk orang tua yang *sudah* tertaut ke balita itu (supaya bisa
   diteruskan ke pasangannya) — `ChildSerializer.get_link_code()`.
 - **Gerbang pendaftaran `kader_nakes`**: role ini bisa lihat data semua
-  keluarga, jadi pendaftaran publik ke role ini butuh
-  `KADER_NAKES_INVITE_CODE` (env var, dipegang koordinator posyandu) —
+  keluarga, jadi pendaftaran publik ke role ini butuh kode yang cocok —
   lihat `RegisterSerializer.validate()`. Role `orangtua` bebas daftar tanpa
   kode apa pun (blast radius-nya kecil: akun baru tidak lihat apa-apa
   sampai ditautkan ke balita).
+- **`RegistrationInviteCode`** (`apps/accounts/models.py`) — kode ini
+  **disimpan di DB**, bukan cuma env var statis, supaya bisa
+  dilihat/diganti dari UI (bukan cuma lewat SSH). Model singleton (selalu
+  `pk=1`); `RegistrationInviteCode.load()` mengambil atau membuat kode
+  pertama kali dipanggil. Migrasi `0005_seed_invite_code` mengisi nilai
+  awal dari env var lama (`KADER_NAKES_INVITE_CODE`, kalau masih ada di
+  `.env` saat migrasi pertama kali jalan) supaya kode yang sudah disebar ke
+  kader/nakes tidak langsung tidak valid — setelahnya env var itu tidak
+  dipakai lagi sama sekali.
+- **`GET/POST /api/auth/invite-code`** (`InviteCodeView`, admin-only lewat
+  `IsAppAdmin`) — GET melihat kode saat ini, POST membuat kode baru
+  (langsung membatalkan yang lama). Frontend merender ini sebagai halaman
+  "Kode Posyandu" (submenu khusus admin di `AppLayout.tsx`) berisi kode
+  dalam teks + **QR code** yang meng-encode link pendaftaran langsung
+  (`.../#/register?code=...&role=kader_nakes`) — kader/nakes tinggal scan,
+  form Register otomatis terisi, tidak perlu ketik manual.
 
 **Belum dikerjakan (frontend)**: UI orang tua (dashboard sederhana per-anak,
-form redeem kode, tampilan kode di sisi kader) — perubahan di README ini
-baru mencakup fondasi backend + guard minimal di frontend supaya akun
+form redeem kode, tampilan `link_code` di sisi kader) — perubahan di README
+ini baru mencakup fondasi backend + guard minimal di frontend supaya akun
 kader_nakes/orangtua yang sudah ada tidak rusak setelah migrasi role.
 
 ## Cakupan API
@@ -394,7 +409,8 @@ kader_nakes/orangtua yang sudah ada tidak rusak setelah migrasi role.
 | -------------- | ---------------------------------- | --------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
 | POST           | `/api/auth/login`                  | `RoleTokenObtainPairView` | Mengembalikan `{access, refresh}` dari SimpleJWT, dengan klaim `role`/`is_superuser`/`username` disematkan ke JWT (dipakai frontend untuk show/hide tombol) |
 | POST           | `/api/auth/refresh`                | `TokenRefreshView`    |                                                                                                                                        |
-| POST           | `/api/auth/register`               | `RegisterView`        | Publik (`AllowAny`); role terbatas ke kader_nakes/orangtua (admin tidak bisa daftar sendiri); kader_nakes butuh `invite_code` yang cocok dengan `KADER_NAKES_INVITE_CODE`; mengembalikan `{access, refresh}` langsung, klaim role juga disematkan |
+| POST           | `/api/auth/register`               | `RegisterView`        | Publik (`AllowAny`); role terbatas ke kader_nakes/orangtua (admin tidak bisa daftar sendiri); kader_nakes butuh `invite_code` yang cocok dengan `RegistrationInviteCode.load().code`; mengembalikan `{access, refresh}` langsung, klaim role juga disematkan |
+| GET/POST       | `/api/auth/invite-code`            | `InviteCodeView`      | Admin-only (`IsAppAdmin`); GET lihat kode saat ini, POST bikin kode baru (kode lama langsung tidak berlaku) |
 | GET/POST       | `/api/children/`                   | `ChildViewSet`        | `?search=` berdasarkan nama; response array polos (tanpa pagination); daftar sudah discoping lewat `visible_children()`; POST/PUT/DELETE butuh role kader_nakes/admin |
 | GET/PUT/DELETE | `/api/children/<id>/`              | `ChildViewSet`        | GET balita yang belum ditautkan (orangtua) → 404; PUT/DELETE butuh role kader_nakes/admin |
 | POST           | `/api/children/link/`              | `LinkChildView`       | `{code}` — orangtua menautkan diri sendiri ke balita lewat `link_code`; kode salah → 400 |

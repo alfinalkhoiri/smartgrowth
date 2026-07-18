@@ -11,12 +11,12 @@ import base64
 from datetime import date, datetime, timedelta, timezone as dt_timezone
 from types import SimpleNamespace
 
-from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import RequestFactory, SimpleTestCase, TestCase
 from rest_framework.test import APIClient
 
+from apps.accounts.models import RegistrationInviteCode
 from apps.growth.models import Child, GrowthRecord
 from apps.growth.permissions import visible_children
 from apps.growth.serializers import ChildSerializer, GrowthRecordSerializer, PosyanduScheduleSerializer
@@ -854,6 +854,62 @@ class RegistrationRoleGateTests(TestCase):
     def test_kader_nakes_registration_accepts_correct_invite_code(self):
         response = APIClient().post('/api/auth/register', {
             'username': 'kader_gate_test2', 'password': 'StrongPass123!', 'role': 'kader_nakes',
-            'invite_code': settings.KADER_NAKES_INVITE_CODE,
+            'invite_code': RegistrationInviteCode.load().code,
         })
         self.assertEqual(response.status_code, 201, response.data)
+
+
+class InviteCodeViewTests(TestCase):
+    """GET/POST /api/auth/invite-code — admin-only management of the kader_nakes registration gate."""
+
+    def setUp(self):
+        User = get_user_model()
+        self.admin = User.objects.create_user(username='admin_ic', password='x', role='admin')
+        self.kader = User.objects.create_user(username='kader_ic', password='x', role='kader_nakes')
+        self.parent = User.objects.create_user(username='parent_ic', password='x', role='orangtua')
+
+    @staticmethod
+    def _client_for(user):
+        client = APIClient()
+        client.force_authenticate(user=user)
+        return client
+
+    def test_admin_can_view_current_code(self):
+        response = self._client_for(self.admin).get('/api/auth/invite-code')
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data['code'], RegistrationInviteCode.load().code)
+
+    def test_kader_nakes_cannot_view_code(self):
+        response = self._client_for(self.kader).get('/api/auth/invite-code')
+        self.assertEqual(response.status_code, 403)
+
+    def test_orangtua_cannot_view_code(self):
+        response = self._client_for(self.parent).get('/api/auth/invite-code')
+        self.assertEqual(response.status_code, 403)
+
+    def test_admin_regenerate_changes_code_and_invalidates_old_one(self):
+        old_code = RegistrationInviteCode.load().code
+        response = self._client_for(self.admin).post('/api/auth/invite-code')
+        self.assertEqual(response.status_code, 200)
+        new_code = response.data['code']
+        self.assertNotEqual(new_code, old_code)
+        # response.data is the pre-render serializer output (snake_case) —
+        # camelCase conversion happens later, only in the rendered JSON body.
+        self.assertEqual(response.data['updated_by'], 'admin_ic')
+
+        # Old code no longer works for registration, new one does.
+        register_response = APIClient().post('/api/auth/register', {
+            'username': 'kader_after_regen', 'password': 'StrongPass123!', 'role': 'kader_nakes',
+            'invite_code': old_code,
+        })
+        self.assertEqual(register_response.status_code, 400)
+
+        register_response = APIClient().post('/api/auth/register', {
+            'username': 'kader_after_regen2', 'password': 'StrongPass123!', 'role': 'kader_nakes',
+            'invite_code': new_code,
+        })
+        self.assertEqual(register_response.status_code, 201, register_response.data)
+
+    def test_kader_nakes_cannot_regenerate_code(self):
+        response = self._client_for(self.kader).post('/api/auth/invite-code')
+        self.assertEqual(response.status_code, 403)

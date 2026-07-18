@@ -132,6 +132,23 @@ kader_nakes with create/edit buttons hidden and an empty Data Balita until
 someone builds the link flow — see the backend README's "Peran & tautan
 orang tua" section for the API this UI will need to call.
 
+### Kode Posyandu (admin-only)
+
+`pages/KodePosyandu.tsx`, navigable via a nav item `AppLayout.tsx` only
+renders when `authApi.isAdmin()` — the point being an admin shouldn't have
+to remember an SSH command to find/rotate the kader_nakes registration
+code. Shows the current code as text (with a copy button) and as a QR
+(generated client-side, `qrcode` lazy-loaded via dynamic `import()` so it's
+not in the main bundle) encoding a direct link to
+`/#/register?code=...&role=kader_nakes` — `Register.tsx` reads those two
+query params via `useSearchParams()` (works fine under `HashRouter`, since
+everything after `#/register` is a normal path+query to react-router) and
+prefills the role dropdown + invite-code field, so scanning the QR is a
+one-step flow instead of typing an 8-character code by hand. "Buat Kode
+Baru" immediately invalidates the old code/QR — confirmed via
+`window.confirm` before calling it, since anyone who hasn't registered yet
+with the old QR would need a reprint.
+
 ## Design system
 
 Palette/typography match the original Lovable prototype design this app was

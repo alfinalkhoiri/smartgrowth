@@ -6,6 +6,7 @@ import {
   BookOpen,
   CalendarClock,
   FilePlus2,
+  KeyRound,
   LayoutDashboard,
   LogOut,
   Menu,
@@ -15,7 +16,14 @@ import {
 } from 'lucide-react';
 import { authApi } from '@/api/auth';
 
-const nav = [
+interface NavItem {
+  to: string;
+  label: string;
+  icon: typeof LayoutDashboard;
+  end?: boolean;
+}
+
+const baseNav: NavItem[] = [
   { to: '/', label: 'Beranda', icon: LayoutDashboard, end: true },
   { to: '/skrining', label: 'Skrining Baru', icon: FilePlus2 },
   { to: '/balita', label: 'Data Balita', icon: Baby },
@@ -24,9 +32,15 @@ const nav = [
   { to: '/jadwal', label: 'Jadwal Posyandu', icon: CalendarClock }
 ];
 
+const adminNavItem: NavItem = { to: '/admin/kode-posyandu', label: 'Kode Posyandu', icon: KeyRound };
+
 export function AppLayout() {
   const [open, setOpen] = useState(false);
   const navigate = useNavigate();
+  // Admin-only, appended at render time (not baked into the static array)
+  // so the same nav config works for every role — easy to miss otherwise
+  // and forget this exists, which is exactly why the user asked for it.
+  const nav = authApi.isAdmin() ? [...baseNav, adminNavItem] : baseNav;
 
   const handleLogout = () => {
     if (!window.confirm('Yakin ingin keluar?')) return;
