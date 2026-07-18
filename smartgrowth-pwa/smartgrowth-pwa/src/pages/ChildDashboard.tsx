@@ -20,9 +20,10 @@ import {
   X
 } from 'lucide-react';
 import { growthApi } from '@/api/growth';
-import { firstErrorMessage } from '@/api/errors';
+import { firstErrorMessage, parseFieldErrors } from '@/api/errors';
 import { authApi } from '@/api/auth';
 import { useGrowthStore } from '@/features/growth/store';
+import { FieldError } from '@/components/FieldError';
 import { GrowthChart } from '@/components/GrowthChart';
 import { ParentDashboardQr } from '@/components/ParentDashboardQr';
 import { RiskBadge } from '@/components/RiskBadge';
@@ -84,8 +85,10 @@ export default function ChildDashboard() {
   const [noteDraft, setNoteDraft] = useState('');
   const [savingNote, setSavingNote] = useState(false);
   const [generatingReport, setGeneratingReport] = useState(false);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const canCreate = authApi.canCreate();
   const canEditDelete = authApi.canEditDelete();
+  const inputClass = (field: string) => `field-input${fieldErrors[field] ? ' field-input-error' : ''}`;
 
   // jspdf/jspdf-autotable are only loaded on demand (not in the main bundle)
   // — most sessions never touch this button, and the PWA precache/initial
@@ -149,11 +152,13 @@ export default function ChildDashboard() {
   const startAdd = () => {
     setEditingId(null);
     setForm(emptyForm);
+    setFieldErrors({});
     setShowForm(true);
   };
 
   const startEdit = (record: GrowthRecord) => {
     setEditingId(record.id);
+    setFieldErrors({});
     setForm({
       measuredAt: record.measuredAt,
       weightKg: String(record.weightKg),
@@ -185,13 +190,16 @@ export default function ChildDashboard() {
     e.preventDefault();
     if (!childId || !child) return;
     setError('');
+    setFieldErrors({});
 
     if (form.measuredAt > today) {
-      setError('Tanggal pengukuran tidak boleh di masa depan.');
+      setFieldErrors({ measuredAt: 'Tanggal pengukuran tidak boleh di masa depan.' });
+      setError('Periksa kembali data yang ditandai merah di bawah.');
       return;
     }
     if (form.measuredAt < child.birthDate) {
-      setError('Tanggal pengukuran tidak boleh sebelum tanggal lahir anak.');
+      setFieldErrors({ measuredAt: 'Tanggal pengukuran tidak boleh sebelum tanggal lahir anak.' });
+      setError('Periksa kembali data yang ditandai merah di bawah.');
       return;
     }
 
@@ -232,8 +240,17 @@ export default function ChildDashboard() {
       // let the header banner show a stale status.
       growthApi.getChild(childId).then((res) => setChild(res.data));
     } catch (err) {
-      const message = axios.isAxiosError(err) ? firstErrorMessage(err.response?.data) : null;
-      setError(message ?? 'Gagal menyimpan pengukuran. Periksa kembali data yang diisi.');
+      if (axios.isAxiosError(err) && err.response?.data) {
+        const fields = parseFieldErrors(err.response.data);
+        setFieldErrors(fields);
+        setError(
+          Object.keys(fields).length > 0
+            ? 'Periksa kembali data yang ditandai merah di bawah.'
+            : firstErrorMessage(err.response.data) ?? 'Gagal menyimpan pengukuran. Periksa kembali data yang diisi.'
+        );
+      } else {
+        setError('Gagal menyimpan pengukuran. Periksa kembali data yang diisi.');
+      }
     } finally {
       setSaving(false);
     }
@@ -329,13 +346,14 @@ export default function ChildDashboard() {
             <input
               id="measured-at"
               type="date"
-              className="field-input"
+              className={inputClass('measuredAt')}
               value={form.measuredAt}
               onChange={(e) => setForm({ ...form, measuredAt: e.target.value })}
               min={child?.birthDate}
               max={today}
               required
             />
+            <FieldError message={fieldErrors.measuredAt} />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
@@ -346,11 +364,12 @@ export default function ChildDashboard() {
                 id="weight-kg"
                 type="number"
                 step="0.01"
-                className="field-input"
+                className={inputClass('weightKg')}
                 value={form.weightKg}
                 onChange={(e) => setForm({ ...form, weightKg: e.target.value })}
                 required
               />
+              <FieldError message={fieldErrors.weightKg} />
               {reference?.weightMinKg != null && (
                 <p className="text-xs text-gray-400 mt-1">
                   Normal: {reference.weightMinKg}&ndash;{reference.weightMaxKg} kg
@@ -365,11 +384,12 @@ export default function ChildDashboard() {
                 id="height-cm"
                 type="number"
                 step="0.01"
-                className="field-input"
+                className={inputClass('heightCm')}
                 value={form.heightCm}
                 onChange={(e) => setForm({ ...form, heightCm: e.target.value })}
                 required
               />
+              <FieldError message={fieldErrors.heightCm} />
               {reference && (
                 <p className="text-xs text-gray-400 mt-1">
                   Normal: {reference.heightMinCm}&ndash;{reference.heightMaxCm} cm
@@ -385,11 +405,12 @@ export default function ChildDashboard() {
               id="head-circumference-cm"
               type="number"
               step="0.1"
-              className="field-input"
+              className={inputClass('headCircumferenceCm')}
               placeholder="Mis. 42.5"
               value={form.headCircumferenceCm}
               onChange={(e) => setForm({ ...form, headCircumferenceCm: e.target.value })}
             />
+            <FieldError message={fieldErrors.headCircumferenceCm} />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>

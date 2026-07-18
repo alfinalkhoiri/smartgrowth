@@ -4,8 +4,9 @@ import axios from 'axios';
 import { Camera, Loader2, MapPin, Ruler, Smile, Sparkles, UserPlus } from 'lucide-react';
 import { growthApi } from '@/api/growth';
 import { scheduleApi } from '@/api/schedule';
-import { firstErrorMessage } from '@/api/errors';
+import { firstErrorMessage, parseFieldErrors } from '@/api/errors';
 import { authApi } from '@/api/auth';
+import { FieldError } from '@/components/FieldError';
 import { ParentDashboardQr } from '@/components/ParentDashboardQr';
 import { Toggle } from '@/components/Toggle';
 import { monthsBetween } from '@/lib/dates';
@@ -46,7 +47,9 @@ export default function Skrining() {
   const [photo, setPhoto] = useState<File | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const selectedChild = children.find((c) => c.id === selectedChildId);
+  const inputClass = (field: string) => `field-input${fieldErrors[field] ? ' field-input-error' : ''}`;
 
   useEffect(() => {
     // Saran lokasi diambil dari posyandu balita lain + jadwal posyandu yang
@@ -75,17 +78,20 @@ export default function Skrining() {
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setError('');
+    setFieldErrors({});
 
     if (mode === 'existing' && !selectedChildId) {
       setError('Pilih balita terlebih dahulu.');
       return;
     }
     if (measurementForm.measuredAt > today) {
-      setError('Tanggal pengukuran tidak boleh di masa depan.');
+      setFieldErrors({ measuredAt: 'Tanggal pengukuran tidak boleh di masa depan.' });
+      setError('Periksa kembali data yang ditandai merah di bawah.');
       return;
     }
     if (mode === 'new' && childForm.birthDate > today) {
-      setError('Tanggal lahir tidak boleh di masa depan.');
+      setFieldErrors({ birthDate: 'Tanggal lahir tidak boleh di masa depan.' });
+      setError('Periksa kembali data yang ditandai merah di bawah.');
       return;
     }
 
@@ -103,7 +109,8 @@ export default function Skrining() {
           parentOccupation: childForm.parentOccupation,
           posyanduLocation: childForm.posyanduLocation,
           exclusiveBreastfeeding: childForm.exclusiveBreastfeeding,
-          birthWeightKg: childForm.birthWeightKg ? Number(childForm.birthWeightKg) : undefined,
+          // Field is labeled/input in grams (cth: 3200) but the API stores kg.
+          birthWeightKg: childForm.birthWeightKg ? Number(childForm.birthWeightKg) / 1000 : undefined,
           birthLengthCm: childForm.birthLengthCm ? Number(childForm.birthLengthCm) : undefined,
           gestationalAgeWeeks: childForm.gestationalAgeWeeks ? Number(childForm.gestationalAgeWeeks) : undefined
         });
@@ -112,7 +119,8 @@ export default function Skrining() {
       }
 
       if (measurementForm.measuredAt < birthDate) {
-        setError('Tanggal pengukuran tidak boleh sebelum tanggal lahir anak.');
+        setFieldErrors({ measuredAt: 'Tanggal pengukuran tidak boleh sebelum tanggal lahir anak.' });
+        setError('Periksa kembali data yang ditandai merah di bawah.');
         setSaving(false);
         return;
       }
@@ -130,8 +138,17 @@ export default function Skrining() {
       });
       navigate(`/child/${childId}`);
     } catch (err) {
-      const message = axios.isAxiosError(err) ? firstErrorMessage(err.response?.data) : null;
-      setError(message ?? 'Gagal menjalankan skrining. Periksa kembali data yang diisi.');
+      if (axios.isAxiosError(err) && err.response?.data) {
+        const fields = parseFieldErrors(err.response.data);
+        setFieldErrors(fields);
+        setError(
+          Object.keys(fields).length > 0
+            ? 'Periksa kembali data yang ditandai merah di bawah.'
+            : firstErrorMessage(err.response.data) ?? 'Gagal menjalankan skrining. Periksa kembali data yang diisi.'
+        );
+      } else {
+        setError('Gagal menjalankan skrining. Periksa kembali data yang diisi.');
+      }
     } finally {
       setSaving(false);
     }
@@ -230,12 +247,13 @@ export default function Skrining() {
                 <input
                   id="skrining-birthdate"
                   type="date"
-                  className="field-input"
+                  className={inputClass('birthDate')}
                   value={childForm.birthDate}
                   onChange={(e) => setChildForm({ ...childForm, birthDate: e.target.value })}
                   max={today}
                   required
                 />
+                <FieldError message={fieldErrors.birthDate} />
               </div>
               <div>
                 <label htmlFor="skrining-sex" className="field-label">
@@ -306,11 +324,12 @@ export default function Skrining() {
                   id="skrining-birthweight"
                   type="number"
                   step="1"
-                  className="field-input"
+                  className={inputClass('birthWeightKg')}
                   placeholder="cth: 3200"
                   value={childForm.birthWeightKg}
                   onChange={(e) => setChildForm({ ...childForm, birthWeightKg: e.target.value })}
                 />
+                <FieldError message={fieldErrors.birthWeightKg} />
               </div>
               <div>
                 <label htmlFor="skrining-birthlength" className="field-label">
@@ -320,11 +339,12 @@ export default function Skrining() {
                   id="skrining-birthlength"
                   type="number"
                   step="0.1"
-                  className="field-input"
+                  className={inputClass('birthLengthCm')}
                   placeholder="cth: 49"
                   value={childForm.birthLengthCm}
                   onChange={(e) => setChildForm({ ...childForm, birthLengthCm: e.target.value })}
                 />
+                <FieldError message={fieldErrors.birthLengthCm} />
               </div>
             </div>
             <div>
@@ -334,11 +354,12 @@ export default function Skrining() {
               <input
                 id="skrining-gestational-age"
                 type="number"
-                className="field-input"
+                className={inputClass('gestationalAgeWeeks')}
                 placeholder="cth: 38"
                 value={childForm.gestationalAgeWeeks}
                 onChange={(e) => setChildForm({ ...childForm, gestationalAgeWeeks: e.target.value })}
               />
+              <FieldError message={fieldErrors.gestationalAgeWeeks} />
             </div>
             <Toggle
               id="skrining-exclusive-breastfeeding"
@@ -362,12 +383,13 @@ export default function Skrining() {
               <input
                 id="skrining-measured-at"
                 type="date"
-                className="field-input"
+                className={inputClass('measuredAt')}
                 value={measurementForm.measuredAt}
                 onChange={(e) => setMeasurementForm({ ...measurementForm, measuredAt: e.target.value })}
                 max={today}
                 required
               />
+              <FieldError message={fieldErrors.measuredAt} />
             </div>
             <div>
               <label htmlFor="skrining-weight-kg" className="field-label">
@@ -377,12 +399,13 @@ export default function Skrining() {
                 id="skrining-weight-kg"
                 type="number"
                 step="0.01"
-                className="field-input"
+                className={inputClass('weightKg')}
                 placeholder="cth: 9.5"
                 value={measurementForm.weightKg}
                 onChange={(e) => setMeasurementForm({ ...measurementForm, weightKg: e.target.value })}
                 required
               />
+              <FieldError message={fieldErrors.weightKg} />
             </div>
             <div>
               <label htmlFor="skrining-height-cm" className="field-label">
@@ -392,12 +415,13 @@ export default function Skrining() {
                 id="skrining-height-cm"
                 type="number"
                 step="0.01"
-                className="field-input"
+                className={inputClass('heightCm')}
                 placeholder="cth: 75.2"
                 value={measurementForm.heightCm}
                 onChange={(e) => setMeasurementForm({ ...measurementForm, heightCm: e.target.value })}
                 required
               />
+              <FieldError message={fieldErrors.heightCm} />
             </div>
             <div>
               <label htmlFor="skrining-head-circumference" className="field-label">
@@ -407,11 +431,12 @@ export default function Skrining() {
                 id="skrining-head-circumference"
                 type="number"
                 step="0.1"
-                className="field-input"
+                className={inputClass('headCircumferenceCm')}
                 placeholder="opsional"
                 value={measurementForm.headCircumferenceCm}
                 onChange={(e) => setMeasurementForm({ ...measurementForm, headCircumferenceCm: e.target.value })}
               />
+              <FieldError message={fieldErrors.headCircumferenceCm} />
             </div>
           </div>
           <div>

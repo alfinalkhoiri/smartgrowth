@@ -3,9 +3,10 @@ import { Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { AlertTriangle, Baby, Info, Loader2, MapPin, Pencil, Plus, Printer, Trash2, X } from 'lucide-react';
 import { growthApi } from '@/api/growth';
-import { firstErrorMessage } from '@/api/errors';
+import { firstErrorMessage, parseFieldErrors } from '@/api/errors';
 import { authApi } from '@/api/auth';
 import { useGrowthStore } from '@/features/growth/store';
+import { FieldError } from '@/components/FieldError';
 import { RiskBadge } from '@/components/RiskBadge';
 import { Toggle } from '@/components/Toggle';
 import type { Child, GrowthRecord } from '@/types';
@@ -51,12 +52,14 @@ export default function ChildrenList() {
   const [form, setForm] = useState(emptyForm);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [infoChild, setInfoChild] = useState<Child | null>(null);
   const [latestRecord, setLatestRecord] = useState<GrowthRecord | null>(null);
   const [loadingRecord, setLoadingRecord] = useState(false);
   const [locationFilter, setLocationFilter] = useState('');
   const canCreate = authApi.canCreate();
   const canEditDelete = authApi.canEditDelete();
+  const inputClass = (field: string) => `field-input${fieldErrors[field] ? ' field-input-error' : ''}`;
 
   const locationOptions = Array.from(
     new Set(children.map((c) => c.posyanduLocation).filter((v): v is string => !!v?.trim()))
@@ -86,6 +89,7 @@ export default function ChildrenList() {
 
   const startEdit = (child: Child) => {
     setEditingId(child.id);
+    setFieldErrors({});
     setForm({
       name: child.name,
       birthDate: child.birthDate,
@@ -115,9 +119,11 @@ export default function ChildrenList() {
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setError('');
+    setFieldErrors({});
 
     if (form.birthDate > today) {
-      setError('Tanggal lahir tidak boleh di masa depan.');
+      setFieldErrors({ birthDate: 'Tanggal lahir tidak boleh di masa depan.' });
+      setError('Periksa kembali data yang ditandai merah di bawah.');
       return;
     }
 
@@ -146,8 +152,17 @@ export default function ChildrenList() {
       setEditingId(null);
       setShowForm(false);
     } catch (err) {
-      const message = axios.isAxiosError(err) ? firstErrorMessage(err.response?.data) : null;
-      setError(message ?? 'Gagal menyimpan balita. Periksa kembali data yang diisi.');
+      if (axios.isAxiosError(err) && err.response?.data) {
+        const fields = parseFieldErrors(err.response.data);
+        setFieldErrors(fields);
+        setError(
+          Object.keys(fields).length > 0
+            ? 'Periksa kembali data yang ditandai merah di bawah.'
+            : firstErrorMessage(err.response.data) ?? 'Gagal menyimpan balita. Periksa kembali data yang diisi.'
+        );
+      } else {
+        setError('Gagal menyimpan balita. Periksa kembali data yang diisi.');
+      }
     } finally {
       setSaving(false);
     }
@@ -274,12 +289,13 @@ export default function ChildrenList() {
               <input
                 id="child-birthdate"
                 type="date"
-                className="field-input"
+                className={inputClass('birthDate')}
                 value={form.birthDate}
                 onChange={(e) => setForm({ ...form, birthDate: e.target.value })}
                 max={today}
                 required
               />
+              <FieldError message={fieldErrors.birthDate} />
             </div>
             <div>
               <label htmlFor="child-sex" className="field-label">
@@ -305,10 +321,11 @@ export default function ChildrenList() {
                 id="child-birthweight"
                 type="number"
                 step="0.01"
-                className="field-input"
+                className={inputClass('birthWeightKg')}
                 value={form.birthWeightKg}
                 onChange={(e) => setForm({ ...form, birthWeightKg: e.target.value })}
               />
+              <FieldError message={fieldErrors.birthWeightKg} />
             </div>
             <div>
               <label htmlFor="child-birthlength" className="field-label">
@@ -318,10 +335,11 @@ export default function ChildrenList() {
                 id="child-birthlength"
                 type="number"
                 step="0.1"
-                className="field-input"
+                className={inputClass('birthLengthCm')}
                 value={form.birthLengthCm}
                 onChange={(e) => setForm({ ...form, birthLengthCm: e.target.value })}
               />
+              <FieldError message={fieldErrors.birthLengthCm} />
             </div>
             <div>
               <label htmlFor="gestational-age" className="field-label">
@@ -330,10 +348,11 @@ export default function ChildrenList() {
               <input
                 id="gestational-age"
                 type="number"
-                className="field-input"
+                className={inputClass('gestationalAgeWeeks')}
                 value={form.gestationalAgeWeeks}
                 onChange={(e) => setForm({ ...form, gestationalAgeWeeks: e.target.value })}
               />
+              <FieldError message={fieldErrors.gestationalAgeWeeks} />
             </div>
           </div>
           <Toggle

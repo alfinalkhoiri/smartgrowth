@@ -3,7 +3,8 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import axios from 'axios';
 import { Loader2, QrCode, Sprout, UserPlus } from 'lucide-react';
 import { authApi, type PublicRole } from '@/api/auth';
-import { firstErrorMessage } from '@/api/errors';
+import { firstErrorMessage, parseFieldErrors } from '@/api/errors';
+import { FieldError } from '@/components/FieldError';
 
 const roleLabels: Record<PublicRole, string> = {
   orangtua: 'Orang Tua',
@@ -22,12 +23,15 @@ export default function Register() {
   const [role, setRole] = useState<PublicRole>(prefilledCode ? 'kader_nakes' : 'orangtua');
   const [inviteCode, setInviteCode] = useState(prefilledCode);
   const [error, setError] = useState('');
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+  const inputClass = (field: string) => `field-input${fieldErrors[field] ? ' field-input-error' : ''}`;
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setError('');
+    setFieldErrors({});
     setLoading(true);
     try {
       await authApi.register({
@@ -38,8 +42,17 @@ export default function Register() {
       });
       navigate('/', { replace: true });
     } catch (err) {
-      const message = axios.isAxiosError(err) ? firstErrorMessage(err.response?.data) : null;
-      setError(message ?? 'Gagal mendaftar. Periksa kembali data yang diisi.');
+      if (axios.isAxiosError(err) && err.response?.data) {
+        const fields = parseFieldErrors(err.response.data);
+        setFieldErrors(fields);
+        setError(
+          Object.keys(fields).length > 0
+            ? 'Periksa kembali data yang ditandai merah di bawah.'
+            : firstErrorMessage(err.response.data) ?? 'Gagal mendaftar. Periksa kembali data yang diisi.'
+        );
+      } else {
+        setError('Gagal mendaftar. Periksa kembali data yang diisi.');
+      }
     } finally {
       setLoading(false);
     }
@@ -74,12 +87,13 @@ export default function Register() {
             </label>
             <input
               id="register-username"
-              className="field-input"
+              className={inputClass('username')}
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               autoComplete="username"
               required
             />
+            <FieldError message={fieldErrors.username} />
           </div>
           <div>
             <label htmlFor="register-password" className="field-label">
@@ -88,12 +102,13 @@ export default function Register() {
             <input
               id="register-password"
               type="password"
-              className="field-input"
+              className={inputClass('password')}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               autoComplete="new-password"
               required
             />
+            <FieldError message={fieldErrors.password} />
           </div>
           <div>
             <label htmlFor="register-role" className="field-label">
@@ -119,12 +134,13 @@ export default function Register() {
               </label>
               <input
                 id="register-invite-code"
-                className="field-input"
+                className={inputClass('inviteCode')}
                 value={inviteCode}
                 onChange={(e) => setInviteCode(e.target.value)}
                 placeholder="Minta ke koordinator posyandu Anda"
                 required
               />
+              <FieldError message={fieldErrors.inviteCode} />
               <p className="text-xs text-gray-400 mt-1">
                 Peran Kader/Nakes bisa melihat data semua balita, jadi butuh kode ini agar tidak sembarang orang
                 bisa mendaftar.

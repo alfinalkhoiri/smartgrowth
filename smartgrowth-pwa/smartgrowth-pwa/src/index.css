@@ -48,6 +48,15 @@ body {
     @apply w-full min-h-[44px] border border-gray-300 rounded-[0.625rem] px-3 py-2 text-gray-900
       placeholder:text-gray-400 focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none;
   }
+  /* Combine with .field-input (e.g. `field-input field-input-error`) to flag
+     the one field a backend validation error points at — comes after
+     .field-input in source order so its border-color wins the cascade. */
+  .field-input-error {
+    @apply border-red-400 focus:border-red-500 focus:ring-red-200;
+  }
+  .field-error-text {
+    @apply mt-1 text-xs text-red-600;
+  }
   .btn-primary {
     @apply inline-flex items-center justify-center gap-2 min-h-[44px] px-4 rounded-[0.625rem]
       bg-primary text-primary-foreground font-medium hover:bg-primary-hover active:bg-primary-hover
