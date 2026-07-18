@@ -25,6 +25,9 @@ interface TokenPayload {
   username?: string;
   role?: Role;
   is_superuser?: boolean;
+  // SimpleJWT's default claim (USER_ID_CLAIM) — not added by
+  // RoleTokenObtainPairSerializer, it's baked into every access token.
+  user_id?: number;
 }
 
 export interface InviteCodeInfo {
@@ -113,5 +116,7 @@ export const authApi = {
   getInviteCode: () => apiClient.get<InviteCodeInfo>('/auth/invite-code'),
   regenerateInviteCode: () => apiClient.post<InviteCodeInfo>('/auth/invite-code'),
   // Admin-only — backs the "List User" page under the Setting menu.
-  listUsers: () => apiClient.get<UserListEntry[]>('/auth/users')
+  listUsers: () => apiClient.get<UserListEntry[]>('/auth/users'),
+  // Admin-only; backend also rejects deleting your own account (400).
+  deleteUser: (id: number) => apiClient.delete(`/auth/users/${id}`)
 };

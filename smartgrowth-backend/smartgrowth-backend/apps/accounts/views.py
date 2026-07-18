@@ -1,4 +1,5 @@
 from rest_framework import generics, permissions, status
+from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.views import TokenObtainPairView
@@ -56,3 +57,19 @@ class UserListView(generics.ListAPIView):
     queryset = User.objects.all().order_by('username')
     serializer_class = UserListSerializer
     permission_classes = [IsAppAdmin]
+
+
+class UserDetailView(generics.DestroyAPIView):
+    """
+    DELETE /api/auth/users/<id> — admin-only. Blocks deleting your own
+    account (the one obvious footgun: an admin locking themselves out isn't
+    recoverable from the UI, only via `createsuperuser`/shell).
+    """
+    queryset = User.objects.all()
+    serializer_class = UserListSerializer
+    permission_classes = [IsAppAdmin]
+
+    def perform_destroy(self, instance):
+        if instance.pk == self.request.user.pk:
+            raise ValidationError({'detail': 'Tidak bisa menghapus akun sendiri.'})
+        instance.delete()

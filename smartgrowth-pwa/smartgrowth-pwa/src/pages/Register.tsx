@@ -15,6 +15,8 @@ export default function Register() {
 
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [email, setEmail] = useState('');
+  const [phoneNumber, setPhoneNumber] = useState('');
   // Orangtua tidak lagi mendaftar akun (lihat Fase 2: dashboard tanpa login
   // lewat QR/link publik) — satu-satunya peran yang bisa self-register lewat
   // form ini sekarang adalah kader_nakes.
@@ -35,6 +37,8 @@ export default function Register() {
         username,
         password,
         role: 'kader_nakes',
+        email: email || undefined,
+        phoneNumber: phoneNumber || undefined,
         inviteCode
       });
       navigate('/', { replace: true });
@@ -106,6 +110,34 @@ export default function Register() {
               required
             />
             <FieldError message={fieldErrors.password} />
+          </div>
+          <div>
+            <label htmlFor="register-email" className="field-label">
+              Email (opsional)
+            </label>
+            <input
+              id="register-email"
+              type="email"
+              className={inputClass('email')}
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              autoComplete="email"
+            />
+            <FieldError message={fieldErrors.email} />
+          </div>
+          <div>
+            <label htmlFor="register-phone" className="field-label">
+              No. HP (opsional)
+            </label>
+            <input
+              id="register-phone"
+              type="tel"
+              className={inputClass('phoneNumber')}
+              value={phoneNumber}
+              onChange={(e) => setPhoneNumber(e.target.value)}
+              autoComplete="tel"
+            />
+            <FieldError message={fieldErrors.phoneNumber} />
           </div>
           <div>
             <label htmlFor="register-invite-code" className="field-label">

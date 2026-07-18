@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import axios from 'axios';
-import { ArrowLeft, Loader2, Users } from 'lucide-react';
+import { ArrowLeft, Loader2, Trash2, Users } from 'lucide-react';
 import { authApi, type Role, type UserListEntry } from '@/api/auth';
 import { firstErrorMessage } from '@/api/errors';
 
@@ -19,9 +19,11 @@ const roleBadgeStyles: Record<Role, string> = {
 
 export default function UserList() {
   const isAdmin = authApi.isAdmin();
+  const currentUserId = authApi.getCurrentUser()?.user_id;
   const [users, setUsers] = useState<UserListEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [deletingId, setDeletingId] = useState<number | null>(null);
 
   useEffect(() => {
     if (!isAdmin) return;
@@ -34,6 +36,21 @@ export default function UserList() {
       })
       .finally(() => setLoading(false));
   }, [isAdmin]);
+
+  const handleDelete = async (user: UserListEntry) => {
+    if (!window.confirm(`Hapus user "${user.username}"? Tindakan ini tidak bisa dibatalkan.`)) return;
+    setError('');
+    setDeletingId(user.id);
+    try {
+      await authApi.deleteUser(user.id);
+      setUsers((prev) => prev.filter((u) => u.id !== user.id));
+    } catch (err) {
+      const message = axios.isAxiosError(err) ? firstErrorMessage(err.response?.data) : null;
+      setError(message ?? 'Gagal menghapus user.');
+    } finally {
+      setDeletingId(null);
+    }
+  };
 
   if (!isAdmin) {
     return (
@@ -82,6 +99,7 @@ export default function UserList() {
                 <th className="px-4 py-3 font-medium">Email</th>
                 <th className="px-4 py-3 font-medium">No. HP</th>
                 <th className="px-4 py-3 font-medium">Terdaftar</th>
+                <th className="px-4 py-3 font-medium text-right">Aksi</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
@@ -97,6 +115,22 @@ export default function UserList() {
                   <td className="px-4 py-3 text-gray-500">{u.phoneNumber || '-'}</td>
                   <td className="px-4 py-3 text-gray-500">
                     {new Date(u.dateJoined).toLocaleDateString('id-ID', { dateStyle: 'medium' })}
+                  </td>
+                  <td className="px-4 py-3 text-right">
+                    {u.id !== currentUserId && (
+                      <button
+                        onClick={() => handleDelete(u)}
+                        disabled={deletingId === u.id}
+                        aria-label={`Hapus user ${u.username}`}
+                        className="inline-flex items-center justify-center h-9 w-9 rounded-lg text-red-600 hover:bg-red-50 disabled:opacity-50"
+                      >
+                        {deletingId === u.id ? (
+                          <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+                        ) : (
+                          <Trash2 className="h-4 w-4" aria-hidden="true" />
+                        )}
+                      </button>
+                    )}
                   </td>
                 </tr>
               ))}
