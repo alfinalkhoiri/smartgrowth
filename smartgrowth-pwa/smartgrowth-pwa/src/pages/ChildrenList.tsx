@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import axios from 'axios';
 import { AlertTriangle, Baby, Info, Loader2, MapPin, Pencil, Plus, Printer, Trash2, X } from 'lucide-react';
 import { growthApi } from '@/api/growth';
@@ -40,6 +40,11 @@ function ageLabel(birthDate: string): string {
 
 export default function ChildrenList() {
   const navigate = useNavigate();
+  // Arrived via the Edit (pencil) button on a child's detail page — open
+  // that child's edit form here directly instead of making the kader find
+  // it in the list again.
+  const [searchParams] = useSearchParams();
+  const editChildId = searchParams.get('edit');
   const children = useGrowthStore((s) => s.children);
   const setChildren = useGrowthStore((s) => s.setChildren);
   const addChild = useGrowthStore((s) => s.addChild);
@@ -74,6 +79,16 @@ export default function ChildrenList() {
       .then((res) => setChildren(res.data))
       .finally(() => setLoadingChildren(false));
   }, [setChildren]);
+
+  // Runs once, right after the initial fetch settles — deliberately not
+  // re-triggered on later `children` updates (e.g. after saving this same
+  // edit), or it would keep resetting the form and clobber unsaved input.
+  useEffect(() => {
+    if (loadingChildren || !editChildId) return;
+    const target = children.find((c) => c.id === editChildId);
+    if (target) startEdit(target);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loadingChildren]);
 
   const openInfo = async (child: Child) => {
     setInfoChild(child);
