@@ -262,6 +262,14 @@ export default function ChildDashboard() {
               recommendations={latest?.recommendations}
               notes={latest?.notes}
               measuredAt={latest?.measuredAt}
+              ageMonths={latest?.ageMonths}
+              weightKg={latest?.weightKg}
+              heightCm={latest?.heightCm}
+              headCircumferenceCm={latest?.headCircumferenceCm}
+              heightForAgeZ={latest?.heightForAgeZ}
+              weightForHeightZ={latest?.weightForHeightZ}
+              weightForAgeZ={latest?.weightForAgeZ}
+              headCircumferenceZ={latest?.headCircumferenceZ}
             />
           )}
 
