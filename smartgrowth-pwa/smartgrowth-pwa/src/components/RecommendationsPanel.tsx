@@ -16,15 +16,23 @@ interface Props {
   weightForHeightZ?: number;
   weightForAgeZ?: number;
   headCircumferenceZ?: number;
+  // Hanya dikirim dari ChildDashboard.tsx (kader/nakes) — PublicChildView.tsx
+  // tidak pernah mengisinya, karena PublicGrowthRecord (backend
+  // PublicGrowthRecordSerializer) sengaja tidak menyertakan data internal
+  // petugas untuk bearer link tanpa login. Kalau kosong, baris ini otomatis
+  // tersembunyi.
+  officerName?: string;
+  location?: string;
 }
 
 // Shared between ChildDashboard.tsx and PublicChildView.tsx — always reads
 // off the LATEST measurement (not a specific historical one), since this
 // tab is meant to answer "what should we do based on where things stand
 // now", not "what did we record on date X" (that's what the per-record
-// Info popup on ChildDashboard is for). Only fields also present on
-// PublicGrowthRecord are accepted (no officerName/location) so this panel
-// renders identically for kader/nakes and for the no-login parent view.
+// Info popup on ChildDashboard is for). Most fields are also present on
+// PublicGrowthRecord so this panel renders near-identically for kader/nakes
+// and the no-login parent view — officerName/location are the one exception,
+// see the Props comment above.
 export function RecommendationsPanel({
   riskStatus,
   recommendations,
@@ -37,7 +45,9 @@ export function RecommendationsPanel({
   heightForAgeZ,
   weightForHeightZ,
   weightForAgeZ,
-  headCircumferenceZ
+  headCircumferenceZ,
+  officerName,
+  location
 }: Props) {
   if (!riskStatus) {
     return (
@@ -72,6 +82,13 @@ export function RecommendationsPanel({
             Berat: {weightKg ?? '-'} kg &middot; Tinggi: {heightCm ?? '-'} cm
             {headCircumferenceCm != null && <> &middot; Lingkar Kepala: {headCircumferenceCm} cm</>}
           </p>
+          {(officerName || location) && (
+            <p>
+              {officerName && <>Petugas: {officerName}</>}
+              {officerName && location && ' · '}
+              {location && <>Posyandu: {location}</>}
+            </p>
+          )}
           <p>Z-score Tinggi/Usia (HAZ): {heightForAgeZ ?? '-'}</p>
           <p>Z-score Berat/Tinggi (WHZ): {weightForHeightZ ?? '-'}</p>
           <p>Z-score Berat/Usia (WAZ): {weightForAgeZ ?? '-'}</p>

@@ -270,6 +270,8 @@ export default function ChildDashboard() {
               weightForHeightZ={latest?.weightForHeightZ}
               weightForAgeZ={latest?.weightForAgeZ}
               headCircumferenceZ={latest?.headCircumferenceZ}
+              officerName={latest?.officerName}
+              location={latest?.location}
             />
           )}
 
