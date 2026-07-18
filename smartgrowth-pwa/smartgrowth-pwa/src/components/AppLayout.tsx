@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import {
+  Activity,
   BarChart3,
   Baby,
   BookOpen,
@@ -11,7 +12,6 @@ import {
   LogOut,
   Menu,
   ShieldAlert,
-  Sprout,
   X
 } from 'lucide-react';
 import { authApi } from '@/api/auth';
@@ -65,7 +65,9 @@ export function AppLayout() {
             {open ? <X className="h-5 w-5" aria-hidden="true" /> : <Menu className="h-5 w-5" aria-hidden="true" />}
           </button>
           <span className="flex items-center gap-1.5">
-            <Sprout className="h-5 w-5 text-primary shrink-0" strokeWidth={2.25} aria-hidden="true" />
+            <span className="flex items-center justify-center h-9 w-9 rounded-xl bg-gradient-primary shadow-soft shrink-0">
+              <Activity className="h-5 w-5 text-white" aria-hidden="true" />
+            </span>
             <span className="leading-tight">
               <span className="block font-display font-semibold text-primary">SmartGrowth</span>
               <span className="hidden sm:block text-[11px] text-gray-400">Tele-Screening Stunting &middot; Posyandu</span>

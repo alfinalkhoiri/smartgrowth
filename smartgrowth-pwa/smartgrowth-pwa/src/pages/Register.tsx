@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import axios from 'axios';
-import { Loader2, QrCode, Sprout, UserPlus } from 'lucide-react';
+import { Activity, Loader2, QrCode, UserPlus } from 'lucide-react';
 import { authApi, type PublicRole } from '@/api/auth';
 import { firstErrorMessage, parseFieldErrors } from '@/api/errors';
 import { FieldError } from '@/components/FieldError';
@@ -62,8 +62,8 @@ export default function Register() {
     <div className="min-h-screen flex items-center justify-center p-4">
       <div className="w-full max-w-sm space-y-6">
         <div className="flex flex-col items-center gap-2 text-center">
-          <span className="flex items-center justify-center h-12 w-12 rounded-2xl bg-primary text-primary-foreground shadow-sm">
-            <Sprout className="h-6 w-6" strokeWidth={2.25} aria-hidden="true" />
+          <span className="flex items-center justify-center h-12 w-12 rounded-2xl bg-gradient-primary shadow-soft">
+            <Activity className="h-6 w-6 text-white" aria-hidden="true" />
           </span>
           <h1 className="text-xl font-display font-bold text-gray-900">Daftar Akun SmartGrowth</h1>
           <p className="text-sm text-gray-500">Untuk kader posyandu &amp; tenaga kesehatan</p>

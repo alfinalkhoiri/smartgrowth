@@ -33,7 +33,11 @@ export default {
         // 3-stop hero gradient (hijau -> teal -> biru) — dipakai di banner
         // Beranda. Nilai hex diambil dari computed style asli (hsl(152 70%
         // 45%)/hsl(180 65% 45%)/hsl(198 85% 50%)).
-        'gradient-hero': 'linear-gradient(135deg, #22c378 0%, #28bdbd 50%, #13abec 100%)'
+        'gradient-hero': 'linear-gradient(135deg, #22c378 0%, #28bdbd 50%, #13abec 100%)',
+        // 2-stop primary->accent gradient — dipakai untuk badge logo (bukan
+        // banner). Nilai persis dari computed style badge logo Lovable asli
+        // (bg-gradient-primary): linear-gradient(135deg, rgb(37,157,101), rgb(17,154,212)).
+        'gradient-primary': 'linear-gradient(135deg, #259d65, #119ad4)'
       },
       boxShadow: {
         // Nilai persis diambil dari computed style, bukan tebakan.

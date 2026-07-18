@@ -5,6 +5,50 @@ export interface NutritionTipGroup {
   tips: string[];
 }
 
+export interface FoodExamples {
+  foods: string[];
+  drinks: string[];
+}
+
+// Concrete, commonly-available examples per tier — the tips above stay
+// general ("protein hewani"), this is deliberately the "so what do I
+// actually put on the plate" follow-up. Still not a meal plan/prescription.
+export function foodExamplesFor(status: RiskStatus | undefined): FoodExamples {
+  switch (status) {
+    case 'stunting':
+      return {
+        foods: [
+          'Hati ayam/sapi',
+          'Telur (1–2 butir/hari)',
+          'Ikan kembung/teri',
+          'Tempe & tahu',
+          'Kacang hijau',
+          'Santan/minyak untuk tambahan kalori'
+        ],
+        drinks: ['ASI (lanjutkan sampai 2 tahun)', 'Susu pertumbuhan sesuai anjuran nakes']
+      };
+    case 'malnutrisi':
+      return {
+        foods: [
+          'Makanan terapeutik sesuai resep nakes (F-75/F-100/RUTF)',
+          'Bubur/makanan lunak mudah dicerna sementara menunggu rujukan'
+        ],
+        drinks: ['ASI (jangan dihentikan)', 'Larutan oralit bila ada diare, sesuai anjuran nakes']
+      };
+    case 'berisiko':
+      return {
+        foods: ['Telur rebus/dadar', 'Ikan atau ayam cincang', 'Bubur kacang hijau', 'Pisang & alpukat'],
+        drinks: ['Susu tambahan sesuai anjuran nakes', 'Air putih yang cukup']
+      };
+    case 'normal':
+    default:
+      return {
+        foods: ['Nasi/kentang/ubi', 'Telur, ikan, ayam, tahu, tempe', 'Sayur bayam/wortel/brokoli', 'Buah pisang/pepaya/jeruk'],
+        drinks: ['Air putih', 'ASI/susu sesuai usia']
+      };
+  }
+}
+
 // General, non-prescriptive guidance per risk tier — grounded in widely-cited
 // WHO/Kemenkes stunting-prevention themes (animal protein + zinc/iron for
 // catch-up growth, calorie density via healthy fats, therapeutic feeding

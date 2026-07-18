@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import axios from 'axios';
-import { AlertTriangle, ArrowDownRight, ArrowUpRight, Loader2, Ruler, Scale, ShieldAlert, Sprout } from 'lucide-react';
+import { Activity, AlertTriangle, ArrowDownRight, ArrowUpRight, Loader2, Ruler, Scale, ShieldAlert } from 'lucide-react';
 import { publicApi } from '@/api/public';
 import { firstErrorMessage } from '@/api/errors';
 import { DetailTabs, type DetailTab } from '@/components/DetailTabs';
@@ -61,7 +61,9 @@ export default function PublicChildView() {
     <div className="min-h-screen bg-primary-light/60 font-sans">
       <div className="sticky top-0 z-40 bg-white/90 backdrop-blur border-b border-primary-light shadow-sm">
         <div className="flex items-center gap-1.5 px-4 py-3 max-w-2xl mx-auto">
-          <Sprout className="h-5 w-5 text-primary shrink-0" strokeWidth={2.25} aria-hidden="true" />
+          <span className="flex items-center justify-center h-9 w-9 rounded-xl bg-gradient-primary shadow-soft shrink-0">
+            <Activity className="h-5 w-5 text-white" aria-hidden="true" />
+          </span>
           <span className="leading-tight">
             <span className="block font-display font-semibold text-primary">SmartGrowth</span>
             <span className="block text-[11px] text-gray-400">Dashboard Orang Tua</span>
@@ -131,7 +133,7 @@ export default function PublicChildView() {
                   </div>
                 )}
 
-                {records.length > 1 && (
+                {records.length > 0 && (
                   <>
                     <GrowthChart records={records} metric="height" />
                     <GrowthChart records={records} metric="weight" />

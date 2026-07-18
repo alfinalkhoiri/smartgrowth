@@ -21,7 +21,7 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['icons/*.png'],
       manifest: {
-        name: 'SmartGrowth - Stunting Risk Telescreening',
+        name: 'SmartGrowth: Pengembangan Sistem Tele-Screening Stunting Berbasis Digital untuk Deteksi Dini Risiko Malnutrisi Balita',
         short_name: 'SmartGrowth',
         description: 'AI-based telescreening for early stunting risk detection and toddler growth monitoring',
         theme_color: '#0f766e',

@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Loader2, LogIn, Sprout } from 'lucide-react';
+import { Activity, Loader2, LogIn } from 'lucide-react';
 import { authApi } from '@/api/auth';
 
 export default function Login() {
@@ -28,8 +28,8 @@ export default function Login() {
     <div className="min-h-screen flex items-center justify-center p-4">
       <div className="w-full max-w-sm space-y-6">
         <div className="flex flex-col items-center gap-2 text-center">
-          <span className="flex items-center justify-center h-12 w-12 rounded-2xl bg-primary text-primary-foreground shadow-sm">
-            <Sprout className="h-6 w-6" strokeWidth={2.25} aria-hidden="true" />
+          <span className="flex items-center justify-center h-12 w-12 rounded-2xl bg-gradient-primary shadow-soft">
+            <Activity className="h-6 w-6 text-white" aria-hidden="true" />
           </span>
           <h1 className="text-xl font-display font-bold text-gray-900">Masuk SmartGrowth</h1>
           <p className="text-sm text-gray-500">Deteksi dini risiko stunting &amp; wasting balita</p>
