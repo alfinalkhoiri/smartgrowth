@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { AlertTriangle, Baby, Info, Loader2, Pencil, Plus, Printer, Trash2, X } from 'lucide-react';
 import { growthApi } from '@/api/growth';
@@ -37,6 +37,7 @@ function ageLabel(birthDate: string): string {
 }
 
 export default function ChildrenList() {
+  const navigate = useNavigate();
   const children = useGrowthStore((s) => s.children);
   const setChildren = useGrowthStore((s) => s.setChildren);
   const addChild = useGrowthStore((s) => s.addChild);
@@ -71,12 +72,6 @@ export default function ChildrenList() {
     } finally {
       setLoadingRecord(false);
     }
-  };
-
-  const startAdd = () => {
-    setEditingId(null);
-    setForm(emptyForm);
-    setShowForm(true);
   };
 
   const startEdit = (child: Child) => {
@@ -157,7 +152,7 @@ export default function ChildrenList() {
           <p className="text-sm text-primary font-medium">{children.length} balita terdaftar</p>
         </div>
         {canCreate && (
-          <button onClick={() => (showForm ? setShowForm(false) : startAdd())} className="btn-primary">
+          <button onClick={() => (showForm ? setShowForm(false) : navigate('/skrining'))} className="btn-primary">
             {showForm ? (
               <>
                 <X className="h-4 w-4" aria-hidden="true" />
@@ -374,7 +369,7 @@ export default function ChildrenList() {
               <Baby className="h-14 w-14 text-gray-300" aria-hidden="true" />
               <p className="text-sm text-gray-500">Belum ada balita terdaftar</p>
               {canCreate && (
-                <button onClick={startAdd} className="btn-primary">
+                <button onClick={() => navigate('/skrining')} className="btn-primary">
                   Tambah Balita Pertama
                 </button>
               )}
