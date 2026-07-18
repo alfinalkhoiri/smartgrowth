@@ -131,7 +131,12 @@ export default function PublicChildView() {
                   </div>
                 )}
 
-                {records.length > 1 && <GrowthChart records={records} />}
+                {records.length > 1 && (
+                  <>
+                    <GrowthChart records={records} metric="height" />
+                    <GrowthChart records={records} metric="weight" />
+                  </>
+                )}
 
                 {sortedRecords.length > 0 && (
                   <div className="space-y-2">

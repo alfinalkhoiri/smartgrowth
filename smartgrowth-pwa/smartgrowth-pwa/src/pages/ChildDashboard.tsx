@@ -164,7 +164,8 @@ export default function ChildDashboard() {
 
           {activeTab === 'hasil' && (
             <div className="space-y-4">
-              <GrowthChart records={records} />
+              <GrowthChart records={records} metric="height" />
+              <GrowthChart records={records} metric="weight" />
               <div className="grid grid-cols-2 gap-3">
                 <div className="card p-4 flex items-center gap-3">
                   <span className="flex items-center justify-center h-10 w-10 rounded-full bg-primary-light text-primary shrink-0">
