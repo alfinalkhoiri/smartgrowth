@@ -29,8 +29,10 @@ export interface Child {
 
 // Slice of a measurement shown on the no-login parent dashboard — same
 // shape as the fields GrowthRecord already has, just fewer of them (no
-// officerName/location/notes/photo/questionnaire answers, see
-// PublicGrowthRecordSerializer on the backend).
+// officerName/location/photo/raw questionnaire answers, see
+// PublicGrowthRecordSerializer on the backend). recommendations/notes ARE
+// included — the "Rekomendasi" tab renders identically on both this page
+// and ChildDashboard.tsx.
 export interface PublicGrowthRecord {
   measuredAt: string;
   weightKg: number;
@@ -43,6 +45,8 @@ export interface PublicGrowthRecord {
   headCircumferenceZ?: number;
   riskStatus?: RiskStatus;
   weightTrend?: 'naik' | 'tetap_turun' | null;
+  recommendations?: string[];
+  notes?: string;
 }
 
 export interface PublicChildDashboard {

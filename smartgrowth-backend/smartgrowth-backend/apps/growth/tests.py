@@ -872,6 +872,8 @@ class PublicChildDashboardTests(TestCase):
         self.assertEqual(response.status_code, 404)
 
     def test_payload_excludes_staff_only_fields(self):
+        # notes/recommendations ARE included (parent dashboard's "Rekomendasi"
+        # tab renders them) — officer_name/location/photo stay excluded.
         client = APIClient()
         response = client.get(f'/api/public/children/{self.child.public_token}/')
         self.assertNotIn('id', response.data)
@@ -881,7 +883,9 @@ class PublicChildDashboardTests(TestCase):
         record = response.data['records'][0]
         self.assertNotIn('officer_name', record)
         self.assertNotIn('location', record)
-        self.assertNotIn('notes', record)
+        self.assertNotIn('photo', record)
+        self.assertIn('notes', record)
+        self.assertIn('recommendations', record)
 
 
 class RegenerateTokenActionTests(TestCase):

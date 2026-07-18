@@ -1,21 +1,14 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import axios from 'axios';
-import {
-  AlertTriangle,
-  ArrowDownRight,
-  ArrowUpRight,
-  Loader2,
-  Ruler,
-  Scale,
-  ShieldAlert,
-  Sprout
-} from 'lucide-react';
+import { AlertTriangle, ArrowDownRight, ArrowUpRight, Loader2, Ruler, Scale, ShieldAlert, Sprout } from 'lucide-react';
 import { publicApi } from '@/api/public';
 import { firstErrorMessage } from '@/api/errors';
+import { DetailTabs, type DetailTab } from '@/components/DetailTabs';
+import { EducationTips } from '@/components/EducationTips';
 import { GrowthChart } from '@/components/GrowthChart';
+import { RecommendationsPanel } from '@/components/RecommendationsPanel';
 import { RiskBadge } from '@/components/RiskBadge';
-import { riskDescription } from '@/features/growth/zscore';
 import type { PublicChildDashboard } from '@/types';
 
 const riskDotStyles: Record<string, string> = {
@@ -42,6 +35,7 @@ export default function PublicChildView() {
   const [dashboard, setDashboard] = useState<PublicChildDashboard | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [activeTab, setActiveTab] = useState<DetailTab>('hasil');
 
   useEffect(() => {
     if (!token) return;
@@ -100,86 +94,102 @@ export default function PublicChildView() {
               </p>
             )}
 
-            {latest ? (
-              <div className="card p-4 space-y-3">
-                <div className="flex items-center justify-between gap-2">
-                  <p className="text-sm text-gray-500">Hasil Terakhir &middot; {latest.measuredAt}</p>
-                  {latest.riskStatus && <RiskBadge status={latest.riskStatus} />}
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="flex items-center gap-3">
-                    <span className="flex items-center justify-center h-10 w-10 rounded-full bg-primary-light text-primary shrink-0">
-                      <Scale className="h-5 w-5" aria-hidden="true" />
-                    </span>
-                    <span>
-                      <p className="text-xs text-gray-500">Berat</p>
-                      <p className="text-lg font-semibold text-gray-900">{latest.weightKg} kg</p>
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <span className="flex items-center justify-center h-10 w-10 rounded-full bg-primary-light text-primary shrink-0">
-                      <Ruler className="h-5 w-5" aria-hidden="true" />
-                    </span>
-                    <span>
-                      <p className="text-xs text-gray-500">Tinggi</p>
-                      <p className="text-lg font-semibold text-gray-900">{latest.heightCm} cm</p>
-                    </span>
-                  </div>
-                </div>
-                {latest.riskStatus && <p className="text-sm text-gray-600">{riskDescription(latest.riskStatus)}</p>}
-              </div>
-            ) : (
-              <div className="text-center py-12 border-2 border-dashed border-gray-200 rounded-xl">
-                <p className="text-sm text-gray-500">Belum ada data pengukuran untuk balita ini.</p>
-              </div>
-            )}
+            <DetailTabs active={activeTab} onChange={setActiveTab} />
 
-            {records.length > 1 && <GrowthChart records={records} />}
-
-            {sortedRecords.length > 0 && (
-              <div className="space-y-2">
-                <p className="font-display font-bold text-gray-900">Riwayat Pengukuran</p>
-                <div className="card divide-y divide-gray-100">
-                  {sortedRecords.map((record, i) => (
-                    <div key={i} className="flex items-center gap-3 p-4">
-                      {record.riskStatus && (
-                        <span
-                          className={`h-2.5 w-2.5 rounded-full shrink-0 ${riskDotStyles[record.riskStatus]}`}
-                          aria-hidden="true"
-                        />
-                      )}
-                      <div className="flex-1 min-w-0">
-                        <p className="flex items-center gap-1.5 font-medium text-gray-900">
-                          {record.measuredAt}
-                          {record.weightTrend === 'naik' && (
-                            <span
-                              className="inline-flex items-center gap-0.5 text-xs font-medium text-green-700"
-                              title="Berat naik dari pengukuran sebelumnya"
-                            >
-                              <ArrowUpRight className="h-3.5 w-3.5" aria-hidden="true" />
-                              Naik
-                            </span>
-                          )}
-                          {record.weightTrend === 'tetap_turun' && (
-                            <span
-                              className="inline-flex items-center gap-0.5 text-xs font-medium text-amber-700"
-                              title="Berat tetap/turun dari pengukuran sebelumnya"
-                            >
-                              <ArrowDownRight className="h-3.5 w-3.5" aria-hidden="true" />
-                              Tetap/Turun
-                            </span>
-                          )}
-                        </p>
-                        <p className="text-sm text-gray-500">
-                          {record.weightKg} kg &middot; {record.heightCm} cm &middot; {record.ageMonths} bln
-                        </p>
-                      </div>
-                      {record.riskStatus && <RiskBadge status={record.riskStatus} />}
+            {activeTab === 'hasil' && (
+              <div className="space-y-4">
+                {latest ? (
+                  <div className="card p-4 space-y-3">
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="text-sm text-gray-500">Hasil Terakhir &middot; {latest.measuredAt}</p>
+                      {latest.riskStatus && <RiskBadge status={latest.riskStatus} />}
                     </div>
-                  ))}
-                </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="flex items-center gap-3">
+                        <span className="flex items-center justify-center h-10 w-10 rounded-full bg-primary-light text-primary shrink-0">
+                          <Scale className="h-5 w-5" aria-hidden="true" />
+                        </span>
+                        <span>
+                          <p className="text-xs text-gray-500">Berat</p>
+                          <p className="text-lg font-semibold text-gray-900">{latest.weightKg} kg</p>
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <span className="flex items-center justify-center h-10 w-10 rounded-full bg-primary-light text-primary shrink-0">
+                          <Ruler className="h-5 w-5" aria-hidden="true" />
+                        </span>
+                        <span>
+                          <p className="text-xs text-gray-500">Tinggi</p>
+                          <p className="text-lg font-semibold text-gray-900">{latest.heightCm} cm</p>
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-center py-12 border-2 border-dashed border-gray-200 rounded-xl">
+                    <p className="text-sm text-gray-500">Belum ada data pengukuran untuk balita ini.</p>
+                  </div>
+                )}
+
+                {records.length > 1 && <GrowthChart records={records} />}
+
+                {sortedRecords.length > 0 && (
+                  <div className="space-y-2">
+                    <p className="font-display font-bold text-gray-900">Riwayat Pengukuran</p>
+                    <div className="card divide-y divide-gray-100">
+                      {sortedRecords.map((record, i) => (
+                        <div key={i} className="flex items-center gap-3 p-4">
+                          {record.riskStatus && (
+                            <span
+                              className={`h-2.5 w-2.5 rounded-full shrink-0 ${riskDotStyles[record.riskStatus]}`}
+                              aria-hidden="true"
+                            />
+                          )}
+                          <div className="flex-1 min-w-0">
+                            <p className="flex items-center gap-1.5 font-medium text-gray-900">
+                              {record.measuredAt}
+                              {record.weightTrend === 'naik' && (
+                                <span
+                                  className="inline-flex items-center gap-0.5 text-xs font-medium text-green-700"
+                                  title="Berat naik dari pengukuran sebelumnya"
+                                >
+                                  <ArrowUpRight className="h-3.5 w-3.5" aria-hidden="true" />
+                                  Naik
+                                </span>
+                              )}
+                              {record.weightTrend === 'tetap_turun' && (
+                                <span
+                                  className="inline-flex items-center gap-0.5 text-xs font-medium text-amber-700"
+                                  title="Berat tetap/turun dari pengukuran sebelumnya"
+                                >
+                                  <ArrowDownRight className="h-3.5 w-3.5" aria-hidden="true" />
+                                  Tetap/Turun
+                                </span>
+                              )}
+                            </p>
+                            <p className="text-sm text-gray-500">
+                              {record.weightKg} kg &middot; {record.heightCm} cm &middot; {record.ageMonths} bln
+                            </p>
+                          </div>
+                          {record.riskStatus && <RiskBadge status={record.riskStatus} />}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
+
+            {activeTab === 'rekomendasi' && (
+              <RecommendationsPanel
+                riskStatus={latest?.riskStatus}
+                recommendations={latest?.recommendations}
+                notes={latest?.notes}
+                measuredAt={latest?.measuredAt}
+              />
+            )}
+
+            {activeTab === 'edukasi' && <EducationTips riskStatus={latest?.riskStatus} />}
           </>
         )}
       </main>

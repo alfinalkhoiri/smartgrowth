@@ -19,8 +19,11 @@ import { growthApi } from '@/api/growth';
 import { firstErrorMessage } from '@/api/errors';
 import { authApi } from '@/api/auth';
 import { useGrowthStore } from '@/features/growth/store';
+import { DetailTabs, type DetailTab } from '@/components/DetailTabs';
+import { EducationTips } from '@/components/EducationTips';
 import { GrowthChart } from '@/components/GrowthChart';
 import { ParentDashboardQr } from '@/components/ParentDashboardQr';
+import { RecommendationsPanel } from '@/components/RecommendationsPanel';
 import { RiskBadge } from '@/components/RiskBadge';
 import { riskDescription } from '@/features/growth/zscore';
 import type { Child, GrowthRecord } from '@/types';
@@ -44,6 +47,7 @@ export default function ChildDashboard() {
   const [error, setError] = useState('');
   const [resultRecord, setResultRecord] = useState<GrowthRecord | null>(null);
   const [generatingReport, setGeneratingReport] = useState(false);
+  const [activeTab, setActiveTab] = useState<DetailTab>('hasil');
   const canCreate = authApi.canCreate();
   const canEditDelete = authApi.canEditDelete();
 
@@ -156,94 +160,111 @@ export default function ChildDashboard() {
         </div>
       ) : (
         <>
-          <GrowthChart records={records} />
-          <div className="grid grid-cols-2 gap-3">
-            <div className="card p-4 flex items-center gap-3">
-              <span className="flex items-center justify-center h-10 w-10 rounded-full bg-primary-light text-primary shrink-0">
-                <Scale className="h-5 w-5" aria-hidden="true" />
-              </span>
-              <span>
-                <p className="text-sm text-gray-500">Berat Terakhir</p>
-                <p className="text-xl font-semibold text-gray-900">{latest?.weightKg ?? '-'} kg</p>
-              </span>
-            </div>
-            <div className="card p-4 flex items-center gap-3">
-              <span className="flex items-center justify-center h-10 w-10 rounded-full bg-primary-light text-primary shrink-0">
-                <Ruler className="h-5 w-5" aria-hidden="true" />
-              </span>
-              <span>
-                <p className="text-sm text-gray-500">Tinggi Terakhir</p>
-                <p className="text-xl font-semibold text-gray-900">{latest?.heightCm ?? '-'} cm</p>
-              </span>
-            </div>
-          </div>
+          <DetailTabs active={activeTab} onChange={setActiveTab} />
 
-          {sortedRecords.length > 0 && (
-            <div className="card divide-y divide-gray-100">
-              {sortedRecords.map((record) => (
-                <div key={record.id} className="flex items-center gap-3 p-4">
-                  {record.riskStatus && (
-                    <span
-                      className={`h-2.5 w-2.5 rounded-full shrink-0 ${riskDotStyles[record.riskStatus]}`}
-                      aria-hidden="true"
-                    />
-                  )}
-                  <div className="flex-1 min-w-0">
-                    <p className="flex items-center gap-1.5 font-medium text-gray-900">
-                      {record.measuredAt}
-                      {record.weightTrend === 'naik' && (
-                        <span className="inline-flex items-center gap-0.5 text-xs font-medium text-green-700" title="Berat naik dari pengukuran sebelumnya">
-                          <ArrowUpRight className="h-3.5 w-3.5" aria-hidden="true" />
-                          Naik
-                        </span>
-                      )}
-                      {record.weightTrend === 'tetap_turun' && (
-                        <span className="inline-flex items-center gap-0.5 text-xs font-medium text-amber-700" title="Berat tetap/turun dari pengukuran sebelumnya">
-                          <ArrowDownRight className="h-3.5 w-3.5" aria-hidden="true" />
-                          Tetap/Turun
-                        </span>
-                      )}
-                    </p>
-                    <p className="text-sm text-gray-500">
-                      {record.weightKg} kg &middot; {record.heightCm} cm &middot; {record.ageMonths} bln
-                    </p>
-                    {(record.officerName || record.location) && (
-                      <p className="text-xs text-gray-400 truncate">
-                        {[record.officerName, record.location].filter(Boolean).join(' · ')}
-                      </p>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-1 shrink-0">
-                    <button
-                      onClick={() => openResult(record)}
-                      aria-label={`Info pengukuran ${record.measuredAt}`}
-                      className="flex items-center justify-center h-11 w-11 rounded-lg text-gray-500 hover:bg-primary-light hover:text-primary"
-                    >
-                      <Info className="h-5 w-5" aria-hidden="true" />
-                    </button>
-                    {canEditDelete && (
-                      <>
-                        <button
-                          onClick={() => navigate(`/skrining?editRecord=${record.id}&child=${childId}`)}
-                          aria-label={`Edit pengukuran ${record.measuredAt}`}
-                          className="flex items-center justify-center h-11 w-11 rounded-lg text-primary hover:bg-primary-light"
-                        >
-                          <Pencil className="h-5 w-5" aria-hidden="true" />
-                        </button>
-                        <button
-                          onClick={() => handleDelete(record)}
-                          aria-label={`Hapus pengukuran ${record.measuredAt}`}
-                          className="flex items-center justify-center h-11 w-11 rounded-lg text-red-600 hover:bg-red-50"
-                        >
-                          <Trash2 className="h-5 w-5" aria-hidden="true" />
-                        </button>
-                      </>
-                    )}
-                  </div>
+          {activeTab === 'hasil' && (
+            <div className="space-y-4">
+              <GrowthChart records={records} />
+              <div className="grid grid-cols-2 gap-3">
+                <div className="card p-4 flex items-center gap-3">
+                  <span className="flex items-center justify-center h-10 w-10 rounded-full bg-primary-light text-primary shrink-0">
+                    <Scale className="h-5 w-5" aria-hidden="true" />
+                  </span>
+                  <span>
+                    <p className="text-sm text-gray-500">Berat Terakhir</p>
+                    <p className="text-xl font-semibold text-gray-900">{latest?.weightKg ?? '-'} kg</p>
+                  </span>
                 </div>
-              ))}
+                <div className="card p-4 flex items-center gap-3">
+                  <span className="flex items-center justify-center h-10 w-10 rounded-full bg-primary-light text-primary shrink-0">
+                    <Ruler className="h-5 w-5" aria-hidden="true" />
+                  </span>
+                  <span>
+                    <p className="text-sm text-gray-500">Tinggi Terakhir</p>
+                    <p className="text-xl font-semibold text-gray-900">{latest?.heightCm ?? '-'} cm</p>
+                  </span>
+                </div>
+              </div>
+
+              {sortedRecords.length > 0 && (
+                <div className="card divide-y divide-gray-100">
+                  {sortedRecords.map((record) => (
+                    <div key={record.id} className="flex items-center gap-3 p-4">
+                      {record.riskStatus && (
+                        <span
+                          className={`h-2.5 w-2.5 rounded-full shrink-0 ${riskDotStyles[record.riskStatus]}`}
+                          aria-hidden="true"
+                        />
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <p className="flex items-center gap-1.5 font-medium text-gray-900">
+                          {record.measuredAt}
+                          {record.weightTrend === 'naik' && (
+                            <span className="inline-flex items-center gap-0.5 text-xs font-medium text-green-700" title="Berat naik dari pengukuran sebelumnya">
+                              <ArrowUpRight className="h-3.5 w-3.5" aria-hidden="true" />
+                              Naik
+                            </span>
+                          )}
+                          {record.weightTrend === 'tetap_turun' && (
+                            <span className="inline-flex items-center gap-0.5 text-xs font-medium text-amber-700" title="Berat tetap/turun dari pengukuran sebelumnya">
+                              <ArrowDownRight className="h-3.5 w-3.5" aria-hidden="true" />
+                              Tetap/Turun
+                            </span>
+                          )}
+                        </p>
+                        <p className="text-sm text-gray-500">
+                          {record.weightKg} kg &middot; {record.heightCm} cm &middot; {record.ageMonths} bln
+                        </p>
+                        {(record.officerName || record.location) && (
+                          <p className="text-xs text-gray-400 truncate">
+                            {[record.officerName, record.location].filter(Boolean).join(' · ')}
+                          </p>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-1 shrink-0">
+                        <button
+                          onClick={() => openResult(record)}
+                          aria-label={`Info pengukuran ${record.measuredAt}`}
+                          className="flex items-center justify-center h-11 w-11 rounded-lg text-gray-500 hover:bg-primary-light hover:text-primary"
+                        >
+                          <Info className="h-5 w-5" aria-hidden="true" />
+                        </button>
+                        {canEditDelete && (
+                          <>
+                            <button
+                              onClick={() => navigate(`/skrining?editRecord=${record.id}&child=${childId}`)}
+                              aria-label={`Edit pengukuran ${record.measuredAt}`}
+                              className="flex items-center justify-center h-11 w-11 rounded-lg text-primary hover:bg-primary-light"
+                            >
+                              <Pencil className="h-5 w-5" aria-hidden="true" />
+                            </button>
+                            <button
+                              onClick={() => handleDelete(record)}
+                              aria-label={`Hapus pengukuran ${record.measuredAt}`}
+                              className="flex items-center justify-center h-11 w-11 rounded-lg text-red-600 hover:bg-red-50"
+                            >
+                              <Trash2 className="h-5 w-5" aria-hidden="true" />
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
+
+          {activeTab === 'rekomendasi' && (
+            <RecommendationsPanel
+              riskStatus={latest?.riskStatus}
+              recommendations={latest?.recommendations}
+              notes={latest?.notes}
+              measuredAt={latest?.measuredAt}
+            />
+          )}
+
+          {activeTab === 'edukasi' && <EducationTips riskStatus={latest?.riskStatus} />}
         </>
       )}
 

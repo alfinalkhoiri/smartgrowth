@@ -237,20 +237,26 @@ class LinkChildSerializer(serializers.Serializer):
 class PublicGrowthRecordSerializer(serializers.ModelSerializer):
     """
     Read-only slice of GrowthRecord for the no-login parent dashboard —
-    deliberately excludes officer_name/location/notes/photo/questionnaire
-    answers (staff-facing detail a parent doesn't need and that shouldn't be
-    reachable from a bearer link with no login at all).
+    deliberately excludes officer_name/location/photo/raw questionnaire
+    answers (staff-facing detail a parent doesn't need). `recommendations`
+    and `notes` ARE included: the parent dashboard's "Rekomendasi" tab is
+    meant to show exactly these (see PublicChildView.tsx / ChildDashboard.tsx
+    on the frontend, which render the identical tab from this same data).
     """
     weight_trend = serializers.SerializerMethodField()
+    recommendations = serializers.SerializerMethodField()
 
     class Meta:
         model = GrowthRecord
         fields = [
             'measured_at', 'weight_kg', 'height_cm', 'head_circumference_cm', 'age_months',
             'height_for_age_z', 'weight_for_height_z', 'weight_for_age_z', 'head_circumference_z',
-            'risk_status', 'weight_trend',
+            'risk_status', 'weight_trend', 'recommendations', 'notes',
         ]
         read_only_fields = fields
+
+    def get_recommendations(self, obj):
+        return questionnaire_recommendations(obj.child, obj)
 
     def get_weight_trend(self, obj):
         previous = (
