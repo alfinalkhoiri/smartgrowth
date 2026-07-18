@@ -96,39 +96,37 @@ export function RecommendationsPanel({
         </div>
       </div>
 
-      {((recommendations && recommendations.length > 0) || notes) && (
-        <div className="card p-4 space-y-3">
-          <p className="flex items-center gap-1.5 font-display font-bold text-gray-900">
-            <ClipboardList className="h-4 w-4 text-accent" aria-hidden="true" />
-            Rekomendasi
-          </p>
+      <div className="card p-4 space-y-3">
+        <p className="flex items-center gap-1.5 font-display font-bold text-gray-900">
+          <ClipboardList className="h-4 w-4 text-accent" aria-hidden="true" />
+          Rekomendasi
+        </p>
 
-          {recommendations && recommendations.length > 0 && (
-            <div className="space-y-1.5">
-              <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">Dari Kuesioner</p>
-              <ul className="text-sm text-gray-600 list-disc list-inside space-y-1">
-                {recommendations.map((rec, i) => (
-                  <li key={i}>{rec}</li>
-                ))}
-              </ul>
-            </div>
-          )}
-
-          {notes && (
-            <div className="space-y-1.5">
-              <p className="flex items-center gap-1 text-xs font-semibold uppercase tracking-wide text-gray-400">
-                <StickyNote className="h-3 w-3" aria-hidden="true" />
-                Catatan Petugas
-              </p>
-              <p className="text-sm text-gray-700 whitespace-pre-wrap">{notes}</p>
-            </div>
+        <div className="space-y-1.5">
+          <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">Dari Kuesioner</p>
+          {recommendations && recommendations.length > 0 ? (
+            <ul className="text-sm text-gray-600 list-disc list-inside space-y-1">
+              {recommendations.map((rec, i) => (
+                <li key={i}>{rec}</li>
+              ))}
+            </ul>
+          ) : (
+            <p className="text-sm text-gray-500">
+              Tidak ada faktor risiko tambahan yang teridentifikasi dari kuesioner saat ini.
+            </p>
           )}
         </div>
-      )}
 
-      {(!recommendations || recommendations.length === 0) && !notes && (
-        <p className="text-sm text-gray-400 text-center py-4">Belum ada rekomendasi atau catatan tambahan.</p>
-      )}
+        {notes && (
+          <div className="space-y-1.5">
+            <p className="flex items-center gap-1 text-xs font-semibold uppercase tracking-wide text-gray-400">
+              <StickyNote className="h-3 w-3" aria-hidden="true" />
+              Catatan Petugas
+            </p>
+            <p className="text-sm text-gray-700 whitespace-pre-wrap">{notes}</p>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
