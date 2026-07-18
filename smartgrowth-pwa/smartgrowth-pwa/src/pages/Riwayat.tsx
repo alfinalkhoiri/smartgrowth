@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { BarChart3, Loader2 } from 'lucide-react';
+import { BarChart3, Loader2, MapPin } from 'lucide-react';
 import { growthApi } from '@/api/growth';
 import { RiskBadge } from '@/components/RiskBadge';
 import type { Child, GrowthRecord, RiskStatus } from '@/types';
@@ -11,6 +11,7 @@ export default function Riwayat() {
   const [loading, setLoading] = useState(true);
   const [childFilter, setChildFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState<RiskStatus | ''>('');
+  const [locationFilter, setLocationFilter] = useState('');
 
   useEffect(() => {
     Promise.all([growthApi.listChildren(), growthApi.listAllRecords()])
@@ -27,9 +28,24 @@ export default function Riwayat() {
     return map;
   }, [children]);
 
+  const childLocationById = useMemo(() => {
+    const map: Record<string, string> = {};
+    for (const c of children) if (c.posyanduLocation) map[c.id] = c.posyanduLocation;
+    return map;
+  }, [children]);
+
+  const locationOptions = useMemo(
+    () =>
+      Array.from(new Set(children.map((c) => c.posyanduLocation).filter((v): v is string => !!v?.trim()))).sort(
+        (a, b) => a.localeCompare(b)
+      ),
+    [children]
+  );
+
   const filtered = records
     .filter((r) => !childFilter || r.childId === childFilter)
     .filter((r) => !statusFilter || r.riskStatus === statusFilter)
+    .filter((r) => !locationFilter || childLocationById[r.childId] === locationFilter)
     .slice()
     .sort((a, b) => (a.measuredAt < b.measuredAt ? 1 : -1));
 
@@ -81,14 +97,49 @@ export default function Riwayat() {
         </div>
       </div>
 
+      {locationOptions.length > 0 && (
+        <div className="flex items-center gap-2">
+          <MapPin className="h-4 w-4 text-gray-400 shrink-0" aria-hidden="true" />
+          <select
+            aria-label="Filter lokasi posyandu/klinik"
+            className="field-input"
+            value={locationFilter}
+            onChange={(e) => setLocationFilter(e.target.value)}
+          >
+            <option value="">Semua Lokasi</option>
+            {locationOptions.map((loc) => (
+              <option key={loc} value={loc}>
+                {loc}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
+
       {loading ? (
         <div className="flex items-center justify-center gap-2 text-gray-400 text-sm py-10">
           <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
           Memuat data...
         </div>
       ) : filtered.length === 0 ? (
-        <div className="text-center py-12 border-2 border-dashed border-gray-200 rounded-xl">
-          <p className="text-sm text-gray-500">Belum ada riwayat skrining.</p>
+        <div className="flex flex-col items-center gap-3 text-center py-12 border-2 border-dashed border-gray-200 rounded-xl">
+          {records.length === 0 ? (
+            <p className="text-sm text-gray-500">Belum ada riwayat skrining.</p>
+          ) : (
+            <>
+              <p className="text-sm text-gray-500">Tidak ada riwayat yang cocok dengan filter.</p>
+              <button
+                onClick={() => {
+                  setChildFilter('');
+                  setStatusFilter('');
+                  setLocationFilter('');
+                }}
+                className="btn-secondary"
+              >
+                Reset Filter
+              </button>
+            </>
+          )}
         </div>
       ) : (
         <div className="card divide-y divide-gray-100">
