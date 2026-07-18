@@ -6,7 +6,6 @@ import {
   ArrowDownRight,
   ArrowUpRight,
   Download,
-  Droplets,
   Info,
   Loader2,
   Pencil,
@@ -14,8 +13,6 @@ import {
   Printer,
   Ruler,
   Scale,
-  Syringe,
-  Thermometer,
   Trash2,
   X
 } from 'lucide-react';
@@ -31,20 +28,6 @@ import { riskDescription } from '@/features/growth/zscore';
 import { monthsBetween } from '@/lib/dates';
 import type { Child, GrowthRecord, GrowthReference } from '@/types';
 
-type TriState = '' | 'yes' | 'no';
-
-function toTriState(value: boolean | null | undefined): TriState {
-  if (value === true) return 'yes';
-  if (value === false) return 'no';
-  return '';
-}
-
-function fromTriState(value: TriState): boolean | null {
-  if (value === 'yes') return true;
-  if (value === 'no') return false;
-  return null;
-}
-
 const riskDotStyles: Record<string, string> = {
   normal: 'bg-green-500',
   berisiko: 'bg-amber-500',
@@ -57,11 +40,7 @@ const emptyForm = {
   weightKg: '',
   heightCm: '',
   headCircumferenceCm: '',
-  officerName: '',
-  location: '',
-  cleanWaterAccess: '' as TriState,
-  recurrentIllness: '' as TriState,
-  immunizationComplete: '' as TriState
+  location: ''
 };
 const today = new Date().toISOString().slice(0, 10);
 
@@ -164,11 +143,7 @@ export default function ChildDashboard() {
       weightKg: String(record.weightKg),
       heightCm: String(record.heightCm),
       headCircumferenceCm: record.headCircumferenceCm != null ? String(record.headCircumferenceCm) : '',
-      officerName: record.officerName ?? '',
-      location: record.location ?? '',
-      cleanWaterAccess: toTriState(record.cleanWaterAccess),
-      recurrentIllness: toTriState(record.recurrentIllness),
-      immunizationComplete: toTriState(record.immunizationComplete)
+      location: record.location ?? ''
     });
     setShowForm(true);
   };
@@ -207,6 +182,9 @@ export default function ChildDashboard() {
     // notes is deliberately left out here — it's only editable from the
     // result popup (after the measurement itself is saved), and omitting it
     // on an update leaves the existing note untouched rather than wiping it.
+    // Same reasoning for officerName/cleanWaterAccess/recurrentIllness/
+    // immunizationComplete — those moved to Skrining.tsx (see that file),
+    // omitting them here leaves whatever was set there untouched on edit.
     const payload = {
       childId,
       measuredAt: form.measuredAt,
@@ -214,11 +192,7 @@ export default function ChildDashboard() {
       heightCm: Number(form.heightCm),
       headCircumferenceCm: form.headCircumferenceCm ? Number(form.headCircumferenceCm) : undefined,
       ageMonths: monthsBetween(child.birthDate, form.measuredAt),
-      officerName: form.officerName,
-      location: form.location,
-      cleanWaterAccess: fromTriState(form.cleanWaterAccess),
-      recurrentIllness: fromTriState(form.recurrentIllness),
-      immunizationComplete: fromTriState(form.immunizationComplete)
+      location: form.location
     };
     try {
       let saved: GrowthRecord;
@@ -412,86 +386,17 @@ export default function ChildDashboard() {
             />
             <FieldError message={fieldErrors.headCircumferenceCm} />
           </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label htmlFor="officer-name" className="field-label">
-                Nama Petugas
-              </label>
-              <input
-                id="officer-name"
-                className="field-input"
-                placeholder="Mis. Bidan Sari"
-                value={form.officerName}
-                onChange={(e) => setForm({ ...form, officerName: e.target.value })}
-              />
-            </div>
-            <div>
-              <label htmlFor="measure-location" className="field-label">
-                Lokasi Pengukuran
-              </label>
-              <input
-                id="measure-location"
-                className="field-input"
-                placeholder="Mis. Posyandu Melati"
-                value={form.location}
-                onChange={(e) => setForm({ ...form, location: e.target.value })}
-              />
-            </div>
-          </div>
-
-          <div className="space-y-3 border-t border-gray-100 pt-3">
-            <p className="flex items-center gap-1.5 text-sm font-medium text-gray-700">
-              <Syringe className="h-4 w-4 text-primary" aria-hidden="true" />
-              Kuesioner Faktor Risiko
-            </p>
-            <div>
-              <label htmlFor="clean-water" className="field-label flex items-center gap-1.5">
-                <Droplets className="h-3.5 w-3.5 text-gray-400" aria-hidden="true" />
-                Akses air bersih &amp; sanitasi layak
-              </label>
-              <select
-                id="clean-water"
-                className="field-input text-sm"
-                value={form.cleanWaterAccess}
-                onChange={(e) => setForm({ ...form, cleanWaterAccess: e.target.value as TriState })}
-              >
-                <option value="">Belum diisi</option>
-                <option value="yes">Ya</option>
-                <option value="no">Tidak</option>
-              </select>
-            </div>
-            <div>
-              <label htmlFor="recurrent-illness" className="field-label flex items-center gap-1.5">
-                <Thermometer className="h-3.5 w-3.5 text-gray-400" aria-hidden="true" />
-                Riwayat sakit/diare berulang (3 bulan terakhir)
-              </label>
-              <select
-                id="recurrent-illness"
-                className="field-input text-sm"
-                value={form.recurrentIllness}
-                onChange={(e) => setForm({ ...form, recurrentIllness: e.target.value as TriState })}
-              >
-                <option value="">Belum diisi</option>
-                <option value="yes">Ya</option>
-                <option value="no">Tidak</option>
-              </select>
-            </div>
-            <div>
-              <label htmlFor="immunization" className="field-label flex items-center gap-1.5">
-                <Syringe className="h-3.5 w-3.5 text-gray-400" aria-hidden="true" />
-                Imunisasi lengkap sesuai usia
-              </label>
-              <select
-                id="immunization"
-                className="field-input text-sm"
-                value={form.immunizationComplete}
-                onChange={(e) => setForm({ ...form, immunizationComplete: e.target.value as TriState })}
-              >
-                <option value="">Belum diisi</option>
-                <option value="yes">Ya</option>
-                <option value="no">Tidak</option>
-              </select>
-            </div>
+          <div>
+            <label htmlFor="measure-location" className="field-label">
+              Lokasi Pengukuran
+            </label>
+            <input
+              id="measure-location"
+              className="field-input"
+              placeholder="Mis. Posyandu Melati"
+              value={form.location}
+              onChange={(e) => setForm({ ...form, location: e.target.value })}
+            />
           </div>
 
           <button type="submit" disabled={saving} className="btn-primary w-full">

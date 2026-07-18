@@ -1,7 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import { Camera, Loader2, MapPin, Ruler, Smile, Sparkles, UserPlus } from 'lucide-react';
+import { Camera, Droplets, Loader2, MapPin, Ruler, Smile, Sparkles, Syringe, Thermometer, UserPlus } from 'lucide-react';
 import { growthApi } from '@/api/growth';
 import { scheduleApi } from '@/api/schedule';
 import { firstErrorMessage, parseFieldErrors } from '@/api/errors';
@@ -13,6 +13,14 @@ import { monthsBetween } from '@/lib/dates';
 import type { Child } from '@/types';
 
 const today = new Date().toISOString().slice(0, 10);
+
+type TriState = '' | 'yes' | 'no';
+
+function fromTriState(value: TriState): boolean | null {
+  if (value === 'yes') return true;
+  if (value === 'no') return false;
+  return null;
+}
 
 const emptyChildForm = {
   name: '',
@@ -31,7 +39,11 @@ const emptyMeasurementForm = {
   measuredAt: today,
   weightKg: '',
   heightCm: '',
-  headCircumferenceCm: ''
+  headCircumferenceCm: '',
+  officerName: '',
+  cleanWaterAccess: '' as TriState,
+  recurrentIllness: '' as TriState,
+  immunizationComplete: '' as TriState
 };
 
 export default function Skrining() {
@@ -134,7 +146,11 @@ export default function Skrining() {
           ? Number(measurementForm.headCircumferenceCm)
           : undefined,
         photo: photo ?? undefined,
-        ageMonths: monthsBetween(birthDate, measurementForm.measuredAt)
+        ageMonths: monthsBetween(birthDate, measurementForm.measuredAt),
+        officerName: measurementForm.officerName,
+        cleanWaterAccess: fromTriState(measurementForm.cleanWaterAccess),
+        recurrentIllness: fromTriState(measurementForm.recurrentIllness),
+        immunizationComplete: fromTriState(measurementForm.immunizationComplete)
       });
       navigate(`/child/${childId}`);
     } catch (err) {
@@ -440,6 +456,18 @@ export default function Skrining() {
             </div>
           </div>
           <div>
+            <label htmlFor="skrining-officer-name" className="field-label">
+              Nama Petugas
+            </label>
+            <input
+              id="skrining-officer-name"
+              className="field-input"
+              placeholder="Mis. Bidan Sari"
+              value={measurementForm.officerName}
+              onChange={(e) => setMeasurementForm({ ...measurementForm, officerName: e.target.value })}
+            />
+          </div>
+          <div>
             <label htmlFor="skrining-photo" className="field-label flex items-center gap-1.5">
               <Camera className="h-3.5 w-3.5 text-gray-400" aria-hidden="true" />
               Foto Balita (opsional)
@@ -452,6 +480,63 @@ export default function Skrining() {
               className="field-input text-sm file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:bg-primary-light file:text-primary"
               onChange={(e) => setPhoto(e.target.files?.[0] ?? null)}
             />
+          </div>
+        </div>
+
+        <div className="space-y-3 border-t border-gray-100 pt-4">
+          <p className="flex items-center gap-1.5 font-display font-bold text-gray-900">
+            <Syringe className="h-4 w-4 text-accent" aria-hidden="true" />
+            Kuesioner Faktor Risiko
+          </p>
+          <div>
+            <label htmlFor="skrining-clean-water" className="field-label flex items-center gap-1.5">
+              <Droplets className="h-3.5 w-3.5 text-gray-400" aria-hidden="true" />
+              Akses air bersih &amp; sanitasi layak
+            </label>
+            <select
+              id="skrining-clean-water"
+              className="field-input text-sm"
+              value={measurementForm.cleanWaterAccess}
+              onChange={(e) => setMeasurementForm({ ...measurementForm, cleanWaterAccess: e.target.value as TriState })}
+            >
+              <option value="">Belum diisi</option>
+              <option value="yes">Ya</option>
+              <option value="no">Tidak</option>
+            </select>
+          </div>
+          <div>
+            <label htmlFor="skrining-recurrent-illness" className="field-label flex items-center gap-1.5">
+              <Thermometer className="h-3.5 w-3.5 text-gray-400" aria-hidden="true" />
+              Riwayat sakit/diare berulang (3 bulan terakhir)
+            </label>
+            <select
+              id="skrining-recurrent-illness"
+              className="field-input text-sm"
+              value={measurementForm.recurrentIllness}
+              onChange={(e) => setMeasurementForm({ ...measurementForm, recurrentIllness: e.target.value as TriState })}
+            >
+              <option value="">Belum diisi</option>
+              <option value="yes">Ya</option>
+              <option value="no">Tidak</option>
+            </select>
+          </div>
+          <div>
+            <label htmlFor="skrining-immunization" className="field-label flex items-center gap-1.5">
+              <Syringe className="h-3.5 w-3.5 text-gray-400" aria-hidden="true" />
+              Imunisasi lengkap sesuai usia
+            </label>
+            <select
+              id="skrining-immunization"
+              className="field-input text-sm"
+              value={measurementForm.immunizationComplete}
+              onChange={(e) =>
+                setMeasurementForm({ ...measurementForm, immunizationComplete: e.target.value as TriState })
+              }
+            >
+              <option value="">Belum diisi</option>
+              <option value="yes">Ya</option>
+              <option value="no">Tidak</option>
+            </select>
           </div>
         </div>
 
