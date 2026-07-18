@@ -17,6 +17,7 @@ export default function Register() {
   const [password, setPassword] = useState('');
   const [email, setEmail] = useState('');
   const [phoneNumber, setPhoneNumber] = useState('');
+  const [posyanduLocation, setPosyanduLocation] = useState('');
   // Orangtua tidak lagi mendaftar akun (lihat Fase 2: dashboard tanpa login
   // lewat QR/link publik) — satu-satunya peran yang bisa self-register lewat
   // form ini sekarang adalah kader_nakes.
@@ -39,6 +40,7 @@ export default function Register() {
         role: 'kader_nakes',
         email: email || undefined,
         phoneNumber: phoneNumber || undefined,
+        posyanduLocation: posyanduLocation || undefined,
         inviteCode
       });
       navigate('/', { replace: true });
@@ -113,7 +115,7 @@ export default function Register() {
           </div>
           <div>
             <label htmlFor="register-email" className="field-label">
-              Email (opsional)
+              Email
             </label>
             <input
               id="register-email"
@@ -127,7 +129,7 @@ export default function Register() {
           </div>
           <div>
             <label htmlFor="register-phone" className="field-label">
-              No. HP (opsional)
+              No. HP
             </label>
             <input
               id="register-phone"
@@ -138,6 +140,19 @@ export default function Register() {
               autoComplete="tel"
             />
             <FieldError message={fieldErrors.phoneNumber} />
+          </div>
+          <div>
+            <label htmlFor="register-posyandu-location" className="field-label">
+              Lokasi Klinik/Posyandu
+            </label>
+            <input
+              id="register-posyandu-location"
+              className={inputClass('posyanduLocation')}
+              value={posyanduLocation}
+              onChange={(e) => setPosyanduLocation(e.target.value)}
+              placeholder="cth: Posyandu Melati"
+            />
+            <FieldError message={fieldErrors.posyanduLocation} />
           </div>
           <div>
             <label htmlFor="register-invite-code" className="field-label">

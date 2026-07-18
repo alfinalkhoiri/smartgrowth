@@ -29,6 +29,10 @@ class User(AbstractUser):
     # nilai default di sini praktis tidak pernah dipakai kecuali dari shell.
     role = models.CharField(max_length=20, choices=Role.choices, default=Role.ORANGTUA)
     phone_number = models.CharField(max_length=20, blank=True)
+    # Klinik/Posyandu tempat kader/nakes bertugas — informasional saja
+    # (bukan dipakai untuk scoping data balita, itu tetap lewat
+    # Child.posyandu_location / lokasi per-kunjungan).
+    posyandu_location = models.CharField(max_length=150, blank=True, default='')
 
     def __str__(self):
         return f'{self.username} ({self.role})'

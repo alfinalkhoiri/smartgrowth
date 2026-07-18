@@ -14,6 +14,7 @@ export interface RegisterPayload {
   role: PublicRole;
   email?: string;
   phoneNumber?: string;
+  posyanduLocation?: string;
   // Hanya wajib diisi kalau role === 'kader_nakes' — lihat
   // KADER_NAKES_INVITE_CODE di backend. Peran kader_nakes bisa lihat SEMUA
   // balita, jadi pendaftaran publik ke peran ini digerbangi kode ini supaya
@@ -42,6 +43,7 @@ export interface UserListEntry {
   email: string;
   role: Role;
   phoneNumber: string;
+  posyanduLocation: string;
   isSuperuser: boolean;
   isActive: boolean;
   dateJoined: string;

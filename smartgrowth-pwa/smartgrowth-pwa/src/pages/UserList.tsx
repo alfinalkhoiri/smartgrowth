@@ -98,6 +98,7 @@ export default function UserList() {
                 <th className="px-4 py-3 font-medium">Peran</th>
                 <th className="px-4 py-3 font-medium">Email</th>
                 <th className="px-4 py-3 font-medium">No. HP</th>
+                <th className="px-4 py-3 font-medium">Lokasi Posyandu</th>
                 <th className="px-4 py-3 font-medium">Terdaftar</th>
                 <th className="px-4 py-3 font-medium text-right">Aksi</th>
               </tr>
@@ -113,6 +114,7 @@ export default function UserList() {
                   </td>
                   <td className="px-4 py-3 text-gray-500">{u.email || '-'}</td>
                   <td className="px-4 py-3 text-gray-500">{u.phoneNumber || '-'}</td>
+                  <td className="px-4 py-3 text-gray-500">{u.posyanduLocation || '-'}</td>
                   <td className="px-4 py-3 text-gray-500">
                     {new Date(u.dateJoined).toLocaleDateString('id-ID', { dateStyle: 'medium' })}
                   </td>
