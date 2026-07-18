@@ -29,9 +29,11 @@ Fakultas Ilmu Komputer × Fakultas Kedokteran, President University.
   satu tempat), dan Edukasi (tips + contoh makanan/minuman konkret sesuai
   status gizi), ditampilkan sama persis di dashboard kader/nakes maupun
   dashboard orang tua.
-- **Laporan PDF & cetak langsung** — laporan per balita (profil, riwayat
-  Z-score, rekomendasi, tips gizi, QR ajakan pantau lanjutan) bisa diunduh
-  atau langsung dicetak dari tombol terpisah di dashboard balita.
+- **Kartu ringkasan PDF & cetak langsung** — laporan per balita berukuran
+  A5 (sama seperti Buku KIA, supaya mudah disimpan bersama) berisi ringkasan
+  status gizi & riwayat singkat plus QR besar yang mengarahkan orang tua ke
+  web untuk detail lengkap dan rekomendasi; bisa diunduh atau langsung
+  dicetak dari tombol terpisah di dashboard balita.
 - **Deteksi tren pertumbuhan (2T)** — berat tidak naik 2x pengukuran
   berturut-turut memicu banner peringatan, mengikuti konvensi N/T Posyandu
   Indonesia (Buku KIA/KMS).

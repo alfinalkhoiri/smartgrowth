@@ -21,13 +21,12 @@ src/
                     # RiskBadge (4-tier), Toggle (switch input), etc.
   lib/
     dates.ts        # monthsBetween()
-    pdf.ts          # jsPDF/jsPDF-autotable report generator (branded
-                    # header, risk callout, history table, Rekomendasi &
-                    # Catatan Petugas, nutrition tips, QR call-to-action),
+    pdf.ts          # jsPDF/jsPDF-autotable report generator — A5, Buku KIA
+                    # sized, compact summary + QR (see "Laporan PDF" below),
                     # lazy-loaded via dynamic import (see ChildDashboard.tsx)
                     # so the ~450KB gzipped library isn't in the main bundle
                     # — exports generateChildReport() (download) and
-                    # printChildReport() (print, see "Laporan PDF" below)
+                    # printChildReport() (print)
   pages/            # Dashboard (Beranda), Skrining, ChildrenList (Data
                     # Balita), ChildDashboard, Riwayat, Edukasi, Jadwal,
                     # Login, Register, Setting + UserList + KodePosyandu
@@ -248,15 +247,21 @@ entry points:
   for `onload`, then call `.contentWindow.print()` — no new-tab/popup
   machinery involved at all, so there's no activation window to lose.
 
-The report itself: a branded header band, child profile, a colored risk
-status callout (same 4-tier palette as `RiskBadge.tsx`), the full
-measurement history table (now with a weight-trend column and a 2T alert
-banner when `child.growthAlert === '2T'`), a "Rekomendasi & Catatan
-Petugas" section mirroring `RecommendationsPanel.tsx`, nutrition tips +
-concrete food examples from `lib/nutritionTips.ts`, and — when
-`child.publicToken` is set — a QR call-to-action box encoding the same
-`#/p/:token` link as `ParentDashboardQr.tsx`, framed as "keep monitoring
-progress" rather than just a bare QR code.
+The page itself is **A5** (`new jsPDF({ format: 'a5' })`, 148×210mm) — the
+same trim size as Buku KIA, so it can physically live alongside it instead
+of being a loose A4 sheet nobody keeps. Content is deliberately a compact
+snapshot, not the full record: branded header band, child profile line, a
+colored risk status callout (same 4-tier palette as `RiskBadge.tsx`), the
+latest measurement's weight/height/Z-score/officer summary, a short history
+table (last 5 measurements only, with a "riwayat lengkap ada di web" note
+if there are more), and — when `child.publicToken` is set — a large QR
+call-to-action box encoding the same `#/p/:token` link as
+`ParentDashboardQr.tsx`, framed as "Detail Lengkap & Rekomendasi di Web".
+The full recommendation list, officer notes, nutrition tips, and food
+examples are deliberately **not** printed — they only live on the web
+dashboard behind that QR, so parents have a reason to actually open the
+link instead of the print being a complete (and instantly stale) substitute
+for it.
 
 ## Design system
 

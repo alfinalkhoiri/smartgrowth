@@ -1,7 +1,6 @@
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { riskLabel, riskDescription } from '@/features/growth/zscore';
-import { foodExamplesFor, nutritionTipsFor } from '@/lib/nutritionTips';
 import type { Child, GrowthRecord } from '@/types';
 
 const SEX_LABEL: Record<Child['sex'], string> = { male: 'Laki-laki', female: 'Perempuan' };
@@ -19,11 +18,14 @@ const RISK_COLORS: Record<string, { bg: [number, number, number]; text: [number,
   malnutrisi: { bg: [254, 226, 226], text: [185, 28, 28] }
 };
 
-const WEIGHT_TREND_LABEL: Record<string, string> = { naik: 'Naik', tetap_turun: 'Tetap/Turun' };
-
-const MARGIN = 14;
-const PAGE_WIDTH = 210;
-const PAGE_HEIGHT = 297;
+// A5 (148×210mm) — same trim size as Buku KIA, so this can physically live
+// alongside it instead of being a loose A4 sheet nobody keeps. Content is
+// deliberately a compact snapshot + QR, not the full record: this page is a
+// keepsake/pointer, the no-login web dashboard (same QR) is where parents
+// actually get the full history, recommendations, and nutrition tips.
+const MARGIN = 10;
+const PAGE_WIDTH = 148;
+const PAGE_HEIGHT = 210;
 const CONTENT_WIDTH = PAGE_WIDTH - MARGIN * 2;
 
 // #/p/:token (HashRouter) — same public route as ParentDashboardQr.tsx.
@@ -35,9 +37,10 @@ function publicDashboardLink(token: string): string {
 // dialog) so the two entry points can never drift into different layouts —
 // only what happens to the finished doc (save vs. autoPrint) differs.
 async function buildChildReportDoc(child: Child, records: GrowthRecord[]): Promise<jsPDF> {
-  const doc = new jsPDF();
+  const doc = new jsPDF({ format: 'a5' });
   const sorted = records.slice().sort((a, b) => a.ageMonths - b.ageMonths);
   const latest = sorted[sorted.length - 1];
+  const recentHistory = sorted.slice(-5);
 
   // Generated up front (needs to be awaited) — 'qrcode' is lazy-loaded here
   // too, same pattern as ParentDashboardQr.tsx, so it's never in the main
@@ -46,7 +49,7 @@ async function buildChildReportDoc(child: Child, records: GrowthRecord[]): Promi
   if (child.publicToken) {
     try {
       const { default: QRCode } = await import('qrcode');
-      qrDataUrl = await QRCode.toDataURL(publicDashboardLink(child.publicToken), { margin: 1, width: 240 });
+      qrDataUrl = await QRCode.toDataURL(publicDashboardLink(child.publicToken), { margin: 1, width: 320 });
     } catch {
       qrDataUrl = null; // report still generates fine without the QR
     }
@@ -55,228 +58,172 @@ async function buildChildReportDoc(child: Child, records: GrowthRecord[]): Promi
   let y = 0;
 
   const ensureSpace = (height: number) => {
-    if (y + height > PAGE_HEIGHT - 22) {
+    if (y + height > PAGE_HEIGHT - 16) {
       doc.addPage();
-      y = 20;
+      y = 14;
     }
   };
 
   // ---- Header band ----
   doc.setFillColor(...PRIMARY);
-  doc.rect(0, 0, PAGE_WIDTH, 28, 'F');
+  doc.rect(0, 0, PAGE_WIDTH, 20, 'F');
   doc.setTextColor(255, 255, 255);
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(18);
-  doc.text('SmartGrowth', MARGIN, 14);
+  doc.setFontSize(13);
+  doc.text('SmartGrowth', MARGIN, 10);
   doc.setFont('helvetica', 'normal');
-  doc.setFontSize(9);
-  doc.text('Laporan Hasil Skrining Tumbuh Kembang Balita', MARGIN, 21);
-  doc.setFontSize(8);
-  doc.text(`Dicetak ${new Date().toLocaleDateString('id-ID', { dateStyle: 'long' })}`, PAGE_WIDTH - MARGIN, 21, {
+  doc.setFontSize(7);
+  doc.text('Kartu Ringkasan Pertumbuhan', MARGIN, 15.5);
+  doc.setFontSize(6.5);
+  doc.text(new Date().toLocaleDateString('id-ID', { dateStyle: 'medium' }), PAGE_WIDTH - MARGIN, 15.5, {
     align: 'right'
   });
 
-  y = 38;
+  y = 27;
 
   // ---- Child profile ----
   doc.setTextColor(...INK);
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(15);
+  doc.setFontSize(12);
   doc.text(child.name, MARGIN, y);
-  y += 7;
+  y += 5.5;
 
   doc.setFont('helvetica', 'normal');
-  doc.setFontSize(10);
+  doc.setFontSize(7.5);
   doc.setTextColor(...MUTED);
-  const profileLines = [
-    `Tanggal Lahir: ${child.birthDate} · Jenis Kelamin: ${SEX_LABEL[child.sex]}`
-  ];
-  if (child.posyanduLocation) profileLines.push(`Posyandu: ${child.posyanduLocation}`);
-  if (child.parentName) {
-    profileLines.push(
-      `Orang Tua: ${child.parentName}${child.parentOccupation ? ' (' + child.parentOccupation + ')' : ''}`
-    );
-  }
-  const birthFacts = [
-    child.birthWeightKg != null ? `Berat Lahir: ${child.birthWeightKg} kg` : null,
-    child.birthLengthCm != null ? `Panjang Lahir: ${child.birthLengthCm} cm` : null,
-    child.gestationalAgeWeeks != null ? `Usia Kehamilan: ${child.gestationalAgeWeeks} minggu` : null
-  ].filter(Boolean);
-  if (birthFacts.length > 0) profileLines.push(birthFacts.join(' · '));
-
-  for (const line of profileLines) {
-    doc.text(line, MARGIN, y);
-    y += 5.5;
-  }
-  y += 3;
+  const profileLine = [`Lahir: ${child.birthDate}`, SEX_LABEL[child.sex], child.posyanduLocation || null]
+    .filter(Boolean)
+    .join(' · ');
+  const wrappedProfile = doc.splitTextToSize(profileLine, CONTENT_WIDTH);
+  doc.text(wrappedProfile, MARGIN, y);
+  y += wrappedProfile.length * 4 + 3;
 
   // ---- 2T growth-trend alert ----
   if (child.growthAlert === '2T') {
-    ensureSpace(14);
+    ensureSpace(12);
     doc.setFillColor(254, 226, 226);
-    doc.roundedRect(MARGIN, y, CONTENT_WIDTH, 12, 2, 2, 'F');
+    doc.roundedRect(MARGIN, y, CONTENT_WIDTH, 10, 2, 2, 'F');
     doc.setTextColor(185, 28, 28);
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(9);
-    doc.text(
-      'PERINGATAN: Berat badan tidak naik 2x pengukuran berturut-turut (2T) — segera rujuk ke Puskesmas.',
-      MARGIN + 3,
-      y + 7.5
+    doc.setFontSize(7);
+    const alertText = doc.splitTextToSize(
+      'PERINGATAN: Berat tidak naik 2x berturut-turut (2T) — segera rujuk ke Puskesmas.',
+      CONTENT_WIDTH - 6
     );
-    y += 12 + 6;
+    doc.text(alertText, MARGIN + 3, y + 4.5);
+    y += 10 + 4;
   }
 
   // ---- Risk status highlight ----
   if (latest?.riskStatus) {
     const colors = RISK_COLORS[latest.riskStatus];
-    ensureSpace(26);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7.5);
+    const desc = doc.splitTextToSize(riskDescription(latest.riskStatus), CONTENT_WIDTH - 6);
+    const boxHeight = 8 + desc.length * 3.8 + 4;
+    ensureSpace(boxHeight);
     doc.setFillColor(...colors.bg);
-    doc.roundedRect(MARGIN, y, CONTENT_WIDTH, 24, 3, 3, 'F');
+    doc.roundedRect(MARGIN, y, CONTENT_WIDTH, boxHeight, 2.5, 2.5, 'F');
     doc.setTextColor(...colors.text);
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(12);
-    doc.text(`Status Gizi Terkini: ${riskLabel(latest.riskStatus)}`, MARGIN + 4, y + 8);
+    doc.setFontSize(9.5);
+    doc.text(`Status Gizi: ${riskLabel(latest.riskStatus)}`, MARGIN + 3, y + 6);
     doc.setFont('helvetica', 'normal');
-    doc.setFontSize(9);
-    const desc = doc.splitTextToSize(riskDescription(latest.riskStatus), CONTENT_WIDTH - 8);
-    doc.text(desc, MARGIN + 4, y + 14.5);
-    y += 24 + 8;
+    doc.setFontSize(7.5);
+    doc.text(desc, MARGIN + 3, y + 10.5);
+    y += boxHeight + 4;
   }
 
-  // ---- Measurement history table ----
-  autoTable(doc, {
-    startY: y,
-    margin: { top: 20, left: MARGIN, right: MARGIN },
-    head: [['Tanggal', 'Usia (bln)', 'Berat (kg)', 'Tinggi (cm)', 'HAZ', 'WHZ', 'WAZ', 'Tren', 'Status']],
-    body: sorted.map((r) => [
-      r.measuredAt,
-      String(r.ageMonths),
-      String(r.weightKg),
-      String(r.heightCm),
-      r.heightForAgeZ != null ? Number(r.heightForAgeZ).toFixed(2) : '-',
-      r.weightForHeightZ != null ? Number(r.weightForHeightZ).toFixed(2) : '-',
-      r.weightForAgeZ != null ? Number(r.weightForAgeZ).toFixed(2) : '-',
-      r.weightTrend ? WEIGHT_TREND_LABEL[r.weightTrend] : '-',
-      r.riskStatus ? riskLabel(r.riskStatus) : '-'
-    ]),
-    styles: { fontSize: 8 },
-    headStyles: { fillColor: PRIMARY }
-  });
-  // @ts-expect-error lastAutoTable is attached by the autoTable plugin at runtime
-  y = doc.lastAutoTable.finalY + 10;
-
-  // ---- Rekomendasi & catatan petugas ----
-  const recommendations = latest?.recommendations ?? [];
-  const notes = latest?.notes;
-  if (recommendations.length > 0 || notes) {
-    ensureSpace(14);
+  // ---- Ringkasan pengukuran terakhir ----
+  if (latest) {
+    ensureSpace(20);
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(12);
-    doc.setTextColor(...PRIMARY);
-    doc.text('Rekomendasi & Catatan Petugas', MARGIN, y);
-    y += 7;
-
-    if (recommendations.length > 0) {
-      ensureSpace(6);
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(9);
-      doc.setTextColor(...INK);
-      doc.text('Dari Kuesioner', MARGIN, y);
-      y += 5;
-      doc.setFont('helvetica', 'normal');
-      doc.setTextColor(...MUTED);
-      for (const rec of recommendations) {
-        const wrapped = doc.splitTextToSize(`• ${rec}`, CONTENT_WIDTH - 2);
-        ensureSpace(wrapped.length * 5);
-        doc.text(wrapped, MARGIN + 2, y);
-        y += wrapped.length * 5;
-      }
-      y += 3;
-    }
-
-    if (notes) {
-      ensureSpace(10);
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(9);
-      doc.setTextColor(...INK);
-      doc.text('Catatan Petugas', MARGIN, y);
-      y += 5;
-      doc.setFont('helvetica', 'normal');
-      doc.setTextColor(...MUTED);
-      const wrapped = doc.splitTextToSize(notes, CONTENT_WIDTH - 2);
-      ensureSpace(wrapped.length * 5);
-      doc.text(wrapped, MARGIN + 2, y);
-      y += wrapped.length * 5;
-    }
-    y += 5;
-  }
-
-  // ---- Tips gizi & contoh makanan (persuasif, ditujukan ke orang tua) ----
-  ensureSpace(14);
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(12);
-  doc.setTextColor(...PRIMARY);
-  doc.text('Tips untuk Ayah & Bunda', MARGIN, y);
-  y += 7;
-
-  for (const group of nutritionTipsFor(latest?.riskStatus)) {
-    ensureSpace(6);
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(9);
+    doc.setFontSize(8.5);
     doc.setTextColor(...INK);
-    doc.text(group.title, MARGIN, y);
-    y += 5;
+    doc.text('Pengukuran Terakhir', MARGIN, y);
+    y += 4.5;
+
     doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7.5);
     doc.setTextColor(...MUTED);
-    for (const tip of group.tips) {
-      const wrapped = doc.splitTextToSize(`• ${tip}`, CONTENT_WIDTH - 2);
-      ensureSpace(wrapped.length * 5);
-      doc.text(wrapped, MARGIN + 2, y);
-      y += wrapped.length * 5;
+    const summaryLines = [
+      `Tanggal: ${latest.measuredAt} · Usia: ${latest.ageMonths} bln`,
+      `Berat: ${latest.weightKg} kg · Tinggi: ${latest.heightCm} cm`,
+      `Z-score — HAZ: ${latest.heightForAgeZ ?? '-'} · WHZ: ${latest.weightForHeightZ ?? '-'} · WAZ: ${latest.weightForAgeZ ?? '-'}`
+    ];
+    if (latest.officerName || latest.location) {
+      summaryLines.push(
+        [latest.officerName ? `Petugas: ${latest.officerName}` : null, latest.location ? `Posyandu: ${latest.location}` : null]
+          .filter(Boolean)
+          .join(' · ')
+      );
+    }
+    for (const line of summaryLines) {
+      const wrapped = doc.splitTextToSize(line, CONTENT_WIDTH);
+      ensureSpace(wrapped.length * 4);
+      doc.text(wrapped, MARGIN, y);
+      y += wrapped.length * 4;
+    }
+    y += 4;
+  }
+
+  // ---- Riwayat singkat (maks. 5 terakhir) ----
+  if (recentHistory.length > 0) {
+    ensureSpace(16);
+    autoTable(doc, {
+      startY: y,
+      margin: { top: 14, left: MARGIN, right: MARGIN },
+      head: [['Tanggal', 'Berat', 'Tinggi', 'Status']],
+      body: recentHistory.map((r) => [
+        r.measuredAt,
+        `${r.weightKg} kg`,
+        `${r.heightCm} cm`,
+        r.riskStatus ? riskLabel(r.riskStatus) : '-'
+      ]),
+      styles: { fontSize: 7, cellPadding: 1.5 },
+      headStyles: { fillColor: PRIMARY }
+    });
+    // @ts-expect-error lastAutoTable is attached by the autoTable plugin at runtime
+    y = doc.lastAutoTable.finalY + 3;
+    if (sorted.length > recentHistory.length) {
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(6.5);
+      doc.setTextColor(...MUTED);
+      doc.text(
+        `Menampilkan ${recentHistory.length} dari ${sorted.length} pengukuran — riwayat lengkap ada di web (scan QR).`,
+        MARGIN,
+        y
+      );
+      y += 5;
     }
     y += 3;
   }
 
-  const food = foodExamplesFor(latest?.riskStatus);
-  ensureSpace(14);
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(9);
-  doc.setTextColor(...INK);
-  doc.text('Contoh Makanan & Minuman', MARGIN, y);
-  y += 5;
-  doc.setFont('helvetica', 'normal');
-  doc.setTextColor(...MUTED);
-  const foodLine = doc.splitTextToSize(`Makanan: ${food.foods.join(', ')}`, CONTENT_WIDTH);
-  ensureSpace(foodLine.length * 5);
-  doc.text(foodLine, MARGIN, y);
-  y += foodLine.length * 5 + 2;
-  const drinkLine = doc.splitTextToSize(`Minuman: ${food.drinks.join(', ')}`, CONTENT_WIDTH);
-  ensureSpace(drinkLine.length * 5);
-  doc.text(drinkLine, MARGIN, y);
-  y += drinkLine.length * 5 + 8;
-
-  // ---- QR call-to-action ----
+  // ---- QR call-to-action — the primary reason this card is worth keeping ----
   if (qrDataUrl) {
-    ensureSpace(40);
+    const qrSize = 34;
+    const boxHeight = 8 + qrSize + 14;
+    ensureSpace(boxHeight);
     doc.setDrawColor(...PRIMARY);
     doc.setLineWidth(0.5);
-    doc.roundedRect(MARGIN, y, CONTENT_WIDTH, 36, 3, 3, 'S');
-    doc.addImage(qrDataUrl, 'PNG', MARGIN + 4, y + 3, 30, 30);
+    doc.roundedRect(MARGIN, y, CONTENT_WIDTH, boxHeight, 2.5, 2.5, 'S');
+
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(10.5);
+    doc.setFontSize(9);
     doc.setTextColor(...PRIMARY);
-    const ctaTitle = doc.splitTextToSize(`Pantau Terus Perkembangan ${child.name}`, CONTENT_WIDTH - 42);
-    doc.text(ctaTitle, MARGIN + 38, y + 10);
+    doc.text('Detail Lengkap & Rekomendasi di Web', PAGE_WIDTH / 2, y + 6, { align: 'center' });
+
+    doc.addImage(qrDataUrl, 'PNG', PAGE_WIDTH / 2 - qrSize / 2, y + 9, qrSize, qrSize);
+
     doc.setFont('helvetica', 'normal');
-    doc.setFontSize(8.5);
+    doc.setFontSize(7);
     doc.setTextColor(...INK);
     const ctaBody = doc.splitTextToSize(
-      'Scan kode QR ini kapan saja untuk melihat hasil & riwayat pengukuran terbaru — tanpa perlu login atau ' +
-        'install aplikasi. Simpan laporan ini dan bawa saat kunjungan berikutnya ke Posyandu.',
-      CONTENT_WIDTH - 42
+      `Scan untuk lihat riwayat lengkap, rekomendasi, dan tips gizi ${child.name} kapan saja — tanpa login.`,
+      CONTENT_WIDTH - 8
     );
-    doc.text(ctaBody, MARGIN + 38, y + 10 + ctaTitle.length * 5);
-    y += 36 + 6;
+    doc.text(ctaBody, PAGE_WIDTH / 2, y + 9 + qrSize + 4, { align: 'center' });
+    y += boxHeight + 4;
   }
 
   // ---- Disclaimer + page numbers on every page ----
@@ -284,15 +231,14 @@ async function buildChildReportDoc(child: Child, records: GrowthRecord[]): Promi
   for (let i = 1; i <= pageCount; i++) {
     doc.setPage(i);
     doc.setFont('helvetica', 'normal');
-    doc.setFontSize(7.5);
+    doc.setFontSize(6);
     doc.setTextColor(...MUTED);
     const disclaimer = doc.splitTextToSize(
-      'Laporan ini adalah hasil skrining awal berbasis standar WHO. Tidak menggantikan diagnosis dokter atau ' +
-        'ahli gizi. Selalu konsultasikan hasil ke tenaga kesehatan.',
-      CONTENT_WIDTH - 20
+      'Skrining awal berbasis standar WHO. Tidak menggantikan diagnosis dokter/ahli gizi.',
+      CONTENT_WIDTH - 12
     );
-    doc.text(disclaimer, MARGIN, PAGE_HEIGHT - 10);
-    doc.text(`${i}/${pageCount}`, PAGE_WIDTH - MARGIN, PAGE_HEIGHT - 10, { align: 'right' });
+    doc.text(disclaimer, MARGIN, PAGE_HEIGHT - 7);
+    doc.text(`${i}/${pageCount}`, PAGE_WIDTH - MARGIN, PAGE_HEIGHT - 7, { align: 'right' });
   }
 
   return doc;
