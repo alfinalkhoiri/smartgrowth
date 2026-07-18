@@ -1,5 +1,6 @@
 from django.utils import timezone
 from rest_framework import serializers
+from apps.accounts.models import Role
 from .models import Child, GrowthRecord, PosyanduSchedule, RiskAssessment
 from .services.risk_engine import (
     calculate_haz,
@@ -25,6 +26,7 @@ _HCZ_PLAUSIBLE_RANGE = (-5, 5)
 
 class ChildSerializer(serializers.ModelSerializer):
     growth_alert = serializers.SerializerMethodField()
+    link_code = serializers.SerializerMethodField()
 
     class Meta:
         model = Child
@@ -32,9 +34,26 @@ class ChildSerializer(serializers.ModelSerializer):
             'id', 'name', 'birth_date', 'sex',
             'parent_name', 'parent_occupation', 'posyandu_location',
             'exclusive_breastfeeding', 'birth_weight_kg', 'birth_length_cm', 'gestational_age_weeks',
-            'growth_alert', 'created_at', 'updated_at',
+            'growth_alert', 'link_code', 'created_at', 'updated_at',
         ]
-        read_only_fields = ['id', 'created_at', 'updated_at', 'growth_alert']
+        read_only_fields = ['id', 'created_at', 'updated_at', 'growth_alert', 'link_code']
+
+    def get_link_code(self, obj):
+        """
+        Only visible to kader_nakes/admin (who need it to hand to a parent)
+        or to a parent already linked to this child (so they can pass it on
+        to a second parent) — never to an outsider, since knowing this code
+        is all that's needed to see this child's growth data.
+        """
+        request = self.context.get('request')
+        user = getattr(request, 'user', None)
+        if user is None or not user.is_authenticated:
+            return None
+        if user.is_superuser or getattr(user, 'role', None) == Role.KADER_NAKES:
+            return obj.link_code
+        if obj.pk and obj.parents.filter(pk=user.pk).exists():
+            return obj.link_code
+        return None
 
     def get_growth_alert(self, obj):
         """
@@ -188,6 +207,18 @@ class RiskAssessmentSerializer(serializers.ModelSerializer):
         model = RiskAssessment
         fields = ['id', 'child_id', 'risk_status', 'score', 'reason_codes', 'recommendations', 'assessed_at']
         read_only_fields = fields
+
+
+class LinkChildSerializer(serializers.Serializer):
+    """POST /api/children/link/ — a parent redeems a kader-issued code to see their child's data."""
+    code = serializers.CharField(max_length=6, min_length=6)
+
+    def validate_code(self, value):
+        try:
+            self.child = Child.objects.get(link_code=value)
+        except Child.DoesNotExist:
+            raise serializers.ValidationError('Kode tidak ditemukan. Periksa kembali kode dari kader/nakes.')
+        return value
 
 
 class PosyanduScheduleSerializer(serializers.ModelSerializer):

@@ -11,10 +11,14 @@ import base64
 from datetime import date, datetime, timedelta, timezone as dt_timezone
 from types import SimpleNamespace
 
+from django.conf import settings
+from django.contrib.auth import get_user_model
 from django.core.files.uploadedfile import SimpleUploadedFile
-from django.test import SimpleTestCase, TestCase
+from django.test import RequestFactory, SimpleTestCase, TestCase
+from rest_framework.test import APIClient
 
 from apps.growth.models import Child, GrowthRecord
+from apps.growth.permissions import visible_children
 from apps.growth.serializers import ChildSerializer, GrowthRecordSerializer, PosyanduScheduleSerializer
 from apps.growth.services.risk_engine import (
     calculate_haz,
@@ -717,3 +721,139 @@ class GrowthRecordPhotoTests(TestCase):
             'photo': photo,
         })
         self.assertTrue(serializer.is_valid(), serializer.errors)
+
+
+class VisibleChildrenScopingTests(TestCase):
+    """orangtua only ever sees children linked via Child.link_code; kader_nakes/admin see everyone."""
+
+    def setUp(self):
+        User = get_user_model()
+        self.kader = User.objects.create_user(username='kader_scope', password='x', role='kader_nakes')
+        self.parent = User.objects.create_user(username='parent_scope', password='x', role='orangtua')
+        self.unlinked_parent = User.objects.create_user(username='parent_scope2', password='x', role='orangtua')
+        self.child_a = Child.objects.create(name='Anak Scope A', birth_date=date(2024, 1, 1), sex='male')
+        self.child_b = Child.objects.create(name='Anak Scope B', birth_date=date(2024, 1, 1), sex='female')
+        self.child_a.parents.add(self.parent)
+
+    def test_kader_nakes_sees_all_children(self):
+        self.assertEqual(set(visible_children(self.kader)), {self.child_a, self.child_b})
+
+    def test_orangtua_sees_only_linked_children(self):
+        self.assertEqual(list(visible_children(self.parent)), [self.child_a])
+
+    def test_orangtua_with_no_linked_children_sees_none(self):
+        self.assertEqual(list(visible_children(self.unlinked_parent)), [])
+
+
+class ChildSerializerLinkCodeVisibilityTests(TestCase):
+    """
+    link_code is the only thing needed to see a child's data (via /children/link/),
+    so it must stay hidden from anyone who isn't kader_nakes/admin or already a
+    linked parent of that specific child.
+    """
+
+    def setUp(self):
+        User = get_user_model()
+        self.kader = User.objects.create_user(username='kader_lc', password='x', role='kader_nakes')
+        self.parent = User.objects.create_user(username='parent_lc', password='x', role='orangtua')
+        self.stranger = User.objects.create_user(username='parent_lc2', password='x', role='orangtua')
+        self.child = Child.objects.create(name='Anak LC', birth_date=date(2024, 1, 1), sex='male')
+        self.child.parents.add(self.parent)
+
+    def _serialize_as(self, user):
+        request = RequestFactory().get('/')
+        request.user = user
+        return ChildSerializer(self.child, context={'request': request}).data
+
+    def test_kader_nakes_sees_link_code(self):
+        self.assertEqual(self._serialize_as(self.kader)['link_code'], self.child.link_code)
+
+    def test_linked_parent_sees_link_code(self):
+        self.assertEqual(self._serialize_as(self.parent)['link_code'], self.child.link_code)
+
+    def test_unrelated_parent_does_not_see_link_code(self):
+        self.assertIsNone(self._serialize_as(self.stranger)['link_code'])
+
+
+class RoleBasedGrowthPermissionAPITests(TestCase):
+    def setUp(self):
+        User = get_user_model()
+        self.kader = User.objects.create_user(username='kader_api', password='x', role='kader_nakes')
+        self.parent = User.objects.create_user(username='parent_api', password='x', role='orangtua')
+        self.child = Child.objects.create(name='Anak API', birth_date=date(2024, 1, 1), sex='male')
+        self.other_child = Child.objects.create(name='Anak API 2', birth_date=date(2024, 1, 1), sex='female')
+        self.child.parents.add(self.parent)
+
+    @staticmethod
+    def _client_for(user):
+        client = APIClient()
+        client.force_authenticate(user=user)
+        return client
+
+    def test_orangtua_lists_only_linked_children(self):
+        response = self._client_for(self.parent).get('/api/children/')
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual({c['id'] for c in response.data}, {str(self.child.id)})
+
+    def test_orangtua_cannot_create_child(self):
+        response = self._client_for(self.parent).post(
+            '/api/children/', {'name': 'X', 'birth_date': '2024-01-01', 'sex': 'male'}
+        )
+        self.assertEqual(response.status_code, 403)
+
+    def test_orangtua_gets_404_for_unlinked_child(self):
+        response = self._client_for(self.parent).get(f'/api/children/{self.other_child.id}/')
+        self.assertEqual(response.status_code, 404)
+
+    def test_kader_nakes_sees_all_children_and_can_create(self):
+        client = self._client_for(self.kader)
+        list_response = client.get('/api/children/')
+        self.assertEqual(list_response.status_code, 200)
+        self.assertEqual(len(list_response.data), 2)
+        create_response = client.post('/api/children/', {'name': 'X', 'birth_date': '2024-01-01', 'sex': 'male'})
+        self.assertEqual(create_response.status_code, 201, create_response.data)
+
+
+class LinkChildEndpointTests(TestCase):
+    def setUp(self):
+        User = get_user_model()
+        self.parent = User.objects.create_user(username='parent_link', password='x', role='orangtua')
+        self.child = Child.objects.create(name='Anak Link', birth_date=date(2024, 1, 1), sex='male')
+
+    def _client(self):
+        client = APIClient()
+        client.force_authenticate(user=self.parent)
+        return client
+
+    def test_valid_code_links_child_to_requesting_user(self):
+        response = self._client().post('/api/children/link/', {'code': self.child.link_code})
+        self.assertEqual(response.status_code, 200, response.data)
+        self.assertTrue(self.child.parents.filter(pk=self.parent.pk).exists())
+
+    def test_invalid_code_is_rejected(self):
+        bogus = '000000' if self.child.link_code != '000000' else '111111'
+        response = self._client().post('/api/children/link/', {'code': bogus})
+        self.assertEqual(response.status_code, 400)
+        self.assertFalse(self.child.parents.filter(pk=self.parent.pk).exists())
+
+
+class RegistrationRoleGateTests(TestCase):
+    def test_orangtua_registration_needs_no_invite_code(self):
+        response = APIClient().post('/api/auth/register', {
+            'username': 'ortu_gate_test', 'password': 'StrongPass123!', 'role': 'orangtua',
+        })
+        self.assertEqual(response.status_code, 201, response.data)
+
+    def test_kader_nakes_registration_rejects_missing_invite_code(self):
+        response = APIClient().post('/api/auth/register', {
+            'username': 'kader_gate_test', 'password': 'StrongPass123!', 'role': 'kader_nakes',
+        })
+        self.assertEqual(response.status_code, 400)
+        self.assertIn('invite_code', response.data)
+
+    def test_kader_nakes_registration_accepts_correct_invite_code(self):
+        response = APIClient().post('/api/auth/register', {
+            'username': 'kader_gate_test2', 'password': 'StrongPass123!', 'role': 'kader_nakes',
+            'invite_code': settings.KADER_NAKES_INVITE_CODE,
+        })
+        self.assertEqual(response.status_code, 201, response.data)

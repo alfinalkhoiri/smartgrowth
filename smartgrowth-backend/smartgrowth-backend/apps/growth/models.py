@@ -1,6 +1,16 @@
+import random
 import uuid
 from django.conf import settings
 from django.db import models
+
+
+def generate_link_code() -> str:
+    """
+    6-digit numeric code a kader/nakes hands to a parent so the parent's own
+    account can self-link to this child (see apps/growth/views.LinkChildView)
+    without a kader having to search for/pick the parent's account manually.
+    """
+    return ''.join(random.choices('0123456789', k=6))
 
 
 class Child(models.Model):
@@ -30,6 +40,13 @@ class Child(models.Model):
         null=True, blank=True, help_text='Usia kehamilan saat lahir, dalam minggu — indikator prematuritas'
     )
 
+    # Akun orang tua yang boleh melihat data balita ini (read-only) — ditaut-
+    # kan sendiri oleh orang tua lewat link_code, bukan dipilih kader dari
+    # daftar user (lebih sederhana & tidak butuh kader tahu username ortu).
+    # blank=True karena balita yang baru didaftarkan wajar belum ditautkan.
+    parents = models.ManyToManyField(settings.AUTH_USER_MODEL, related_name='children', blank=True)
+    link_code = models.CharField(max_length=6, unique=True, editable=False, null=True, blank=True)
+
     registered_by = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name='registered_children'
     )
@@ -38,6 +55,14 @@ class Child(models.Model):
 
     class Meta:
         ordering = ['name']
+
+    def save(self, *args, **kwargs):
+        if not self.link_code:
+            code = generate_link_code()
+            while Child.objects.filter(link_code=code).exists():
+                code = generate_link_code()
+            self.link_code = code
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return self.name

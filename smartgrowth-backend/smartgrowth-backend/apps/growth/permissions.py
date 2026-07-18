@@ -5,16 +5,12 @@ from apps.accounts.models import Role
 
 class RoleBasedGrowthPermission(BasePermission):
     """
-    Role matrix for Child/GrowthRecord endpoints:
+    Role matrix for Child/GrowthRecord/PosyanduSchedule endpoints:
       - admin (Django superuser, or role=admin): full access
-      - nakes: full CRUD — validates/corrects kader-submitted data
-      - kader: read + create only — field data entry, no edit or delete
-      - viewer: read-only
-
-    RiskAssessmentView deliberately stays on the default IsAuthenticated
-    permission (no role restriction) — any authenticated role may view an
-    assessment, per "Nakes: ... + akses RiskAssessment" implying read access
-    to it isn't itself role-gated for the others.
+      - kader_nakes: full CRUD — field data entry and corrections both
+      - orangtua: read-only, and only ever sees their own linked child(ren)
+        (enforced by visible_children() in the view's get_queryset(), not
+        here — this class only gates the HTTP method, not which rows).
     """
 
     def has_permission(self, request, view):
@@ -22,8 +18,17 @@ class RoleBasedGrowthPermission(BasePermission):
             return True
 
         user = request.user
-        if user.is_superuser or getattr(user, 'role', None) in (Role.ADMIN, Role.NAKES):
-            return True
-        if getattr(user, 'role', None) == Role.KADER:
-            return request.method == 'POST'
-        return False
+        return bool(user.is_superuser or getattr(user, 'role', None) in (Role.ADMIN, Role.KADER_NAKES))
+
+
+def visible_children(user):
+    """
+    Child queryset scoped to what `user` is allowed to see. kader_nakes/admin
+    see every child (that's the job); orangtua only sees children they've
+    linked to via Child.link_code — never the whole posyandu's roster.
+    """
+    from .models import Child
+
+    if user.is_superuser or getattr(user, 'role', None) != Role.ORANGTUA:
+        return Child.objects.all()
+    return Child.objects.filter(parents=user)

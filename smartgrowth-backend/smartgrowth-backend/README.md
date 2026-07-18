@@ -2,13 +2,17 @@
 
 ## Cara penggunaan sistem (alur pengguna)
 
-1. **Daftar / Masuk** — buka frontend, daftar akun baru (peran kader/nakes/
-   viewer) lewat halaman Register, atau masuk lewat halaman Login kalau sudah
-   punya akun. Admin tidak bisa daftar sendiri — dibuat lewat `createsuperuser`.
-2. **Tambah data balita** — di halaman "Daftar Balita", kader/nakes/admin bisa
-   menambahkan balita baru (nama, tanggal lahir, jenis kelamin, opsional nama/
-   pekerjaan orang tua, berat & panjang lahir, usia kehamilan, status ASI
-   eksklusif). Viewer hanya bisa melihat daftar yang sudah ada.
+1. **Daftar / Masuk** — buka frontend, daftar akun baru lewat halaman
+   Register (peran **Orang Tua**, bebas daftar; atau **Kader/Nakes**, butuh
+   kode posyandu — lihat "Peran & tautan orang tua" di bawah), atau masuk
+   lewat halaman Login kalau sudah punya akun. Admin tidak bisa daftar
+   sendiri — dibuat lewat `createsuperuser`.
+2. **Tambah data balita** — kader/nakes menambahkan balita baru (nama,
+   tanggal lahir, jenis kelamin, opsional nama/pekerjaan orang tua, lokasi
+   posyandu/klinik, berat & panjang lahir, usia kehamilan, status ASI
+   eksklusif). Setiap balita otomatis dapat `link_code` 6-digit yang kader
+   berikan ke orang tua supaya akun orang tua bisa melihat data anak
+   tersebut. Orang tua hanya bisa melihat balita yang sudah ditautkan.
 3. **Input pengukuran pertumbuhan** — buka dashboard salah satu balita, lalu
    catat pengukuran baru: tanggal ukur, berat (kg), tinggi (cm), opsional
    lingkar kepala (cm). Usia dalam bulan dihitung otomatis dari tanggal lahir
@@ -19,10 +23,9 @@
    di dashboard (lihat "Alur sistem" di bawah untuk detail perhitungannya).
 5. **Lihat riwayat & grafik** — dashboard menampilkan grafik tinggi terhadap
    usia serta daftar seluruh riwayat pengukuran balita tersebut.
-6. **Koreksi data (nakes/admin)** — nakes atau admin bisa mengedit atau
-   menghapus data balita/pengukuran yang salah input; kader hanya bisa
-   menambah data baru (tidak bisa edit/hapus), sesuai matriks permission di
-   bawah.
+6. **Koreksi data (kader/nakes)** — kader/nakes bisa mengedit atau menghapus
+   data balita/pengukuran yang salah input; orang tua read-only (lihat
+   matriks permission di bawah).
 
 ## Alur sistem: dari input pengukuran sampai hasil Normal/Risiko
 
@@ -109,7 +112,7 @@ Poin penting dari alur ini:
 
 ```
 config/              # settings, root urls, wsgi
-apps/accounts/        # custom User model dengan field role (admin/kader/nakes/viewer)
+apps/accounts/        # custom User model dengan field role (admin/kader_nakes/orangtua)
 apps/growth/
   models.py           # Child, GrowthRecord, RiskAssessment, PosyanduSchedule
   serializers.py
@@ -243,14 +246,15 @@ u.save()
   request lewat `SerializerMethodField`, bukan disimpan) di
   `GrowthRecordSerializer` — selalu konsisten dengan logic terbaru tanpa perlu
   migrasi data lama.
-- Pembagian kerja di frontend: **kader** mengisi kuesionernya langsung di form
-  tambah/edit pengukuran (`ChildDashboard.tsx`) — masuk akal karena kader yang
-  langsung berhadapan dengan orang tua saat pengukuran di lapangan. Field-nya
-  ikut tersimpan lewat `POST`/`PUT` `growth-records` yang sama, jadi tidak
-  perlu perluasan permission (kader tetap hanya bisa create, tidak update).
-  **Nakes/admin** yang melihat `recommendations` di popup "Hasil Pengukuran"
-  (kader/viewer tidak) — dimaksudkan untuk disampaikan langsung ke orang
-  tua/pasien saat konsultasi.
+- Pembagian kerja di frontend: **kader/nakes** mengisi kuesionernya langsung
+  di form tambah/edit pengukuran (`ChildDashboard.tsx`) — masuk akal karena
+  merekalah yang langsung berhadapan dengan orang tua saat pengukuran di
+  lapangan. **kader_nakes** yang melihat `recommendations` di popup "Hasil
+  Pengukuran" (`canEditDelete` gate, jadi otomatis tersembunyi dari
+  orangtua untuk saat ini) — bahasanya masih ditujukan untuk disampaikan
+  petugas ke orang tua saat konsultasi, belum ditulis ulang jadi bahasa
+  awam untuk tampil langsung ke orangtua (bagian dari UI orangtua yang
+  belum dikerjakan, lihat "Peran & tautan orang tua").
 - Lihat bagian "Klasifikasi risiko" di atas untuk ambang batas
   `score_risk()` yang menentukan `risk_status`. Ini murni Tahap 1
   (rule-based) — model ML Tahap 2 nanti menambah lapisan di atasnya, bukan
@@ -311,24 +315,30 @@ kepindah) kelihatan lebih awal:
 
 ## Permission berbasis role
 
-`apps/growth/permissions.py` → `RoleBasedGrowthPermission`, diterapkan di
-`ChildViewSet` dan `GrowthRecordViewSet`:
+Dua role publik (plus `admin` untuk superuser/ops):
 
-| Role                                    | Read | Create   | Update   | Delete   |
-| --------------------------------------- | ---- | -------- | -------- | -------- |
-| **admin** (superuser atau `role=admin`) | ✅   | ✅       | ✅       | ✅       |
-| **nakes**                               | ✅   | ✅       | ✅       | ✅       |
-| **kader**                               | ✅   | ✅       | ❌ (403) | ❌ (403) |
-| **viewer**                              | ✅   | ❌ (403) | ❌ (403) | ❌ (403) |
+| Role                                    | Lihat balita                     | Create/Update/Delete |
+| --------------------------------------- | --------------------------------- | --------------------- |
+| **admin** (superuser atau `role=admin`) | Semua                              | ✅                     |
+| **kader_nakes**                         | Semua                              | ✅                     |
+| **orangtua**                            | Hanya yang ditautkan (lihat bawah) | ❌ (403)               |
 
-Alasannya: kader (kader posyandu) input data di lapangan, tapi koreksi/hapus
-data adalah wewenang nakes (tenaga kesehatan) yang memvalidasi. `RiskAssessmentView`
-sengaja tidak dibatasi role tambahan — semua role yang sudah login boleh
-melihat hasil penilaian risiko.
+`kader_nakes` menggabungkan role `kader`/`nakes` lama menjadi satu — dulu
+dipisah (kader create-only, nakes full CRUD) karena nakes dianggap
+"memvalidasi" input kader, tapi di lapangan keduanya sama-sama dipercaya
+penuh, jadi pemisahan itu cuma menambah friksi tanpa manfaat nyata. Role
+`viewer` lama dihapus (0 akun aktif memakainya saat migrasi ditulis).
 
-Sudah diuji end-to-end dengan akun tiap role (create sebagai kader → 201,
-update/delete sebagai kader → 403, create sebagai viewer → 403, update/delete
-sebagai nakes → 200/204).
+`RiskAssessmentView` dan `GrowthReferenceView` tidak dibatasi
+`RoleBasedGrowthPermission` tambahan, tapi `RiskAssessmentView` tetap
+scoped lewat `visible_children()` (orangtua tidak bisa lihat risk assessment
+anak yang bukan miliknya, meski endpoint-nya sendiri tidak role-gated).
+
+Diuji end-to-end di `apps/growth/tests.py`
+(`RoleBasedGrowthPermissionAPITests`, `VisibleChildrenScopingTests`): create
+sebagai orangtua → 403, GET balita yang belum ditautkan → 404 (bukan 403 —
+lihat "Peran & tautan orang tua"), create/update/delete sebagai kader_nakes
+→ 201/200/204.
 
 **Frontend juga menyembunyikan/menonaktifkan tombol** sesuai role yang sama
 persis (`src/api/auth.ts` → `canCreate()`/`canEditDelete()`), bukan cuma
@@ -340,21 +350,61 @@ frontend cukup men-decode token yang sudah dipegang tanpa request tambahan.
 tersebut — sesi yang sedang login harus logout lalu login ulang supaya
 tombolnya sesuai role.
 
+## Peran & tautan orang tua
+
+Balita hanya boleh dilihat oleh kader/nakes (semua) dan oleh akun orang tua
+yang sudah ditautkan ke balita itu secara eksplisit — **tidak ada** scoping
+implisit lewat nama/nomor HP yang cocok, supaya tidak ada orang tua yang
+kebetulan salah lihat data anak keluarga lain.
+
+- **`Child.link_code`** — kode 6-digit numerik unik, dibuat otomatis
+  (`Child.save()`) saat balita didaftarkan. Kader menyampaikan kode ini
+  langsung ke orang tua (lisan/tertulis di buku KIA), bukan lewat sistem.
+- **`Child.parents`** (M2M ke `User`) — akun orang tua yang sudah tertaut.
+  Satu balita bisa punya lebih dari satu orang tua tertaut (ayah & ibu).
+- **`POST /api/children/link/`** (`{code}`) — endpoint yang dipanggil akun
+  orangtua untuk menautkan dirinya sendiri. Kode salah → `400`; kode benar
+  → balita langsung muncul di `GET /api/children/` milik akun itu. Menaut
+  ulang dengan kode yang sama itu idempotent (tidak duplikat).
+- **`POST /api/children/<id>/regenerate-code/`** (kader_nakes/admin saja) —
+  membatalkan kode lama kalau salah disampaikan ke orang yang salah.
+- **`visible_children(user)`** (`apps/growth/permissions.py`) — satu-satunya
+  tempat logic scoping ditulis, dipakai `ChildViewSet.get_queryset()`,
+  `GrowthRecordViewSet.get_queryset()` (lewat `child__in=`), dan
+  `RiskAssessmentView`. kader_nakes/admin dapat `Child.objects.all()`;
+  orangtua dapat `Child.objects.filter(parents=user)`.
+- **`link_code` di response API** hanya tampil untuk kader_nakes/admin, atau
+  untuk orang tua yang *sudah* tertaut ke balita itu (supaya bisa
+  diteruskan ke pasangannya) — `ChildSerializer.get_link_code()`.
+- **Gerbang pendaftaran `kader_nakes`**: role ini bisa lihat data semua
+  keluarga, jadi pendaftaran publik ke role ini butuh
+  `KADER_NAKES_INVITE_CODE` (env var, dipegang koordinator posyandu) —
+  lihat `RegisterSerializer.validate()`. Role `orangtua` bebas daftar tanpa
+  kode apa pun (blast radius-nya kecil: akun baru tidak lihat apa-apa
+  sampai ditautkan ke balita).
+
+**Belum dikerjakan (frontend)**: UI orang tua (dashboard sederhana per-anak,
+form redeem kode, tampilan kode di sisi kader) — perubahan di README ini
+baru mencakup fondasi backend + guard minimal di frontend supaya akun
+kader_nakes/orangtua yang sudah ada tidak rusak setelah migrasi role.
+
 ## Cakupan API
 
 | Method         | Path                               | View                  | Catatan                                                                                                                                |
 | -------------- | ---------------------------------- | --------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
 | POST           | `/api/auth/login`                  | `RoleTokenObtainPairView` | Mengembalikan `{access, refresh}` dari SimpleJWT, dengan klaim `role`/`is_superuser`/`username` disematkan ke JWT (dipakai frontend untuk show/hide tombol) |
 | POST           | `/api/auth/refresh`                | `TokenRefreshView`    |                                                                                                                                        |
-| POST           | `/api/auth/register`               | `RegisterView`        | Publik (`AllowAny`); role terbatas ke kader/nakes/viewer (admin tidak bisa daftar sendiri); mengembalikan `{access, refresh}` langsung, klaim role juga disematkan |
-| GET/POST       | `/api/children/`                   | `ChildViewSet`        | `?search=` berdasarkan nama; response array polos (tanpa pagination); POST butuh role kader/nakes/admin                                |
-| GET/PUT/DELETE | `/api/children/<id>/`              | `ChildViewSet`        | PUT/DELETE butuh role nakes/admin                                                                                                      |
-| GET/POST       | `/api/growth-records/`             | `GrowthRecordViewSet` | Filter dengan `?child=<uuid>`; field `officer_name`/`location`/`notes`/`head_circumference_cm`/`photo` opsional (tidak diikutkan saat update = nilai lama tidak berubah); `photo` butuh `multipart/form-data` (sudah didukung `CamelCaseMultiPartParser`) kalau diisi; `height_for_age_z`/`weight_for_height_z`/`weight_for_age_z`/`head_circumference_z`/`risk_status` dihitung otomatis saat create/update |
-| GET/PUT/DELETE | `/api/growth-records/<id>/`        | `GrowthRecordViewSet` | PUT/DELETE butuh role nakes/admin                                                                                                      |
-| GET            | `/api/risk-assessment/<child_id>/` | `RiskAssessmentView`  | Membuat `RiskAssessment` baru setiap kali dipanggil; semua role boleh akses                                                            |
+| POST           | `/api/auth/register`               | `RegisterView`        | Publik (`AllowAny`); role terbatas ke kader_nakes/orangtua (admin tidak bisa daftar sendiri); kader_nakes butuh `invite_code` yang cocok dengan `KADER_NAKES_INVITE_CODE`; mengembalikan `{access, refresh}` langsung, klaim role juga disematkan |
+| GET/POST       | `/api/children/`                   | `ChildViewSet`        | `?search=` berdasarkan nama; response array polos (tanpa pagination); daftar sudah discoping lewat `visible_children()`; POST/PUT/DELETE butuh role kader_nakes/admin |
+| GET/PUT/DELETE | `/api/children/<id>/`              | `ChildViewSet`        | GET balita yang belum ditautkan (orangtua) → 404; PUT/DELETE butuh role kader_nakes/admin |
+| POST           | `/api/children/link/`              | `LinkChildView`       | `{code}` — orangtua menautkan diri sendiri ke balita lewat `link_code`; kode salah → 400 |
+| POST           | `/api/children/<id>/regenerate-code/` | `ChildViewSet`     | Membatalkan `link_code` lama; kader_nakes/admin saja |
+| GET/POST       | `/api/growth-records/`             | `GrowthRecordViewSet` | Filter dengan `?child=<uuid>`; daftar sudah discoping lewat `visible_children()`; field `officer_name`/`location`/`notes`/`head_circumference_cm`/`photo` opsional (tidak diikutkan saat update = nilai lama tidak berubah); `photo` butuh `multipart/form-data` (sudah didukung `CamelCaseMultiPartParser`) kalau diisi; `height_for_age_z`/`weight_for_height_z`/`weight_for_age_z`/`head_circumference_z`/`risk_status` dihitung otomatis saat create/update |
+| GET/PUT/DELETE | `/api/growth-records/<id>/`        | `GrowthRecordViewSet` | PUT/DELETE butuh role kader_nakes/admin                                                                                               |
+| GET            | `/api/risk-assessment/<child_id>/` | `RiskAssessmentView`  | Membuat `RiskAssessment` baru setiap kali dipanggil; scoped lewat `visible_children()` (404 kalau balita bukan milik orangtua yang minta) |
 | GET            | `/api/growth-reference/`           | `GrowthReferenceView` | Query params `sex`, `ageMonths` (wajib), `heightCm` (opsional); rentang -2SD..+2SD WHO sebagai panduan input, bukan validasi; `IsAuthenticated` saja, semua role boleh akses |
-| GET/POST       | `/api/posyandu-schedules/`         | `PosyanduScheduleViewSet` | Jadwal kunjungan Posyandu, tidak terikat ke anak tertentu; permission sama persis `RoleBasedGrowthPermission` (kader create-only, nakes/admin full CRUD, viewer read-only) |
-| GET/PUT/DELETE | `/api/posyandu-schedules/<id>/`    | `PosyanduScheduleViewSet` | PUT/DELETE butuh role nakes/admin |
+| GET/POST       | `/api/posyandu-schedules/`         | `PosyanduScheduleViewSet` | Jadwal kunjungan Posyandu, tidak terikat ke anak tertentu (tidak discoping — semua role lihat semua jadwal); permission sama persis `RoleBasedGrowthPermission` (kader_nakes/admin full CRUD, orangtua read-only) |
+| GET/PUT/DELETE | `/api/posyandu-schedules/<id>/`    | `PosyanduScheduleViewSet` | PUT/DELETE butuh role kader_nakes/admin |
 
 Semua endpoint mewajibkan autentikasi JWT (`IsAuthenticated`), ditambah
 `RoleBasedGrowthPermission` di atas untuk `children`/`growth-records`.

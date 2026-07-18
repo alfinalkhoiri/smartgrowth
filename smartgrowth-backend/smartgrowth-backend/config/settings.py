@@ -8,6 +8,10 @@ SECRET_KEY = config('SECRET_KEY')
 DEBUG = config('DEBUG', default=False, cast=bool)
 ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='localhost,127.0.0.1', cast=Csv())
 
+# Shared code required to self-register as kader_nakes (full access to every
+# family's data) — see apps/accounts/serializers.RegisterSerializer.
+KADER_NAKES_INVITE_CODE = config('KADER_NAKES_INVITE_CODE', default='ganti-kode-ini')
+
 INSTALLED_APPS = [
     'django.contrib.admin',
     'django.contrib.auth',

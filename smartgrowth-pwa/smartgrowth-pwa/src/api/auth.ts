@@ -5,7 +5,7 @@ interface LoginResponse {
   refresh: string;
 }
 
-export type PublicRole = 'kader' | 'nakes' | 'viewer';
+export type PublicRole = 'kader_nakes' | 'orangtua';
 export type Role = PublicRole | 'admin';
 
 export interface RegisterPayload {
@@ -14,6 +14,11 @@ export interface RegisterPayload {
   role: PublicRole;
   email?: string;
   phoneNumber?: string;
+  // Hanya wajib diisi kalau role === 'kader_nakes' — lihat
+  // KADER_NAKES_INVITE_CODE di backend. Peran kader_nakes bisa lihat SEMUA
+  // balita, jadi pendaftaran publik ke peran ini digerbangi kode ini supaya
+  // tidak sembarang orang bisa mendaftar dan langsung dapat akses penuh.
+  inviteCode?: string;
 }
 
 interface TokenPayload {
@@ -65,18 +70,20 @@ export const authApi = {
     const token = localStorage.getItem('smartgrowth_token');
     return token ? decodeToken(token) : null;
   },
-  // Mirrors RoleBasedGrowthPermission on the backend: kader/nakes/admin (or
-  // any superuser) may create; only nakes/admin (or a superuser) may
-  // edit/delete; viewer is read-only. Keep these two in sync if the backend
-  // matrix ever changes.
+  // Mirrors RoleBasedGrowthPermission on the backend: kader_nakes/admin (or
+  // any superuser) has full create+edit+delete; orangtua is read-only and
+  // only ever sees their own linked child(ren) — that scoping happens
+  // server-side (visible_children()), not here. Keep in sync with the
+  // backend matrix if it ever changes.
   canCreate: (): boolean => {
     const user = authApi.getCurrentUser();
     if (!user) return false;
-    return user.is_superuser === true || user.role === 'kader' || user.role === 'nakes' || user.role === 'admin';
+    return user.is_superuser === true || user.role === 'kader_nakes' || user.role === 'admin';
   },
   canEditDelete: (): boolean => {
     const user = authApi.getCurrentUser();
     if (!user) return false;
-    return user.is_superuser === true || user.role === 'nakes' || user.role === 'admin';
-  }
+    return user.is_superuser === true || user.role === 'kader_nakes' || user.role === 'admin';
+  },
+  isOrangtua: (): boolean => authApi.getCurrentUser()?.role === 'orangtua'
 };

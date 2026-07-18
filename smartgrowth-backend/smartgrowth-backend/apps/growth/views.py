@@ -1,13 +1,16 @@
-from rest_framework import viewsets, filters
+from django.shortcuts import get_object_or_404
+from rest_framework import generics, status, viewsets, filters
+from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from django_filters.rest_framework import DjangoFilterBackend
 
 from .models import Child, GrowthRecord, PosyanduSchedule, RiskAssessment
-from .permissions import RoleBasedGrowthPermission
+from .permissions import RoleBasedGrowthPermission, visible_children
 from .serializers import (
-    ChildSerializer, GrowthRecordSerializer, PosyanduScheduleSerializer, RiskAssessmentSerializer,
+    ChildSerializer, GrowthRecordSerializer, LinkChildSerializer, PosyanduScheduleSerializer,
+    RiskAssessmentSerializer,
 )
 from .services.risk_engine import (
     assess_child_risk, calculate_haz, calculate_hcz, calculate_waz, calculate_whz, score_risk,
@@ -16,19 +19,48 @@ from .services.who_reference import height_range_for_age, weight_range_for_heigh
 
 
 class ChildViewSet(viewsets.ModelViewSet):
-    queryset = Child.objects.all()
     serializer_class = ChildSerializer
     permission_classes = [IsAuthenticated, RoleBasedGrowthPermission]
     filter_backends = [filters.SearchFilter]
     search_fields = ['name']
 
+    def get_queryset(self):
+        return visible_children(self.request.user)
+
+    @action(detail=True, methods=['post'], url_path='regenerate-code')
+    def regenerate_code(self, request, pk=None):
+        """
+        Kader/nakes-only (enforced by RoleBasedGrowthPermission, since this
+        isn't a SAFE_METHOD) escape hatch for when a link_code was handed to
+        the wrong person — invalidates the old code immediately.
+        """
+        child = self.get_object()
+        child.link_code = None
+        child.save()
+        return Response(self.get_serializer(child).data)
+
+
+class LinkChildView(generics.GenericAPIView):
+    """POST /api/children/link/ — orangtua redeems a kader-issued code to see their child's data."""
+    serializer_class = LinkChildSerializer
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        child = serializer.child
+        child.parents.add(request.user)
+        return Response(ChildSerializer(child, context={'request': request}).data, status=status.HTTP_200_OK)
+
 
 class GrowthRecordViewSet(viewsets.ModelViewSet):
-    queryset = GrowthRecord.objects.all()
     serializer_class = GrowthRecordSerializer
     permission_classes = [IsAuthenticated, RoleBasedGrowthPermission]
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ['child']
+
+    def get_queryset(self):
+        return GrowthRecord.objects.filter(child__in=visible_children(self.request.user))
 
     def perform_create(self, serializer):
         record = serializer.save()
@@ -65,7 +97,7 @@ class RiskAssessmentView(APIView):
     """
 
     def get(self, request, child_id):
-        child = Child.objects.get(id=child_id)
+        child = get_object_or_404(visible_children(request.user), id=child_id)
         latest_record = child.growth_records.order_by('-measured_at').first()
 
         if latest_record is None:

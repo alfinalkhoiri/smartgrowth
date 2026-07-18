@@ -6,15 +6,15 @@ import { authApi, type PublicRole } from '@/api/auth';
 import { firstErrorMessage } from '@/api/errors';
 
 const roleLabels: Record<PublicRole, string> = {
-  kader: 'Kader Posyandu',
-  nakes: 'Tenaga Kesehatan (Nakes)',
-  viewer: 'Manajemen / Viewer'
+  orangtua: 'Orang Tua',
+  kader_nakes: 'Kader/Nakes'
 };
 
 export default function Register() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
-  const [role, setRole] = useState<PublicRole>('kader');
+  const [role, setRole] = useState<PublicRole>('orangtua');
+  const [inviteCode, setInviteCode] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
@@ -24,7 +24,12 @@ export default function Register() {
     setError('');
     setLoading(true);
     try {
-      await authApi.register({ username, password, role });
+      await authApi.register({
+        username,
+        password,
+        role,
+        ...(role === 'kader_nakes' ? { inviteCode } : {})
+      });
       navigate('/', { replace: true });
     } catch (err) {
       const message = axios.isAxiosError(err) ? firstErrorMessage(err.response?.data) : null;
@@ -95,6 +100,25 @@ export default function Register() {
               ))}
             </select>
           </div>
+          {role === 'kader_nakes' && (
+            <div>
+              <label htmlFor="register-invite-code" className="field-label">
+                Kode Posyandu
+              </label>
+              <input
+                id="register-invite-code"
+                className="field-input"
+                value={inviteCode}
+                onChange={(e) => setInviteCode(e.target.value)}
+                placeholder="Minta ke koordinator posyandu Anda"
+                required
+              />
+              <p className="text-xs text-gray-400 mt-1">
+                Peran Kader/Nakes bisa melihat data semua balita, jadi butuh kode ini agar tidak sembarang orang
+                bisa mendaftar.
+              </p>
+            </div>
+          )}
           <button type="submit" disabled={loading} className="btn-primary w-full">
             {loading ? (
               <>

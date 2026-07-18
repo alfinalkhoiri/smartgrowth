@@ -114,11 +114,23 @@ and `VITE_API_BASE_URL` must point to your deployed backend (not localhost).
 
 `Login.tsx` and `Register.tsx` call `/api/auth/login` and `/api/auth/register`
 respectively; both store the returned JWT in `localStorage` and redirect into
-the app (`src/api/auth.ts`). Registration is public but role-limited to
-kader/nakes/viewer (matching the backend — admin accounts aren't publicly
-self-serviceable). `RequireAuth` in `App.tsx` guards every other route and
-redirects to `/login`; `client.ts`'s response interceptor does the same on a
-401 (expired token).
+the app (`src/api/auth.ts`). Registration is public, two roles: **orangtua**
+(no gate — sees only balita it later links to via a kader-issued code) and
+**kader_nakes** (sees/edits everything, so registering into it requires an
+`inviteCode` matching the backend's `KADER_NAKES_INVITE_CODE`; `Register.tsx`
+shows that field only when this role is selected). Admin accounts aren't
+publicly self-serviceable. `authApi.canCreate()`/`canEditDelete()` are both
+true for kader_nakes/admin and both false for orangtua — there's no longer a
+create-vs-edit split like the old kader/nakes roles had. `RequireAuth` in
+`App.tsx` guards every other route and redirects to `/login`; `client.ts`'s
+response interceptor does the same on a 401 (expired token).
+
+**Not yet built**: a dedicated orangtua UI (simplified per-child dashboard,
+redeem-code flow, showing `link_code` to kader/nakes so they can hand it to
+a parent). Right now an orangtua account just sees the same pages as
+kader_nakes with create/edit buttons hidden and an empty Data Balita until
+someone builds the link flow — see the backend README's "Peran & tautan
+orang tua" section for the API this UI will need to call.
 
 ## Design system
 

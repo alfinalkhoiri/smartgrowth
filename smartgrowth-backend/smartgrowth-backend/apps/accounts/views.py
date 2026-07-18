@@ -13,7 +13,8 @@ class RoleTokenObtainPairView(TokenObtainPairView):
 
 class RegisterView(generics.CreateAPIView):
     """
-    POST /api/auth/register — public self-registration for kader/nakes/viewer.
+    POST /api/auth/register — public self-registration for orangtua (no
+    gate) or kader_nakes (requires KADER_NAKES_INVITE_CODE, see serializer).
     Returns {access, refresh} directly (same shape as /api/auth/login) so the
     frontend can log the user in immediately without a second request.
     """
