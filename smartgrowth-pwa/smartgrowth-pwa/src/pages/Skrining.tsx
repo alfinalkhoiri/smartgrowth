@@ -1,8 +1,9 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import { Camera, Loader2, Ruler, Smile, Sparkles, UserPlus } from 'lucide-react';
+import { Camera, Loader2, MapPin, Ruler, Smile, Sparkles, UserPlus } from 'lucide-react';
 import { growthApi } from '@/api/growth';
+import { scheduleApi } from '@/api/schedule';
 import { firstErrorMessage } from '@/api/errors';
 import { authApi } from '@/api/auth';
 import { Toggle } from '@/components/Toggle';
@@ -17,6 +18,7 @@ const emptyChildForm = {
   sex: 'male' as Child['sex'],
   parentName: '',
   parentOccupation: '',
+  posyanduLocation: '',
   exclusiveBreastfeeding: false,
   birthWeightKg: '',
   birthLengthCm: '',
@@ -36,6 +38,7 @@ export default function Skrining() {
 
   const [mode, setMode] = useState<'existing' | 'new'>('new');
   const [children, setChildren] = useState<Child[]>([]);
+  const [locationOptions, setLocationOptions] = useState<string[]>([]);
   const [selectedChildId, setSelectedChildId] = useState('');
   const [childForm, setChildForm] = useState(emptyChildForm);
   const [measurementForm, setMeasurementForm] = useState(emptyMeasurementForm);
@@ -44,7 +47,19 @@ export default function Skrining() {
   const [error, setError] = useState('');
 
   useEffect(() => {
-    growthApi.listChildren().then((res) => setChildren(res.data));
+    // Saran lokasi diambil dari posyandu balita lain + jadwal posyandu yang
+    // sudah ada, supaya penulisan nama lokasi konsisten (mis. tidak ada yang
+    // menulis "Posyandu Melati" dan "posyandu melati" sebagai dua tempat beda).
+    Promise.all([growthApi.listChildren(), scheduleApi.listSchedules()])
+      .then(([childrenRes, schedulesRes]) => {
+        setChildren(childrenRes.data);
+        const names = [
+          ...childrenRes.data.map((c) => c.posyanduLocation),
+          ...schedulesRes.data.map((s) => s.location)
+        ].filter((v): v is string => !!v?.trim());
+        setLocationOptions(Array.from(new Set(names)).sort((a, b) => a.localeCompare(b)));
+      })
+      .catch(() => {});
   }, []);
 
   if (!canCreate) {
@@ -84,6 +99,7 @@ export default function Skrining() {
           sex: childForm.sex,
           parentName: childForm.parentName,
           parentOccupation: childForm.parentOccupation,
+          posyanduLocation: childForm.posyanduLocation,
           exclusiveBreastfeeding: childForm.exclusiveBreastfeeding,
           birthWeightKg: childForm.birthWeightKg ? Number(childForm.birthWeightKg) : undefined,
           birthLengthCm: childForm.birthLengthCm ? Number(childForm.birthLengthCm) : undefined,
@@ -228,6 +244,26 @@ export default function Skrining() {
                   <option value="female">Perempuan</option>
                 </select>
               </div>
+            </div>
+            <div>
+              <label htmlFor="skrining-posyandu-location" className="field-label flex items-center gap-1.5">
+                <MapPin className="h-3.5 w-3.5 text-gray-400" aria-hidden="true" />
+                Lokasi Posyandu/Klinik (opsional)
+              </label>
+              <input
+                id="skrining-posyandu-location"
+                list="posyandu-location-options"
+                className="field-input"
+                placeholder="cth: Posyandu Melati"
+                value={childForm.posyanduLocation}
+                onChange={(e) => setChildForm({ ...childForm, posyanduLocation: e.target.value })}
+              />
+              <datalist id="posyandu-location-options">
+                {locationOptions.map((loc) => (
+                  <option key={loc} value={loc} />
+                ))}
+              </datalist>
+              <p className="text-xs text-gray-400 mt-1">Dipakai untuk memfilter daftar balita di halaman Data Balita.</p>
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>

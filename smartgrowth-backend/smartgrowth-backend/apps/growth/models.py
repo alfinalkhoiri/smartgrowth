@@ -17,6 +17,11 @@ class Child(models.Model):
     parent_name = models.CharField(max_length=150, blank=True, default='')
     parent_occupation = models.CharField(max_length=150, blank=True, default='')
 
+    # Posyandu/klinik binaan balita ini — beda dari GrowthRecord.location
+    # (lokasi pengukuran per-kunjungan, bisa berpindah-pindah). Field ini
+    # dipakai untuk filter & pengelompokan daftar balita per wilayah kerja.
+    posyandu_location = models.CharField(max_length=150, blank=True, default='')
+
     # Risk-factor fields used by the Stage 2 predictive layer later on
     exclusive_breastfeeding = models.BooleanField(null=True, blank=True)
     birth_weight_kg = models.DecimalField(max_digits=4, decimal_places=2, null=True, blank=True)

@@ -10,6 +10,9 @@ export interface Child {
   // Info orang tua/wali — opsional, untuk keperluan kontak/pencatatan
   parentName?: string;
   parentOccupation?: string;
+  // Posyandu/klinik binaan balita ini — dipakai untuk filter & pengelompokan
+  // di Data Balita, beda dari GrowthRecord.location (lokasi per-kunjungan).
+  posyanduLocation?: string;
   // Optional risk-factor fields used by the predictive layer later on
   exclusiveBreastfeeding?: boolean;
   birthWeightKg?: number;

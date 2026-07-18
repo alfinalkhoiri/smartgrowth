@@ -328,6 +328,20 @@ class ChildSerializerDateValidationTests(SimpleTestCase):
         serializer = ChildSerializer(data={'name': 'Anak Uji', 'birth_date': today, 'sex': 'male'})
         self.assertTrue(serializer.is_valid(), serializer.errors)
 
+    def test_posyandu_location_is_optional(self):
+        yesterday = (date.today() - timedelta(days=1)).isoformat()
+        serializer = ChildSerializer(data={'name': 'Anak Uji', 'birth_date': yesterday, 'sex': 'male'})
+        self.assertTrue(serializer.is_valid(), serializer.errors)
+        self.assertEqual(serializer.validated_data.get('posyandu_location', ''), '')
+
+    def test_posyandu_location_round_trips(self):
+        yesterday = (date.today() - timedelta(days=1)).isoformat()
+        serializer = ChildSerializer(
+            data={'name': 'Anak Uji', 'birth_date': yesterday, 'sex': 'male', 'posyandu_location': 'Posyandu Melati'}
+        )
+        self.assertTrue(serializer.is_valid(), serializer.errors)
+        self.assertEqual(serializer.validated_data['posyandu_location'], 'Posyandu Melati')
+
 
 class GrowthRecordSerializerDateValidationTests(TestCase):
     def setUp(self):

@@ -1,7 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import { AlertTriangle, Baby, Info, Loader2, Pencil, Plus, Printer, Trash2, X } from 'lucide-react';
+import { AlertTriangle, Baby, Info, Loader2, MapPin, Pencil, Plus, Printer, Trash2, X } from 'lucide-react';
 import { growthApi } from '@/api/growth';
 import { firstErrorMessage } from '@/api/errors';
 import { authApi } from '@/api/auth';
@@ -16,6 +16,7 @@ const emptyForm = {
   sex: 'male' as Child['sex'],
   parentName: '',
   parentOccupation: '',
+  posyanduLocation: '',
   exclusiveBreastfeeding: false,
   birthWeightKg: '',
   birthLengthCm: '',
@@ -53,8 +54,17 @@ export default function ChildrenList() {
   const [infoChild, setInfoChild] = useState<Child | null>(null);
   const [latestRecord, setLatestRecord] = useState<GrowthRecord | null>(null);
   const [loadingRecord, setLoadingRecord] = useState(false);
+  const [locationFilter, setLocationFilter] = useState('');
   const canCreate = authApi.canCreate();
   const canEditDelete = authApi.canEditDelete();
+
+  const locationOptions = Array.from(
+    new Set(children.map((c) => c.posyanduLocation).filter((v): v is string => !!v?.trim()))
+  ).sort((a, b) => a.localeCompare(b));
+
+  const filteredChildren = locationFilter
+    ? children.filter((c) => c.posyanduLocation === locationFilter)
+    : children;
 
   useEffect(() => {
     growthApi.listChildren()
@@ -82,6 +92,7 @@ export default function ChildrenList() {
       sex: child.sex,
       parentName: child.parentName ?? '',
       parentOccupation: child.parentOccupation ?? '',
+      posyanduLocation: child.posyanduLocation ?? '',
       exclusiveBreastfeeding: child.exclusiveBreastfeeding ?? false,
       birthWeightKg: child.birthWeightKg != null ? String(child.birthWeightKg) : '',
       birthLengthCm: child.birthLengthCm != null ? String(child.birthLengthCm) : '',
@@ -117,6 +128,7 @@ export default function ChildrenList() {
       sex: form.sex,
       parentName: form.parentName,
       parentOccupation: form.parentOccupation,
+      posyanduLocation: form.posyanduLocation,
       exclusiveBreastfeeding: form.exclusiveBreastfeeding,
       birthWeightKg: form.birthWeightKg ? Number(form.birthWeightKg) : undefined,
       birthLengthCm: form.birthLengthCm ? Number(form.birthLengthCm) : undefined,
@@ -149,7 +161,11 @@ export default function ChildrenList() {
             <Baby className="h-6 w-6 text-primary" aria-hidden="true" />
             Data Balita
           </h1>
-          <p className="text-sm text-primary font-medium">{children.length} balita terdaftar</p>
+          <p className="text-sm text-primary font-medium">
+            {locationFilter
+              ? `${filteredChildren.length} dari ${children.length} balita terdaftar`
+              : `${children.length} balita terdaftar`}
+          </p>
         </div>
         {canCreate && (
           <button onClick={() => (showForm ? setShowForm(false) : navigate('/skrining'))} className="btn-primary">
@@ -167,6 +183,25 @@ export default function ChildrenList() {
           </button>
         )}
       </div>
+
+      {locationOptions.length > 0 && (
+        <div className="flex items-center gap-2">
+          <MapPin className="h-4 w-4 text-gray-400 shrink-0" aria-hidden="true" />
+          <select
+            aria-label="Filter lokasi posyandu/klinik"
+            className="field-input"
+            value={locationFilter}
+            onChange={(e) => setLocationFilter(e.target.value)}
+          >
+            <option value="">Semua Lokasi</option>
+            {locationOptions.map((loc) => (
+              <option key={loc} value={loc}>
+                {loc}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
 
       {error && (
         <p className="text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2" role="alert">
@@ -211,6 +246,25 @@ export default function ChildrenList() {
                 onChange={(e) => setForm({ ...form, parentOccupation: e.target.value })}
               />
             </div>
+          </div>
+          <div>
+            <label htmlFor="child-posyandu-location" className="field-label flex items-center gap-1.5">
+              <MapPin className="h-3.5 w-3.5 text-gray-400" aria-hidden="true" />
+              Lokasi Posyandu/Klinik (opsional)
+            </label>
+            <input
+              id="child-posyandu-location"
+              list="child-posyandu-location-options"
+              className="field-input"
+              placeholder="cth: Posyandu Melati"
+              value={form.posyanduLocation}
+              onChange={(e) => setForm({ ...form, posyanduLocation: e.target.value })}
+            />
+            <datalist id="child-posyandu-location-options">
+              {locationOptions.map((loc) => (
+                <option key={loc} value={loc} />
+              ))}
+            </datalist>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
@@ -310,7 +364,7 @@ export default function ChildrenList() {
         </div>
       ) : (
         <>
-          {children.map((child) => (
+          {filteredChildren.map((child) => (
             <div key={child.id} className="card p-4 flex items-center gap-3">
               <Link
                 to={`/child/${child.id}`}
@@ -333,6 +387,12 @@ export default function ChildrenList() {
                     )}
                   </span>
                   <p className="text-sm text-gray-500">Lahir: {child.birthDate}</p>
+                  {child.posyanduLocation && (
+                    <p className="flex items-center gap-1 text-xs text-gray-400 truncate">
+                      <MapPin className="h-3 w-3 shrink-0" aria-hidden="true" />
+                      {child.posyanduLocation}
+                    </p>
+                  )}
                 </span>
               </Link>
               <div className="flex items-center gap-1 shrink-0">
@@ -364,14 +424,25 @@ export default function ChildrenList() {
               </div>
             </div>
           ))}
-          {children.length === 0 && !showForm && (
+          {filteredChildren.length === 0 && !showForm && (
             <div className="flex flex-col items-center gap-3 text-center py-12 border-2 border-dashed border-gray-200 rounded-xl">
               <Baby className="h-14 w-14 text-gray-300" aria-hidden="true" />
-              <p className="text-sm text-gray-500">Belum ada balita terdaftar</p>
-              {canCreate && (
-                <button onClick={() => navigate('/skrining')} className="btn-primary">
-                  Tambah Balita Pertama
-                </button>
+              {children.length === 0 ? (
+                <>
+                  <p className="text-sm text-gray-500">Belum ada balita terdaftar</p>
+                  {canCreate && (
+                    <button onClick={() => navigate('/skrining')} className="btn-primary">
+                      Tambah Balita Pertama
+                    </button>
+                  )}
+                </>
+              ) : (
+                <>
+                  <p className="text-sm text-gray-500">Tidak ada balita di lokasi &quot;{locationFilter}&quot;</p>
+                  <button onClick={() => setLocationFilter('')} className="btn-secondary">
+                    Reset Filter
+                  </button>
+                </>
               )}
             </div>
           )}

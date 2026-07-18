@@ -30,7 +30,7 @@ class ChildSerializer(serializers.ModelSerializer):
         model = Child
         fields = [
             'id', 'name', 'birth_date', 'sex',
-            'parent_name', 'parent_occupation',
+            'parent_name', 'parent_occupation', 'posyandu_location',
             'exclusive_breastfeeding', 'birth_weight_kg', 'birth_length_cm', 'gestational_age_weeks',
             'growth_alert', 'created_at', 'updated_at',
         ]
