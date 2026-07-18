@@ -125,12 +125,45 @@ create-vs-edit split like the old kader/nakes roles had. `RequireAuth` in
 `App.tsx` guards every other route and redirects to `/login`; `client.ts`'s
 response interceptor does the same on a 401 (expired token).
 
-**Not yet built**: a dedicated orangtua UI (simplified per-child dashboard,
-redeem-code flow, showing `link_code` to kader/nakes so they can hand it to
-a parent). Right now an orangtua account just sees the same pages as
-kader_nakes with create/edit buttons hidden and an empty Data Balita until
-someone builds the link flow — see the backend README's "Peran & tautan
-orang tua" section for the API this UI will need to call.
+**Superseded by Fase 2** (below) as the primary parent-facing flow — the
+login+redeem-code UI described above was never built, since it turned out
+parents just needed a link, not an account. The role/permission plumbing
+above is still live and unaffected; it's just not the path a parent
+actually takes anymore.
+
+### Fase 2: dashboard orang tua tanpa login
+
+`pages/PublicChildView.tsx`, mounted at the public route `#/p/:token` in
+`App.tsx` — deliberately **outside** the `RequireAuth` wrapper, since the
+whole point is no login. Fetches `GET /api/public/children/<token>/`
+(`api/public.ts`) — an unauthenticated backend endpoint, so this page has no
+nav bar, no login/logout, just the child's latest result (`RiskBadge` +
+weight/height + `riskDescription()`), the `GrowthChart` (only shown once
+there are 2+ records — a single point isn't a useful line), and a read-only
+measurement history list. A 404 renders as "Link tidak valid atau sudah
+tidak berlaku" rather than any kind of login prompt.
+
+`GrowthChart.tsx`'s prop type was narrowed to
+`{ ageMonths, heightCm, weightKg }[]` (structural, not the full
+`GrowthRecord`) specifically so this page's slimmer `PublicGrowthRecord[]`
+satisfies it too, without needing a second chart component.
+
+The QR itself is `components/ParentDashboardQr.tsx` — takes just
+`token` + `childName`, lazy-loads the `qrcode` package (dynamic `import()`,
+not in the main bundle, same pattern as `jspdf`/`lib/pdf.ts`) and renders
+a data-URL `<img>` of `.../#/p/<token>`, plus a copy-link button
+(`components/CopyButton.tsx`, also shared with `KodePosyandu.tsx`). It's
+mounted in two places: `Skrining.tsx` (once an existing child is selected
+in "Balita Terdaftar" mode) and `ChildDashboard.tsx` (always, as a
+"Bagikan ke Orang Tua" card — this one also gets an `onRegenerate` handler,
+since invalidating a QR that's already been shown/printed only makes sense
+from the child's own page, not mid-pick in the Skrining flow). Both buttons
+inside `ParentDashboardQr` are explicitly `type="button"` — the Skrining
+instance sits inside a `<form>`, and without that they'd submit it.
+
+The old Fase 1 login-based flow (role `orangtua`, `LinkChildView`) is
+untouched and still works if anyone registers that way — it's just no
+longer the flow either the UI or a fresh parent would actually go through.
 
 ### Kode Posyandu (admin-only)
 

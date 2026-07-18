@@ -1,31 +1,15 @@
 import { useEffect, useState } from 'react';
 import axios from 'axios';
-import { Check, Copy, KeyRound, Loader2, QrCode, RefreshCw } from 'lucide-react';
+import { KeyRound, Loader2, QrCode, RefreshCw } from 'lucide-react';
 import { authApi, type InviteCodeInfo } from '@/api/auth';
 import { firstErrorMessage } from '@/api/errors';
+import { CopyButton } from '@/components/CopyButton';
 
 // #/register (HashRouter) so the link opens straight into the app's own
 // registration route, not a server-side one — react-router reads the query
 // string from the part after the '#' just like a normal path.
 function registrationLink(code: string): string {
   return `${window.location.origin}${window.location.pathname}#/register?code=${code}&role=kader_nakes`;
-}
-
-function CopyButton({ value, label }: { value: string; label: string }) {
-  const [copied, setCopied] = useState(false);
-
-  const handleCopy = async () => {
-    await navigator.clipboard.writeText(value);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1500);
-  };
-
-  return (
-    <button onClick={handleCopy} className="btn-secondary">
-      {copied ? <Check className="h-4 w-4" aria-hidden="true" /> : <Copy className="h-4 w-4" aria-hidden="true" />}
-      {copied ? 'Tersalin' : label}
-    </button>
-  );
 }
 
 export default function KodePosyandu() {

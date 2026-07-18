@@ -24,6 +24,7 @@ import { firstErrorMessage } from '@/api/errors';
 import { authApi } from '@/api/auth';
 import { useGrowthStore } from '@/features/growth/store';
 import { GrowthChart } from '@/components/GrowthChart';
+import { ParentDashboardQr } from '@/components/ParentDashboardQr';
 import { RiskBadge } from '@/components/RiskBadge';
 import { riskDescription } from '@/features/growth/zscore';
 import { monthsBetween } from '@/lib/dates';
@@ -98,6 +99,15 @@ export default function ChildDashboard() {
     } finally {
       setGeneratingReport(false);
     }
+  };
+
+  const handleRegenerateToken = async () => {
+    if (!child) return;
+    if (!window.confirm('Yakin ingin membuat QR baru? Link/QR lama yang sudah dibagikan langsung tidak berlaku.')) {
+      return;
+    }
+    const res = await growthApi.regeneratePublicToken(child.id);
+    setChild(res.data);
   };
 
   useEffect(() => {
@@ -287,6 +297,14 @@ export default function ChildDashboard() {
           )}
           Unduh Laporan PDF
         </button>
+      )}
+
+      {child?.publicToken && (
+        <ParentDashboardQr
+          token={child.publicToken}
+          childName={child.name}
+          onRegenerate={canEditDelete ? handleRegenerateToken : undefined}
+        />
       )}
 
       {child?.growthAlert === '2T' && (

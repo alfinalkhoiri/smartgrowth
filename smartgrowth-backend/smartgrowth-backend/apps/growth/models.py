@@ -1,4 +1,5 @@
 import random
+import secrets
 import uuid
 from django.conf import settings
 from django.db import models
@@ -11,6 +12,19 @@ def generate_link_code() -> str:
     without a kader having to search for/pick the parent's account manually.
     """
     return ''.join(random.choices('0123456789', k=6))
+
+
+def generate_public_token() -> str:
+    """
+    Bearer token for the no-login parent dashboard (GET /api/public/children/
+    <token>/) — a QR on the Skrining/ChildDashboard pages encodes a link
+    containing this. Deliberately much higher-entropy than link_code: that
+    one is redeemed once through an authenticated registration flow (some
+    friction, attributable, revocable), this one grants standing
+    unauthenticated read access for as long as it's valid, so it needs to
+    resist brute-force guessing on its own — 24 random bytes, ~192 bits.
+    """
+    return secrets.token_urlsafe(24)
 
 
 class Child(models.Model):
@@ -47,6 +61,11 @@ class Child(models.Model):
     parents = models.ManyToManyField(settings.AUTH_USER_MODEL, related_name='children', blank=True)
     link_code = models.CharField(max_length=6, unique=True, editable=False, null=True, blank=True)
 
+    # Fase 2: orang tua tidak perlu akun/login sama sekali — QR di halaman
+    # Skrining/ChildDashboard meng-encode link berisi token ini langsung ke
+    # dashboard read-only (lihat views.PublicChildDashboardView).
+    public_token = models.CharField(max_length=48, unique=True, editable=False, null=True, blank=True)
+
     registered_by = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name='registered_children'
     )
@@ -62,6 +81,11 @@ class Child(models.Model):
             while Child.objects.filter(link_code=code).exists():
                 code = generate_link_code()
             self.link_code = code
+        if not self.public_token:
+            token = generate_public_token()
+            while Child.objects.filter(public_token=token).exists():
+                token = generate_public_token()
+            self.public_token = token
         super().save(*args, **kwargs)
 
     def __str__(self):

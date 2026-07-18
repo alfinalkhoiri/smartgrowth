@@ -1,8 +1,9 @@
 from django.shortcuts import get_object_or_404
 from rest_framework import generics, status, viewsets, filters
 from rest_framework.decorators import action
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
+from rest_framework.throttling import AnonRateThrottle
 from rest_framework.views import APIView
 from django_filters.rest_framework import DjangoFilterBackend
 
@@ -10,7 +11,7 @@ from .models import Child, GrowthRecord, PosyanduSchedule, RiskAssessment
 from .permissions import RoleBasedGrowthPermission, visible_children
 from .serializers import (
     ChildSerializer, GrowthRecordSerializer, LinkChildSerializer, PosyanduScheduleSerializer,
-    RiskAssessmentSerializer,
+    PublicChildDashboardSerializer, RiskAssessmentSerializer,
 )
 from .services.risk_engine import (
     assess_child_risk, calculate_haz, calculate_hcz, calculate_waz, calculate_whz, score_risk,
@@ -39,6 +40,14 @@ class ChildViewSet(viewsets.ModelViewSet):
         child.save()
         return Response(self.get_serializer(child).data)
 
+    @action(detail=True, methods=['post'], url_path='regenerate-public-token')
+    def regenerate_public_token(self, request, pk=None):
+        """Same idea as regenerate_code, for the no-login QR link instead of the account-link code."""
+        child = self.get_object()
+        child.public_token = None
+        child.save()
+        return Response(self.get_serializer(child).data)
+
 
 class LinkChildView(generics.GenericAPIView):
     """POST /api/children/link/ — orangtua redeems a kader-issued code to see their child's data."""
@@ -51,6 +60,29 @@ class LinkChildView(generics.GenericAPIView):
         child = serializer.child
         child.parents.add(request.user)
         return Response(ChildSerializer(child, context={'request': request}).data, status=status.HTTP_200_OK)
+
+
+class PublicChildDashboardThrottle(AnonRateThrottle):
+    scope = 'public_child_dashboard'
+
+
+class PublicChildDashboardView(APIView):
+    """
+    GET /api/public/children/<token>/ — Fase 2: orangtua tidak perlu akun
+    sama sekali. No auth (AllowAny) — the 192-bit token (Child.public_token)
+    from a QR on the Skrining/ChildDashboard pages *is* the credential, so
+    this must never accept anything but an exact match, and only ever
+    returns the minimal read-only payload from PublicChildDashboardSerializer
+    (no PII beyond the child's own name, no other child's data reachable
+    from here). Throttled on top of the token's own entropy as defense in
+    depth against scraping/enumeration from a single source.
+    """
+    permission_classes = [AllowAny]
+    throttle_classes = [PublicChildDashboardThrottle]
+
+    def get(self, request, token):
+        child = get_object_or_404(Child, public_token=token)
+        return Response(PublicChildDashboardSerializer(child).data)
 
 
 class GrowthRecordViewSet(viewsets.ModelViewSet):

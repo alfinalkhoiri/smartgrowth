@@ -21,6 +21,36 @@ export interface Child {
   // '2T' (posyandu convention: weight failed to increase at the last two
   // measurements in a row) or null/undefined if not currently flagged.
   growthAlert?: '2T' | null;
+  // Only present for kader_nakes/admin or an already-linked orangtua (see
+  // ChildSerializer.get_public_token on the backend) — the bearer token for
+  // the no-login parent dashboard QR (Fase 2). undefined for anyone else.
+  publicToken?: string;
+}
+
+// Slice of a measurement shown on the no-login parent dashboard — same
+// shape as the fields GrowthRecord already has, just fewer of them (no
+// officerName/location/notes/photo/questionnaire answers, see
+// PublicGrowthRecordSerializer on the backend).
+export interface PublicGrowthRecord {
+  measuredAt: string;
+  weightKg: number;
+  heightCm: number;
+  headCircumferenceCm?: number;
+  ageMonths: number;
+  heightForAgeZ?: number;
+  weightForHeightZ?: number;
+  weightForAgeZ?: number;
+  headCircumferenceZ?: number;
+  riskStatus?: RiskStatus;
+  weightTrend?: 'naik' | 'tetap_turun' | null;
+}
+
+export interface PublicChildDashboard {
+  name: string;
+  birthDate: string;
+  sex: 'male' | 'female';
+  growthAlert?: '2T' | null;
+  records: PublicGrowthRecord[];
 }
 
 export interface GrowthRecord {

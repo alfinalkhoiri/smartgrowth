@@ -837,6 +837,76 @@ class LinkChildEndpointTests(TestCase):
         self.assertFalse(self.child.parents.filter(pk=self.parent.pk).exists())
 
 
+class PublicChildDashboardTests(TestCase):
+    """Fase 2: orangtua tidak perlu login — GET /api/public/children/<token>/."""
+
+    def setUp(self):
+        self.child = Child.objects.create(name='Anak Publik', birth_date=date(2024, 1, 1), sex='male')
+        self.other_child = Child.objects.create(name='Anak Lain', birth_date=date(2024, 1, 1), sex='female')
+        GrowthRecord.objects.create(
+            child=self.child, measured_at=date(2024, 6, 1), weight_kg=7, height_cm=65, age_months=5,
+        )
+        GrowthRecord.objects.create(
+            child=self.child, measured_at=date(2024, 9, 1), weight_kg=8, height_cm=68, age_months=8,
+        )
+        GrowthRecord.objects.create(
+            child=self.other_child, measured_at=date(2024, 6, 1), weight_kg=6, height_cm=60, age_months=5,
+        )
+
+    def test_valid_token_returns_dashboard_with_no_authorization_header(self):
+        client = APIClient()  # deliberately never calls force_authenticate / sets a token
+        response = client.get(f'/api/public/children/{self.child.public_token}/')
+        self.assertEqual(response.status_code, 200, response.data)
+        self.assertEqual(response.data['name'], 'Anak Publik')
+        self.assertEqual(len(response.data['records']), 2)
+
+    def test_records_belong_only_to_this_child(self):
+        client = APIClient()
+        response = client.get(f'/api/public/children/{self.child.public_token}/')
+        weights = {r['weight_kg'] for r in response.data['records']}
+        self.assertEqual(weights, {'7.00', '8.00'})
+
+    def test_invalid_token_returns_404(self):
+        client = APIClient()
+        response = client.get('/api/public/children/not-a-real-token/')
+        self.assertEqual(response.status_code, 404)
+
+    def test_payload_excludes_staff_only_fields(self):
+        client = APIClient()
+        response = client.get(f'/api/public/children/{self.child.public_token}/')
+        self.assertNotIn('id', response.data)
+        self.assertNotIn('link_code', response.data)
+        self.assertNotIn('public_token', response.data)
+        self.assertNotIn('parent_name', response.data)
+        record = response.data['records'][0]
+        self.assertNotIn('officer_name', record)
+        self.assertNotIn('location', record)
+        self.assertNotIn('notes', record)
+
+
+class RegenerateTokenActionTests(TestCase):
+    def setUp(self):
+        User = get_user_model()
+        self.kader = User.objects.create_user(username='kader_regen', password='x', role='kader_nakes')
+        self.child = Child.objects.create(name='Anak Regen', birth_date=date(2024, 1, 1), sex='male')
+
+    def _client(self):
+        client = APIClient()
+        client.force_authenticate(user=self.kader)
+        return client
+
+    def test_regenerate_public_token_invalidates_old_one(self):
+        old_token = self.child.public_token
+        response = self._client().post(f'/api/children/{self.child.id}/regenerate-public-token/')
+        self.assertEqual(response.status_code, 200, response.data)
+        new_token = response.data['public_token']
+        self.assertNotEqual(new_token, old_token)
+
+        anon = APIClient()
+        self.assertEqual(anon.get(f'/api/public/children/{old_token}/').status_code, 404)
+        self.assertEqual(anon.get(f'/api/public/children/{new_token}/').status_code, 200)
+
+
 class RegistrationRoleGateTests(TestCase):
     def test_orangtua_registration_needs_no_invite_code(self):
         response = APIClient().post('/api/auth/register', {

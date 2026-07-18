@@ -398,10 +398,47 @@ kebetulan salah lihat data anak keluarga lain.
   (`.../#/register?code=...&role=kader_nakes`) — kader/nakes tinggal scan,
   form Register otomatis terisi, tidak perlu ketik manual.
 
-**Belum dikerjakan (frontend)**: UI orang tua (dashboard sederhana per-anak,
-form redeem kode, tampilan `link_code` di sisi kader) — perubahan di README
-ini baru mencakup fondasi backend + guard minimal di frontend supaya akun
-kader_nakes/orangtua yang sudah ada tidak rusak setelah migrasi role.
+## Fase 2: dashboard orang tua tanpa login
+
+Setelah dicoba, alur akun+login (di atas) ternyata kurang cocok untuk orang
+tua di lapangan — mereka tidak butuh akun permanen, cukup lihat hasil
+sesekali. **`Child.public_token`** (192-bit random, `secrets.token_urlsafe(24)`)
+jadi *bearer capability* terpisah dari `link_code`: siapa pun yang pegang
+tokennya bisa langsung lihat data balita itu, tanpa login sama sekali —
+keystrong-annya sengaja jauh lebih besar dari `link_code` (6 digit) karena
+model keamanannya beda: `link_code` ditebus lewat alur registrasi
+berautentikasi (ada friksi, bisa dilacak/di-revoke), token ini memberi akses
+baca permanen tanpa autentikasi sama sekali, jadi harus tahan ditebak
+sendiri.
+
+- **`GET /api/public/children/<token>/`** (`PublicChildDashboardView`,
+  `AllowAny`, di-throttle `30/menit` per IP lewat
+  `PublicChildDashboardThrottle`) — payload minimal lewat
+  `PublicChildDashboardSerializer`: nama, tanggal lahir, jenis kelamin,
+  `growth_alert`, dan daftar `records` (subset `GrowthRecord` lewat
+  `PublicGrowthRecordSerializer` — sengaja tanpa `officer_name`/`location`/
+  `notes`/`photo`/jawaban kuesioner, itu detail internal staf, bukan untuk
+  bearer link tanpa login).
+- **`POST /api/children/<id>/regenerate-public-token/`** — kader_nakes/admin
+  saja, sama seperti `regenerate-code`, untuk kalau QR-nya salah dibagikan
+  atau ingin di-nonaktifkan.
+- **`ChildSerializer.public_token`** memakai gate visibilitas yang sama
+  dengan `link_code` (`_visible_to_kader_nakes_or_linked_parent()`) — supaya
+  frontend (yang butuh nilainya untuk generate QR) tetap tidak membocorkan
+  token ke siapa pun selain kader_nakes/admin.
+- **Frontend**: `pages/PublicChildView.tsx` di route publik `#/p/:token`
+  (di luar `RequireAuth`, lihat `App.tsx`) — dashboard baca-saja (hasil
+  terakhir + riwayat + grafik), tanpa nav/login/logout sama sekali. QR-nya
+  sendiri dirender lewat `components/ParentDashboardQr.tsx`, dipasang di
+  **halaman Skrining** (begitu mode "Balita Terdaftar" & balita dipilih) dan
+  di **ChildDashboard** (selalu, sebagai kartu "Bagikan ke Orang Tua") —
+  keduanya cukup pasang `token`+`childName`, komponennya sendiri yang
+  generate QR (lazy-loaded `qrcode`, lihat frontend README) dan link `.../
+  #/p/<token>`.
+
+Alur akun+login Fase 1 (`RegisterView`/`LinkChildView`/role `orangtua`) tetap
+ada dan tidak dihapus — tidak dipakai sebagai jalur utama lagi, tapi tidak
+mengganggu apa pun kalau dibiarkan.
 
 ## Cakupan API
 
@@ -415,6 +452,8 @@ kader_nakes/orangtua yang sudah ada tidak rusak setelah migrasi role.
 | GET/PUT/DELETE | `/api/children/<id>/`              | `ChildViewSet`        | GET balita yang belum ditautkan (orangtua) → 404; PUT/DELETE butuh role kader_nakes/admin |
 | POST           | `/api/children/link/`              | `LinkChildView`       | `{code}` — orangtua menautkan diri sendiri ke balita lewat `link_code`; kode salah → 400 |
 | POST           | `/api/children/<id>/regenerate-code/` | `ChildViewSet`     | Membatalkan `link_code` lama; kader_nakes/admin saja |
+| POST           | `/api/children/<id>/regenerate-public-token/` | `ChildViewSet` | Membatalkan `public_token` (QR Fase 2) lama; kader_nakes/admin saja |
+| GET            | `/api/public/children/<token>/`    | `PublicChildDashboardView` | Publik (`AllowAny`, tidak butuh login sama sekali), di-throttle 30/menit per IP; payload minimal (nama, tanggal lahir, `growth_alert`, riwayat pengukuran) |
 | GET/POST       | `/api/growth-records/`             | `GrowthRecordViewSet` | Filter dengan `?child=<uuid>`; daftar sudah discoping lewat `visible_children()`; field `officer_name`/`location`/`notes`/`head_circumference_cm`/`photo` opsional (tidak diikutkan saat update = nilai lama tidak berubah); `photo` butuh `multipart/form-data` (sudah didukung `CamelCaseMultiPartParser`) kalau diisi; `height_for_age_z`/`weight_for_height_z`/`weight_for_age_z`/`head_circumference_z`/`risk_status` dihitung otomatis saat create/update |
 | GET/PUT/DELETE | `/api/growth-records/<id>/`        | `GrowthRecordViewSet` | PUT/DELETE butuh role kader_nakes/admin                                                                                               |
 | GET            | `/api/risk-assessment/<child_id>/` | `RiskAssessmentView`  | Membuat `RiskAssessment` baru setiap kali dipanggil; scoped lewat `visible_children()` (404 kalau balita bukan milik orangtua yang minta) |

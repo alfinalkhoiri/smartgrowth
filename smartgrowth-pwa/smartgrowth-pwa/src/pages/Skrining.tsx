@@ -6,6 +6,7 @@ import { growthApi } from '@/api/growth';
 import { scheduleApi } from '@/api/schedule';
 import { firstErrorMessage } from '@/api/errors';
 import { authApi } from '@/api/auth';
+import { ParentDashboardQr } from '@/components/ParentDashboardQr';
 import { Toggle } from '@/components/Toggle';
 import { monthsBetween } from '@/lib/dates';
 import type { Child } from '@/types';
@@ -45,6 +46,7 @@ export default function Skrining() {
   const [photo, setPhoto] = useState<File | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const selectedChild = children.find((c) => c.id === selectedChildId);
 
   useEffect(() => {
     // Saran lokasi diambil dari posyandu balita lain + jadwal posyandu yang
@@ -181,24 +183,29 @@ export default function Skrining() {
 
       <form onSubmit={handleSubmit} className="card p-4 space-y-4">
         {mode === 'existing' ? (
-          <div>
-            <label htmlFor="skrining-child-select" className="field-label">
-              Pilih Balita
-            </label>
-            <select
-              id="skrining-child-select"
-              className="field-input"
-              value={selectedChildId}
-              onChange={(e) => setSelectedChildId(e.target.value)}
-              required
-            >
-              <option value="">-- Pilih balita --</option>
-              {children.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))}
-            </select>
+          <div className="space-y-3">
+            <div>
+              <label htmlFor="skrining-child-select" className="field-label">
+                Pilih Balita
+              </label>
+              <select
+                id="skrining-child-select"
+                className="field-input"
+                value={selectedChildId}
+                onChange={(e) => setSelectedChildId(e.target.value)}
+                required
+              >
+                <option value="">-- Pilih balita --</option>
+                {children.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            {selectedChild?.publicToken && (
+              <ParentDashboardQr token={selectedChild.publicToken} childName={selectedChild.name} />
+            )}
           </div>
         ) : (
           <div className="space-y-3">

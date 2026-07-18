@@ -109,6 +109,12 @@ REST_FRAMEWORK = {
         'djangorestframework_camel_case.parser.CamelCaseFormParser',
         'djangorestframework_camel_case.parser.CamelCaseMultiPartParser',
     ),
+    # public_child_dashboard: defense in depth on top of the token's own 192
+    # bits of entropy — blunts scraping/enumeration from a single IP against
+    # the one unauthenticated (AllowAny) endpoint in the API.
+    'DEFAULT_THROTTLE_RATES': {
+        'public_child_dashboard': '30/min',
+    },
 }
 
 SIMPLE_JWT = {

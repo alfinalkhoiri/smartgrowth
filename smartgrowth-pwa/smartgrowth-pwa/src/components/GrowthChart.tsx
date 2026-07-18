@@ -1,9 +1,11 @@
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { TrendingUp } from 'lucide-react';
-import type { GrowthRecord } from '@/types';
 
+// Deliberately narrow (not the full GrowthRecord/PublicGrowthRecord shape)
+// so this also works for the public no-login dashboard's slimmer payload —
+// any record-like shape with these three fields satisfies it structurally.
 interface Props {
-  records: GrowthRecord[];
+  records: { ageMonths: number; heightCm: number; weightKg: number }[];
 }
 
 function ChartTooltip({ active, payload }: { active?: boolean; payload?: { value: number }[] }) {

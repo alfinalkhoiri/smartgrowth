@@ -9,6 +9,7 @@ import Edukasi from '@/pages/Edukasi';
 import Jadwal from '@/pages/Jadwal';
 import KodePosyandu from '@/pages/KodePosyandu';
 import Login from '@/pages/Login';
+import PublicChildView from '@/pages/PublicChildView';
 import Register from '@/pages/Register';
 import { authApi } from '@/api/auth';
 
@@ -30,6 +31,9 @@ export default function App() {
       <Routes>
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
+        {/* No RequireAuth — Fase 2: orangtua tidak perlu login, token di URL
+            sendiri yang jadi kredensial (lihat PublicChildDashboardView). */}
+        <Route path="/p/:token" element={<PublicChildView />} />
         <Route
           element={
             <RequireAuth>

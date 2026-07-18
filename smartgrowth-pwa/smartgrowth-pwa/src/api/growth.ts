@@ -26,6 +26,9 @@ export const growthApi = {
   updateChild: (id: string, payload: Omit<Child, 'id'>) =>
     apiClient.put<Child>(`/children/${id}/`, payload),
   deleteChild: (id: string) => apiClient.delete(`/children/${id}/`),
+  // Invalidates the old QR/link immediately — used when it was shown/handed
+  // to the wrong person. kader_nakes/admin only (backend-enforced).
+  regeneratePublicToken: (id: string) => apiClient.post<Child>(`/children/${id}/regenerate-public-token/`),
 
   listRecords: (childId: string) =>
     apiClient.get<GrowthRecord[]>('/growth-records/', { params: { child: childId } }),
