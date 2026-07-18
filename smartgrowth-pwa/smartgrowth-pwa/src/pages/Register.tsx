@@ -124,6 +124,8 @@ export default function Register() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               autoComplete="email"
+              placeholder="nama@email.com"
+              required
             />
             <FieldError message={fieldErrors.email} />
           </div>
@@ -138,6 +140,8 @@ export default function Register() {
               value={phoneNumber}
               onChange={(e) => setPhoneNumber(e.target.value)}
               autoComplete="tel"
+              placeholder="08xxxxxxxxxx"
+              required
             />
             <FieldError message={fieldErrors.phoneNumber} />
           </div>

@@ -915,12 +915,14 @@ class RegistrationRoleGateTests(TestCase):
     def test_orangtua_registration_needs_no_invite_code(self):
         response = APIClient().post('/api/auth/register', {
             'username': 'ortu_gate_test', 'password': 'StrongPass123!', 'role': 'orangtua',
+            'email': 'ortu_gate_test@example.com', 'phone_number': '081200000001',
         })
         self.assertEqual(response.status_code, 201, response.data)
 
     def test_kader_nakes_registration_rejects_missing_invite_code(self):
         response = APIClient().post('/api/auth/register', {
             'username': 'kader_gate_test', 'password': 'StrongPass123!', 'role': 'kader_nakes',
+            'email': 'kader_gate_test@example.com', 'phone_number': '081200000002',
         })
         self.assertEqual(response.status_code, 400)
         self.assertIn('invite_code', response.data)
@@ -928,9 +930,18 @@ class RegistrationRoleGateTests(TestCase):
     def test_kader_nakes_registration_accepts_correct_invite_code(self):
         response = APIClient().post('/api/auth/register', {
             'username': 'kader_gate_test2', 'password': 'StrongPass123!', 'role': 'kader_nakes',
+            'email': 'kader_gate_test2@example.com', 'phone_number': '081200000003',
             'invite_code': RegistrationInviteCode.load().code,
         })
         self.assertEqual(response.status_code, 201, response.data)
+
+    def test_registration_rejects_missing_email_and_phone(self):
+        response = APIClient().post('/api/auth/register', {
+            'username': 'no_contact_test', 'password': 'StrongPass123!', 'role': 'orangtua',
+        })
+        self.assertEqual(response.status_code, 400)
+        self.assertIn('email', response.data)
+        self.assertIn('phone_number', response.data)
 
 
 class InviteCodeViewTests(TestCase):
@@ -974,12 +985,14 @@ class InviteCodeViewTests(TestCase):
         # Old code no longer works for registration, new one does.
         register_response = APIClient().post('/api/auth/register', {
             'username': 'kader_after_regen', 'password': 'StrongPass123!', 'role': 'kader_nakes',
+            'email': 'kader_after_regen@example.com', 'phone_number': '081200000004',
             'invite_code': old_code,
         })
         self.assertEqual(register_response.status_code, 400)
 
         register_response = APIClient().post('/api/auth/register', {
             'username': 'kader_after_regen2', 'password': 'StrongPass123!', 'role': 'kader_nakes',
+            'email': 'kader_after_regen2@example.com', 'phone_number': '081200000005',
             'invite_code': new_code,
         })
         self.assertEqual(register_response.status_code, 201, register_response.data)

@@ -12,6 +12,12 @@ PUBLIC_ROLE_CHOICES = [choice for choice in Role.choices if choice[0] != Role.AD
 class RegisterSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True, validators=[validate_password])
     role = serializers.ChoiceField(choices=PUBLIC_ROLE_CHOICES, default=Role.ORANGTUA)
+    # User.email/phone_number are blank=True on the model (so createsuperuser
+    # and admin edits aren't forced to set them) — required only here, for
+    # public self-registration, where a working contact channel to the
+    # kader/nakes actually matters.
+    email = serializers.EmailField(required=True)
+    phone_number = serializers.CharField(required=True)
     # Only required when role=kader_nakes — that role sees every family's
     # data, so open self-registration into it isn't safe once orangtua
     # accounts (with a real privacy expectation) exist in the same system.
