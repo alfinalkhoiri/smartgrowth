@@ -47,21 +47,33 @@ export default function ChildDashboard() {
   const [error, setError] = useState('');
   const [resultRecord, setResultRecord] = useState<GrowthRecord | null>(null);
   const [generatingReport, setGeneratingReport] = useState(false);
+  const [printingReport, setPrintingReport] = useState(false);
   const [activeTab, setActiveTab] = useState<DetailTab>('hasil');
   const canCreate = authApi.canCreate();
   const canEditDelete = authApi.canEditDelete();
 
   // jspdf/jspdf-autotable are only loaded on demand (not in the main bundle)
-  // — most sessions never touch this button, and the PWA precache/initial
+  // — most sessions never touch these buttons, and the PWA precache/initial
   // load shouldn't carry that weight for everyone just in case they do.
   const handleDownloadReport = async () => {
     if (!child) return;
     setGeneratingReport(true);
     try {
       const { generateChildReport } = await import('@/lib/pdf');
-      generateChildReport(child, records);
+      await generateChildReport(child, records);
     } finally {
       setGeneratingReport(false);
+    }
+  };
+
+  const handlePrintReport = async () => {
+    if (!child) return;
+    setPrintingReport(true);
+    try {
+      const { printChildReport } = await import('@/lib/pdf');
+      await printChildReport(child, records);
+    } finally {
+      setPrintingReport(false);
     }
   };
 
@@ -122,14 +134,24 @@ export default function ChildDashboard() {
       </div>
 
       {records.length > 0 && child && (
-        <button onClick={handleDownloadReport} disabled={generatingReport} className="btn-ghost">
-          {generatingReport ? (
-            <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
-          ) : (
-            <Download className="h-4 w-4" aria-hidden="true" />
-          )}
-          Unduh Laporan PDF
-        </button>
+        <div className="flex flex-wrap items-center gap-2">
+          <button onClick={handleDownloadReport} disabled={generatingReport} className="btn-ghost">
+            {generatingReport ? (
+              <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+            ) : (
+              <Download className="h-4 w-4" aria-hidden="true" />
+            )}
+            Unduh Laporan PDF
+          </button>
+          <button onClick={handlePrintReport} disabled={printingReport} className="btn-ghost">
+            {printingReport ? (
+              <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+            ) : (
+              <Printer className="h-4 w-4" aria-hidden="true" />
+            )}
+            Cetak Laporan
+          </button>
+        </div>
       )}
 
       {child?.publicToken && (

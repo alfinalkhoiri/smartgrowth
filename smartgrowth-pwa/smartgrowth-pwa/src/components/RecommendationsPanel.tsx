@@ -96,27 +96,33 @@ export function RecommendationsPanel({
         </div>
       </div>
 
-      {recommendations && recommendations.length > 0 && (
-        <div className="card p-4 space-y-2">
+      {((recommendations && recommendations.length > 0) || notes) && (
+        <div className="card p-4 space-y-3">
           <p className="flex items-center gap-1.5 font-display font-bold text-gray-900">
             <ClipboardList className="h-4 w-4 text-accent" aria-hidden="true" />
-            Rekomendasi dari Kuesioner
+            Rekomendasi
           </p>
-          <ul className="text-sm text-gray-600 list-disc list-inside space-y-1">
-            {recommendations.map((rec, i) => (
-              <li key={i}>{rec}</li>
-            ))}
-          </ul>
-        </div>
-      )}
 
-      {notes && (
-        <div className="card p-4 space-y-2">
-          <p className="flex items-center gap-1.5 font-display font-bold text-gray-900">
-            <StickyNote className="h-4 w-4 text-accent" aria-hidden="true" />
-            Catatan Nakes/Kader
-          </p>
-          <p className="text-sm text-gray-700 whitespace-pre-wrap">{notes}</p>
+          {recommendations && recommendations.length > 0 && (
+            <div className="space-y-1.5">
+              <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">Dari Kuesioner</p>
+              <ul className="text-sm text-gray-600 list-disc list-inside space-y-1">
+                {recommendations.map((rec, i) => (
+                  <li key={i}>{rec}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {notes && (
+            <div className="space-y-1.5">
+              <p className="flex items-center gap-1 text-xs font-semibold uppercase tracking-wide text-gray-400">
+                <StickyNote className="h-3 w-3" aria-hidden="true" />
+                Catatan Petugas
+              </p>
+              <p className="text-sm text-gray-700 whitespace-pre-wrap">{notes}</p>
+            </div>
+          )}
         </div>
       )}
 
