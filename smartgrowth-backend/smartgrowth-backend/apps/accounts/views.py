@@ -3,9 +3,9 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.views import TokenObtainPairView
 
-from .models import RegistrationInviteCode, generate_invite_code
+from .models import RegistrationInviteCode, User, generate_invite_code
 from .permissions import IsAppAdmin
-from .serializers import InviteCodeSerializer, RegisterSerializer
+from .serializers import InviteCodeSerializer, RegisterSerializer, UserListSerializer
 from .tokens import RoleTokenObtainPairSerializer, tokens_with_claims
 
 
@@ -49,3 +49,10 @@ class InviteCodeView(APIView):
         obj.updated_by = request.user
         obj.save()
         return Response(InviteCodeSerializer(obj).data)
+
+
+class UserListView(generics.ListAPIView):
+    """GET /api/auth/users — admin-only, backs the 'List User' page under Setting."""
+    queryset = User.objects.all().order_by('username')
+    serializer_class = UserListSerializer
+    permission_classes = [IsAppAdmin]

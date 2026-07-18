@@ -48,3 +48,12 @@ class InviteCodeSerializer(serializers.ModelSerializer):
         model = RegistrationInviteCode
         fields = ['code', 'updated_at', 'updated_by']
         read_only_fields = fields
+
+
+class UserListSerializer(serializers.ModelSerializer):
+    """Read-only — backs the admin 'List User' page (Setting menu)."""
+
+    class Meta:
+        model = User
+        fields = ['id', 'username', 'email', 'role', 'phone_number', 'is_superuser', 'is_active', 'date_joined']
+        read_only_fields = fields

@@ -3,10 +3,13 @@
 ## Cara penggunaan sistem (alur pengguna)
 
 1. **Daftar / Masuk** — buka frontend, daftar akun baru lewat halaman
-   Register (peran **Orang Tua**, bebas daftar; atau **Kader/Nakes**, butuh
-   kode posyandu — lihat "Peran & tautan orang tua" di bawah), atau masuk
-   lewat halaman Login kalau sudah punya akun. Admin tidak bisa daftar
-   sendiri — dibuat lewat `createsuperuser`.
+   Register sebagai **Kader/Nakes** (satu-satunya peran yang bisa
+   self-register lewat form ini, butuh kode posyandu — lihat "Peran &
+   tautan orang tua" di bawah), atau masuk lewat halaman Login kalau sudah
+   punya akun. Admin tidak bisa daftar sendiri — dibuat lewat
+   `createsuperuser`. Orang tua tidak mendaftar akun sama sekali — lihat
+   "Fase 2: dashboard orang tua tanpa login" di bawah, jalur yang mereka
+   pakai sekarang.
 2. **Tambah data balita** — kader/nakes menambahkan balita baru (nama,
    tanggal lahir, jenis kelamin, opsional nama/pekerjaan orang tua, lokasi
    posyandu/klinik, berat & panjang lahir, usia kehamilan, status ASI
@@ -393,10 +396,21 @@ kebetulan salah lihat data anak keluarga lain.
 - **`GET/POST /api/auth/invite-code`** (`InviteCodeView`, admin-only lewat
   `IsAppAdmin`) — GET melihat kode saat ini, POST membuat kode baru
   (langsung membatalkan yang lama). Frontend merender ini sebagai halaman
-  "Kode Posyandu" (submenu khusus admin di `AppLayout.tsx`) berisi kode
-  dalam teks + **QR code** yang meng-encode link pendaftaran langsung
-  (`.../#/register?code=...&role=kader_nakes`) — kader/nakes tinggal scan,
-  form Register otomatis terisi, tidak perlu ketik manual.
+  "Kode Posyandu" (di bawah menu **Setting**, khusus admin — lihat di
+  bawah) berisi kode dalam teks + **QR code** yang meng-encode link
+  pendaftaran langsung (`.../#/register?code=...&role=kader_nakes`) —
+  kader/nakes tinggal scan, form Register otomatis terisi, tidak perlu
+  ketik manual.
+- **`GET /api/auth/users`** (`UserListView`, admin-only lewat `IsAppAdmin`)
+  — daftar seluruh akun terdaftar (`UserListSerializer`: username, email,
+  role, phone_number, is_superuser, is_active, date_joined), read-only.
+  Frontend merender ini sebagai halaman "List User", juga di bawah menu
+  **Setting**.
+- **Menu Setting** (`pages/Setting.tsx`, `AppLayout.tsx`) — satu item nav
+  "Setting" yang hanya tampil untuk admin, membuka halaman menu berisi dua
+  tautan: **List User** (`/admin/setting/users`) dan **Kode Posyandu**
+  (`/admin/setting/kode-posyandu`) — menggantikan tautan langsung "Kode
+  Posyandu" yang dulu tampil sendirian di nav bar.
 
 ## Fase 2: dashboard orang tua tanpa login
 
@@ -448,6 +462,7 @@ mengganggu apa pun kalau dibiarkan.
 | POST           | `/api/auth/refresh`                | `TokenRefreshView`    |                                                                                                                                        |
 | POST           | `/api/auth/register`               | `RegisterView`        | Publik (`AllowAny`); role terbatas ke kader_nakes/orangtua (admin tidak bisa daftar sendiri); kader_nakes butuh `invite_code` yang cocok dengan `RegistrationInviteCode.load().code`; mengembalikan `{access, refresh}` langsung, klaim role juga disematkan |
 | GET/POST       | `/api/auth/invite-code`            | `InviteCodeView`      | Admin-only (`IsAppAdmin`); GET lihat kode saat ini, POST bikin kode baru (kode lama langsung tidak berlaku) |
+| GET            | `/api/auth/users`                  | `UserListView`        | Admin-only (`IsAppAdmin`); daftar seluruh akun terdaftar, read-only, tanpa pagination |
 | GET/POST       | `/api/children/`                   | `ChildViewSet`        | `?search=` berdasarkan nama; response array polos (tanpa pagination); daftar sudah discoping lewat `visible_children()`; POST/PUT/DELETE butuh role kader_nakes/admin |
 | GET/PUT/DELETE | `/api/children/<id>/`              | `ChildViewSet`        | GET balita yang belum ditautkan (orangtua) → 404; PUT/DELETE butuh role kader_nakes/admin |
 | POST           | `/api/children/link/`              | `LinkChildView`       | `{code}` — orangtua menautkan diri sendiri ke balita lewat `link_code`; kode salah → 400 |

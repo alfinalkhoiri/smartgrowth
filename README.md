@@ -17,15 +17,29 @@ Fakultas Ilmu Komputer × Fakultas Kedokteran, President University.
 - **Rentang normal sebagai panduan input** — hint "Normal: X–Y cm/kg" di
   form pengukuran sebelum data disubmit.
 - **CRUD lengkap** untuk data balita dan riwayat pengukuran pertumbuhan,
-  lengkap dengan grafik tinggi terhadap usia, foto dokumentasi opsional, dan
-  laporan PDF per anak.
+  lengkap dengan grafik tinggi & berat terhadap usia, foto dokumentasi
+  opsional, dan laporan PDF per anak.
+- **Dashboard orang tua tanpa login (QR/link)** — tiap balita punya link/QR
+  unik (`public_token`) yang bisa dibagikan kader ke orang tua; dibuka lewat
+  browser HP tanpa perlu akun, langsung tampil hasil terakhir, grafik, dan
+  edukasi gizi sesuai status anaknya — jalur utama orang tua mengakses data
+  sekarang, bukan lewat akun+login.
+- **3 tab hasil per balita** — Hasil Pengukuran, Rekomendasi, dan Edukasi
+  (tips + contoh makanan/minuman konkret sesuai status gizi), ditampilkan
+  sama persis di dashboard kader/nakes maupun dashboard orang tua.
+- **Deteksi tren pertumbuhan (2T)** — berat tidak naik 2x pengukuran
+  berturut-turut memicu banner peringatan, mengikuti konvensi N/T Posyandu
+  Indonesia (Buku KIA/KMS).
 - **Jadwal Posyandu** — kader/nakes bisa mencatat jadwal kunjungan
   berikutnya, dengan pengingat notifikasi browser lokal.
 - **Edukasi gizi & tumbuh kembang** — materi ASI/MPASI, Isi Piringku, tanda
   bahaya, mitos vs fakta, dan FAQ.
-- **Permission berbasis role** — kader (input data), nakes (validasi & CRUD
-  penuh), viewer (read-only), admin (full access).
-- **Autentikasi JWT** dengan login & registrasi publik (role kader/nakes/viewer).
+- **Permission berbasis role** — **kader/nakes** (input data + CRUD penuh
+  atas semua balita), **orang tua** (read-only, lewat link/QR di atas — tidak
+  perlu akun), **admin** (full access + kelola kode pendaftaran & daftar
+  user, lewat menu **Setting**).
+- **Autentikasi JWT** untuk kader/nakes, dengan registrasi publik digerbangi
+  kode posyandu (dikelola admin lewat menu Setting → Kode Posyandu).
 - **PWA offline-first** — tetap bisa dibuka dan menampilkan data yang sudah
   di-cache tanpa koneksi internet, ditujukan untuk kader posyandu di area
   dengan konektivitas terbatas.
@@ -34,7 +48,7 @@ Fakultas Ilmu Komputer × Fakultas Kedokteran, President University.
 
 ```mermaid
 flowchart TD
-    A[Login / Registrasi] --> B[Beranda]
+    A[Login / Registrasi kader/nakes] --> B[Beranda]
     B --> C["Skrining Baru<br/>(balita baru atau lanjutan)"]
     B --> D[Data Balita]
     D -->|kader/nakes/admin| E[Tambah/pilih balita]
@@ -43,18 +57,19 @@ flowchart TD
     G --> H{"Nilai wajar?<br/>(ambang implausible-value<br/>WHO Anthro/SMART)"}
     H -->|Tidak| I[Ditolak, minta periksa ulang input]
     H -->|Ya| J["score_risk(): skor 0-100<br/>Status: Normal / Berisiko / Stunting / Malnutrisi"]
-    J --> K["Rekomendasi otomatis<br/>(khusus nakes/admin)"]
-    K --> L[Disampaikan ke orang tua/pasien]
-    J --> M[Grafik tinggi vs usia + riwayat pengukuran + laporan PDF]
+    J --> K["Tab Hasil + Rekomendasi + Edukasi<br/>(grafik tinggi & berat, tips, contoh makanan)"]
+    K --> L["Bagikan link/QR (public_token) ke orang tua"]
+    L --> M["Orang tua buka #/p/:token di HP<br/>(tanpa login) — lihat tab yang sama"]
 ```
 
-1. **Login/Registrasi** — kader/nakes/viewer bisa daftar sendiri; admin dibuat lewat `createsuperuser`.
+1. **Login/Registrasi (kader/nakes)** — hanya kader/nakes yang mendaftar/masuk akun, digerbangi kode posyandu (dikelola admin lewat menu Setting); admin dibuat lewat `createsuperuser`. Orang tua **tidak** mendaftar akun sama sekali.
 2. **Beranda** — ringkasan statistik (balita terdaftar, total skrining, berisiko, stunting/malnutrisi) dan skrining terbaru.
 3. **Skrining Baru** — satu form untuk balita baru (data anak + pengukuran pertama sekaligus) atau balita yang sudah terdaftar (pengukuran lanjutan), termasuk foto dokumentasi opsional.
 4. **Perhitungan otomatis** — backend menghitung HAZ, WHZ, WAZ, dan HCZ (kalau lingkar kepala diisi) dari tabel resmi WHO Child Growth Standards. Nilai yang tidak masuk akal (indikasi salah input) ditolak sebelum sempat tersimpan.
-5. **Status risiko 4-tier** — Normal / Berisiko / Stunting / Malnutrisi, dari skor tertimbang `score_risk()` yang menjumlahkan kontribusi tiap indikator, bukan cuma ambil yang paling parah.
-6. **Rekomendasi** — khusus tampil untuk nakes/admin di popup hasil pengukuran, untuk disampaikan langsung ke orang tua/pasien saat konsultasi.
-7. **Riwayat & Jadwal** — riwayat pengukuran lintas semua balita, dan jadwal kunjungan Posyandu berikutnya.
+5. **Status risiko 4-tier** — Normal / Berisiko / Stunting / Malnutrisi, dari skor tertimbang `score_risk()` yang menjumlahkan kontribusi tiap indikator, bukan cuma ambil yang paling parah. Tren 2 pengukuran berturut-turut berat tidak naik (2T) memicu banner peringatan tambahan.
+6. **Tab Hasil / Rekomendasi / Edukasi** — grafik tinggi & berat terhadap usia dan riwayat pengukuran (Hasil), saran tindak lanjut (Rekomendasi), serta tips gizi + contoh makanan/minuman konkret sesuai status anak (Edukasi) — tab yang sama persis dipakai di dashboard kader/nakes maupun dashboard orang tua.
+7. **Bagikan ke orang tua** — kader/nakes membagikan link/QR unik per balita (`public_token`); orang tua membukanya langsung dari browser HP tanpa perlu akun atau login untuk melihat ketiga tab di atas.
+8. **Riwayat & Jadwal** — riwayat pengukuran lintas semua balita, dan jadwal kunjungan Posyandu berikutnya.
 
 ## Struktur repo
 
@@ -89,9 +104,11 @@ sengaja tidak didokumentasikan di repo publik ini.
 ## Status
 
 Klasifikasi risiko Tahap 1 (rule-based, WHO Z-score HAZ+WHZ+WAZ+HCZ, status
-4-tier) sudah selesai dan tervalidasi terhadap data resmi WHO (lihat unit
-test di `smartgrowth-backend/smartgrowth-backend/apps/growth/tests.py`).
-Halaman aplikasi (Beranda, Skrining, Data Balita, Riwayat, Edukasi, Jadwal
-Posyandu) lengkap dan tampilannya diselaraskan dengan desain prototype
-awal proyek ini. Model prediktif Tahap 2 (ML) sengaja belum dikerjakan —
-menunggu Tahap 1 stabil di penggunaan nyata terlebih dahulu.
+4-tier, plus deteksi tren 2T) sudah selesai dan tervalidasi terhadap data
+resmi WHO (lihat unit test di
+`smartgrowth-backend/smartgrowth-backend/apps/growth/tests.py`). Halaman
+aplikasi (Beranda, Skrining, Data Balita, Riwayat, Edukasi, Jadwal Posyandu,
+dashboard orang tua tanpa login, menu Setting admin) lengkap dan tampilannya
+diselaraskan dengan desain prototype awal proyek ini. Model prediktif
+Tahap 2 (ML) sengaja belum dikerjakan — menunggu Tahap 1 stabil di
+penggunaan nyata terlebih dahulu.

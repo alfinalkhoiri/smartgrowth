@@ -11,6 +11,8 @@ import KodePosyandu from '@/pages/KodePosyandu';
 import Login from '@/pages/Login';
 import PublicChildView from '@/pages/PublicChildView';
 import Register from '@/pages/Register';
+import Setting from '@/pages/Setting';
+import UserList from '@/pages/UserList';
 import { authApi } from '@/api/auth';
 
 function RequireAuth({ children }: { children: JSX.Element }) {
@@ -48,7 +50,9 @@ export default function App() {
           <Route path="/riwayat" element={<Riwayat />} />
           <Route path="/edukasi" element={<Edukasi />} />
           <Route path="/jadwal" element={<Jadwal />} />
-          <Route path="/admin/kode-posyandu" element={<KodePosyandu />} />
+          <Route path="/admin/setting" element={<Setting />} />
+          <Route path="/admin/setting/users" element={<UserList />} />
+          <Route path="/admin/setting/kode-posyandu" element={<KodePosyandu />} />
         </Route>
       </Routes>
     </HashRouter>

@@ -26,8 +26,11 @@ src/
                     # ~450KB gzipped library isn't in the main bundle
   pages/            # Dashboard (Beranda), Skrining, ChildrenList (Data
                     # Balita), ChildDashboard, Riwayat, Edukasi, Jadwal,
-                    # Login, Register — RequireAuth + AppLayout wrap every
-                    # route except /login and /register (see App.tsx)
+                    # Login, Register, Setting + UserList + KodePosyandu
+                    # (admin-only, under /admin/setting/*), PublicChildView
+                    # (no-login parent dashboard, #/p/:token) — RequireAuth +
+                    # AppLayout wrap every route except /login, /register,
+                    # and /p/:token (see App.tsx)
   types/            # shared TS types (Child, GrowthRecord, RiskAssessment,
                     # PosyanduSchedule, GrowthReference)
 vite.config.ts      # vite-plugin-pwa: manifest + offline caching rules
@@ -114,13 +117,17 @@ and `VITE_API_BASE_URL` must point to your deployed backend (not localhost).
 
 `Login.tsx` and `Register.tsx` call `/api/auth/login` and `/api/auth/register`
 respectively; both store the returned JWT in `localStorage` and redirect into
-the app (`src/api/auth.ts`). Registration is public, two roles: **orangtua**
-(no gate — sees only balita it later links to via a kader-issued code) and
-**kader_nakes** (sees/edits everything, so registering into it requires an
-`inviteCode` matching the backend's `KADER_NAKES_INVITE_CODE`; `Register.tsx`
-shows that field only when this role is selected). Admin accounts aren't
-publicly self-serviceable. `authApi.canCreate()`/`canEditDelete()` are both
-true for kader_nakes/admin and both false for orangtua — there's no longer a
+the app (`src/api/auth.ts`). Registration is public but only for
+**kader_nakes** — `Register.tsx` no longer offers an "Orang Tua" role option
+at all (the role selector was removed entirely; the payload always sends
+`role: 'kader_nakes'`), and the `inviteCode` field (matching the backend's
+`RegistrationInviteCode`, managed on the Setting → Kode Posyandu page) is
+always shown and required, not conditional on a role pick anymore. The
+`orangtua` role still exists server-side (`PUBLIC_ROLE_CHOICES` in the
+backend still lists it) but nothing in the UI creates one anymore — parents
+use the no-login QR flow below instead. Admin accounts aren't publicly
+self-serviceable. `authApi.canCreate()`/`canEditDelete()` are both true for
+kader_nakes/admin and both false for orangtua — there's no longer a
 create-vs-edit split like the old kader/nakes roles had. `RequireAuth` in
 `App.tsx` guards every other route and redirects to `/login`; `client.ts`'s
 response interceptor does the same on a 401 (expired token).
@@ -137,16 +144,24 @@ actually takes anymore.
 `App.tsx` — deliberately **outside** the `RequireAuth` wrapper, since the
 whole point is no login. Fetches `GET /api/public/children/<token>/`
 (`api/public.ts`) — an unauthenticated backend endpoint, so this page has no
-nav bar, no login/logout, just the child's latest result (`RiskBadge` +
-weight/height + `riskDescription()`), the `GrowthChart` (only shown once
-there are 2+ records — a single point isn't a useful line), and a read-only
-measurement history list. A 404 renders as "Link tidak valid atau sudah
-tidak berlaku" rather than any kind of login prompt.
+nav bar, no login/logout, just the same **`DetailTabs`** (Hasil
+Pengukuran / Rekomendasi / Edukasi) shown on `ChildDashboard.tsx`, driven by
+the latest measurement's data: the "Hasil" tab has the latest result
+(`RiskBadge` + weight/height), two `GrowthChart` instances (`metric="height"`
+and `metric="weight"`, shown as soon as there's **1+** record — the gate used
+to require 2+, changed once single-measurement children were found to render
+no chart at all) plus the read-only measurement history list;
+"Rekomendasi" renders `RecommendationsPanel`; "Edukasi" renders
+`EducationTips` (tips + concrete food/drink examples from
+`lib/nutritionTips.ts`, keyed off risk status). A 404 renders as "Link tidak
+valid atau sudah tidak berlaku" rather than any kind of login prompt.
 
-`GrowthChart.tsx`'s prop type was narrowed to
-`{ ageMonths, heightCm, weightKg }[]` (structural, not the full
-`GrowthRecord`) specifically so this page's slimmer `PublicGrowthRecord[]`
-satisfies it too, without needing a second chart component.
+`GrowthChart.tsx` takes a `metric: 'height' | 'weight'` prop and a
+structurally-typed `{ ageMonths, heightCm, weightKg }[]` records array (not
+the full `GrowthRecord`) — the latter is why this page's slimmer
+`PublicGrowthRecord[]` satisfies it too, without needing a second chart
+component; the former is why both dashboards render it twice instead of one
+combined multi-line chart.
 
 The QR itself is `components/ParentDashboardQr.tsx` — takes just
 `token` + `childName`, lazy-loads the `qrcode` package (dynamic `import()`,
@@ -165,22 +180,31 @@ The old Fase 1 login-based flow (role `orangtua`, `LinkChildView`) is
 untouched and still works if anyone registers that way — it's just no
 longer the flow either the UI or a fresh parent would actually go through.
 
-### Kode Posyandu (admin-only)
+### Setting menu (admin-only)
 
-`pages/KodePosyandu.tsx`, navigable via a nav item `AppLayout.tsx` only
-renders when `authApi.isAdmin()` — the point being an admin shouldn't have
-to remember an SSH command to find/rotate the kader_nakes registration
-code. Shows the current code as text (with a copy button) and as a QR
-(generated client-side, `qrcode` lazy-loaded via dynamic `import()` so it's
-not in the main bundle) encoding a direct link to
-`/#/register?code=...&role=kader_nakes` — `Register.tsx` reads those two
-query params via `useSearchParams()` (works fine under `HashRouter`, since
-everything after `#/register` is a normal path+query to react-router) and
-prefills the role dropdown + invite-code field, so scanning the QR is a
-one-step flow instead of typing an 8-character code by hand. "Buat Kode
-Baru" immediately invalidates the old code/QR — confirmed via
-`window.confirm` before calling it, since anyone who hasn't registered yet
-with the old QR would need a reprint.
+`pages/Setting.tsx` is the one nav item `AppLayout.tsx` only renders when
+`authApi.isAdmin()` — a small menu page (two linked cards) rather than a
+dropdown, since this app has no submenu/dropdown nav pattern yet. It links
+to two sub-pages, both still gated by `authApi.isAdmin()` themselves (not
+just hidden from nav):
+
+- **`pages/UserList.tsx`** (`/admin/setting/users`) — fetches
+  `GET /api/auth/users` (`authApi.listUsers()`) and renders every registered
+  account in a table (username, role badge, email, phone, join date). Read
+  only — no edit/deactivate actions, since none were asked for.
+- **`pages/KodePosyandu.tsx`** (`/admin/setting/kode-posyandu`, moved from
+  the old standalone `/admin/kode-posyandu`) — shows the current
+  kader_nakes registration code as text (with a copy button) and as a QR
+  (generated client-side, `qrcode` lazy-loaded via dynamic `import()` so
+  it's not in the main bundle) encoding a direct link to
+  `/#/register?code=...&role=kader_nakes` — `Register.tsx` reads those two
+  query params via `useSearchParams()` (works fine under `HashRouter`, since
+  everything after `#/register` is a normal path+query to react-router) and
+  prefills the invite-code field, so scanning the QR is a one-step flow
+  instead of typing an 8-character code by hand. "Buat Kode Baru" immediately
+  invalidates the old code/QR — confirmed via `window.confirm` before
+  calling it, since anyone who hasn't registered yet with the old QR would
+  need a reprint.
 
 ## Design system
 

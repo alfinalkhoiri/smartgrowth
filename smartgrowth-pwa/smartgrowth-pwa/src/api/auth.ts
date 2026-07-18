@@ -33,6 +33,17 @@ export interface InviteCodeInfo {
   updatedBy: string | null;
 }
 
+export interface UserListEntry {
+  id: number;
+  username: string;
+  email: string;
+  role: Role;
+  phoneNumber: string;
+  isSuperuser: boolean;
+  isActive: boolean;
+  dateJoined: string;
+}
+
 // Decodes the JWT payload (middle segment) client-side — no signature check,
 // this is only for showing/hiding UI actions, never a security boundary.
 // The backend's RoleBasedGrowthPermission is the real authority; a user
@@ -100,5 +111,7 @@ export const authApi = {
   // kader_nakes (see "Kode Posyandu" page). Backend also enforces this via
   // IsAppAdmin, these calls just 403 for anyone else.
   getInviteCode: () => apiClient.get<InviteCodeInfo>('/auth/invite-code'),
-  regenerateInviteCode: () => apiClient.post<InviteCodeInfo>('/auth/invite-code')
+  regenerateInviteCode: () => apiClient.post<InviteCodeInfo>('/auth/invite-code'),
+  // Admin-only — backs the "List User" page under the Setting menu.
+  listUsers: () => apiClient.get<UserListEntry[]>('/auth/users')
 };

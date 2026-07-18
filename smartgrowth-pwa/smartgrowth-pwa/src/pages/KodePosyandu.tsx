@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import axios from 'axios';
-import { KeyRound, Loader2, QrCode, RefreshCw } from 'lucide-react';
+import { ArrowLeft, KeyRound, Loader2, QrCode, RefreshCw } from 'lucide-react';
 import { authApi, type InviteCodeInfo } from '@/api/auth';
 import { firstErrorMessage } from '@/api/errors';
 import { CopyButton } from '@/components/CopyButton';
@@ -73,6 +74,10 @@ export default function KodePosyandu() {
   return (
     <div className="p-4 space-y-4 max-w-2xl mx-auto">
       <div>
+        <Link to="/admin/setting" className="flex items-center gap-1 text-sm text-gray-500 hover:text-primary mb-1">
+          <ArrowLeft className="h-3.5 w-3.5" aria-hidden="true" />
+          Setting
+        </Link>
         <h1 className="flex items-center gap-2 font-display font-extrabold text-2xl text-gray-900">
           <KeyRound className="h-6 w-6 text-primary" aria-hidden="true" />
           Kode Posyandu

@@ -7,10 +7,10 @@ import {
   BookOpen,
   CalendarClock,
   FilePlus2,
-  KeyRound,
   LayoutDashboard,
   LogOut,
   Menu,
+  Settings,
   ShieldAlert,
   X
 } from 'lucide-react';
@@ -32,7 +32,7 @@ const baseNav: NavItem[] = [
   { to: '/jadwal', label: 'Jadwal Posyandu', icon: CalendarClock }
 ];
 
-const adminNavItem: NavItem = { to: '/admin/kode-posyandu', label: 'Kode Posyandu', icon: KeyRound };
+const adminNavItem: NavItem = { to: '/admin/setting', label: 'Setting', icon: Settings };
 
 export function AppLayout() {
   const [open, setOpen] = useState(false);
