@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import axios from 'axios';
 import { Camera, Droplets, Loader2, MapPin, Ruler, Smile, Sparkles, Syringe, Thermometer, UserPlus } from 'lucide-react';
 import { growthApi } from '@/api/growth';
@@ -49,11 +49,16 @@ const emptyMeasurementForm = {
 export default function Skrining() {
   const navigate = useNavigate();
   const canCreate = authApi.canCreate();
+  // Arrived via "+ Pengukuran" on a child's own page (ChildDashboard) —
+  // preselect it in "Balita Terdaftar" mode instead of making the kader
+  // pick it again from the dropdown.
+  const [searchParams] = useSearchParams();
+  const preselectedChildId = searchParams.get('child') ?? '';
 
-  const [mode, setMode] = useState<'existing' | 'new'>('new');
+  const [mode, setMode] = useState<'existing' | 'new'>(preselectedChildId ? 'existing' : 'new');
   const [children, setChildren] = useState<Child[]>([]);
   const [locationOptions, setLocationOptions] = useState<string[]>([]);
-  const [selectedChildId, setSelectedChildId] = useState('');
+  const [selectedChildId, setSelectedChildId] = useState(preselectedChildId);
   const [childForm, setChildForm] = useState(emptyChildForm);
   const [measurementForm, setMeasurementForm] = useState(emptyMeasurementForm);
   const [photo, setPhoto] = useState<File | null>(null);
