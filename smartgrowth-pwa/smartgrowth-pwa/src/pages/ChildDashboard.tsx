@@ -294,10 +294,13 @@ export default function ChildDashboard() {
               headCircumferenceZ={latest?.headCircumferenceZ}
               officerName={latest?.officerName}
               location={latest?.location}
+              growthAlert={child?.growthAlert}
             />
           )}
 
-          {activeTab === 'edukasi' && <EducationTips riskStatus={latest?.riskStatus} />}
+          {activeTab === 'edukasi' && (
+            <EducationTips riskStatus={latest?.riskStatus} growthAlert={child?.growthAlert} />
+          )}
         </>
       )}
 

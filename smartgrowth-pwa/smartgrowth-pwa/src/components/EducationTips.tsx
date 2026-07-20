@@ -1,15 +1,36 @@
-import { GlassWater, Utensils } from 'lucide-react';
+import { AlertTriangle, GlassWater, Utensils } from 'lucide-react';
 import { foodExamplesFor, nutritionTipsFor } from '@/lib/nutritionTips';
 import type { RiskStatus } from '@/types';
 
+interface Props {
+  riskStatus?: RiskStatus;
+  // Sinyal terpisah dari riskStatus — lihat comment growthAlert di
+  // RecommendationsPanel.tsx. Ditampilkan sebagai kartu tambahan di atas
+  // tips gizi biasa, bukan pengganti tips per-tier di bawahnya.
+  growthAlert?: '2T' | null;
+}
+
 // Shared between ChildDashboard.tsx and PublicChildView.tsx — pure
-// presentational, only needs the latest risk status.
-export function EducationTips({ riskStatus }: { riskStatus?: RiskStatus }) {
+// presentational, only needs the latest risk status (+ growth-trend alert).
+export function EducationTips({ riskStatus, growthAlert }: Props) {
   const groups = nutritionTipsFor(riskStatus);
   const examples = foodExamplesFor(riskStatus);
 
   return (
     <div className="space-y-3">
+      {growthAlert === '2T' && (
+        <div className="card p-4 space-y-1.5 border-2 border-red-200 bg-red-50">
+          <p className="flex items-center gap-1.5 font-display font-bold text-red-700">
+            <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden="true" />
+            Tren Berat Badan Perlu Perhatian (2T)
+          </p>
+          <p className="text-sm text-red-700">
+            Berat badan tidak naik pada 2 pengukuran berturut-turut. Timbang &amp; ukur ulang lebih sering (setiap 2
+            minggu) dan segera konsultasikan ke Puskesmas, di luar tips gizi umum di bawah ini.
+          </p>
+        </div>
+      )}
+
       <div className="card p-4 space-y-3">
         <p className="flex items-center gap-1.5 font-display font-bold text-gray-900">
           <Utensils className="h-4 w-4 text-accent" aria-hidden="true" />

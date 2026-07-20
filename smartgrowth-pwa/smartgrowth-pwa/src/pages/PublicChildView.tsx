@@ -201,10 +201,13 @@ export default function PublicChildView() {
                 weightForHeightZ={latest?.weightForHeightZ}
                 weightForAgeZ={latest?.weightForAgeZ}
                 headCircumferenceZ={latest?.headCircumferenceZ}
+                growthAlert={dashboard.growthAlert}
               />
             )}
 
-            {activeTab === 'edukasi' && <EducationTips riskStatus={latest?.riskStatus} />}
+            {activeTab === 'edukasi' && (
+              <EducationTips riskStatus={latest?.riskStatus} growthAlert={dashboard.growthAlert} />
+            )}
           </>
         )}
       </main>

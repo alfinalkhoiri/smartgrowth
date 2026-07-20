@@ -1,6 +1,6 @@
-import { ClipboardList, LineChart, StickyNote } from 'lucide-react';
+import { AlertTriangle, ClipboardList, LineChart, StickyNote } from 'lucide-react';
 import { RiskBadge } from '@/components/RiskBadge';
-import { riskDescription } from '@/features/growth/zscore';
+import { riskDescription, riskLabel } from '@/features/growth/zscore';
 import type { RiskStatus } from '@/types';
 
 interface Props {
@@ -23,6 +23,13 @@ interface Props {
   // tersembunyi.
   officerName?: string;
   location?: string;
+  // Sinyal TERPISAH dari riskStatus — 2T (berat tidak naik 2x berturut-turut)
+  // bisa muncul walau riskStatus Z-score-nya masih "normal" (growth
+  // faltering sering terlihat di tren sebelum cukup parah untuk keluar dari
+  // rentang Z-score, lihat risk_engine.has_2t_alert). Ditampilkan sebagai
+  // kartu terpisah, bukan menimpa riskStatus di atas, supaya kedua sinyal
+  // tetap terlihat.
+  growthAlert?: '2T' | null;
 }
 
 // Shared between ChildDashboard.tsx and PublicChildView.tsx — always reads
@@ -47,7 +54,8 @@ export function RecommendationsPanel({
   weightForAgeZ,
   headCircumferenceZ,
   officerName,
-  location
+  location,
+  growthAlert
 }: Props) {
   if (!riskStatus) {
     return (
@@ -59,6 +67,20 @@ export function RecommendationsPanel({
 
   return (
     <div className="space-y-3">
+      {growthAlert === '2T' && (
+        <div className="card p-4 space-y-1.5 border-2 border-red-200 bg-red-50">
+          <p className="flex items-center gap-1.5 font-display font-bold text-red-700">
+            <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden="true" />
+            Rujukan Diperlukan (2T)
+          </p>
+          <p className="text-sm text-red-700">
+            Berat badan tidak naik pada 2 pengukuran berturut-turut. Ini adalah tanda peringatan tersendiri di luar
+            klasifikasi Z-score di bawah — segera bawa balita ke Puskesmas untuk evaluasi lebih lanjut, meskipun
+            status gizi saat ini tercatat sebagai &ldquo;{riskLabel(riskStatus)}&rdquo;.
+          </p>
+        </div>
+      )}
+
       <div className="card p-4 space-y-2">
         <div className="flex items-center justify-between gap-2">
           <p className="text-sm text-gray-500">
