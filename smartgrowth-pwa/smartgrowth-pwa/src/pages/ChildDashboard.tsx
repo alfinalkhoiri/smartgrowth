@@ -22,6 +22,7 @@ import { useGrowthStore } from '@/features/growth/store';
 import { DetailTabs, type DetailTab } from '@/components/DetailTabs';
 import { EducationTips } from '@/components/EducationTips';
 import { GrowthChart } from '@/components/GrowthChart';
+import { LinkCodeCard } from '@/components/LinkCodeCard';
 import { ParentDashboardQr } from '@/components/ParentDashboardQr';
 import { RecommendationsPanel } from '@/components/RecommendationsPanel';
 import { RiskBadge } from '@/components/RiskBadge';
@@ -51,6 +52,7 @@ export default function ChildDashboard() {
   const [activeTab, setActiveTab] = useState<DetailTab>('hasil');
   const canCreate = authApi.canCreate();
   const canEditDelete = authApi.canEditDelete();
+  const canSelfMeasure = authApi.canSelfMeasure();
 
   // jspdf/jspdf-autotable are only loaded on demand (not in the main bundle)
   // — most sessions never touch these buttons, and the PWA precache/initial
@@ -83,6 +85,17 @@ export default function ChildDashboard() {
       return;
     }
     const res = await growthApi.regeneratePublicToken(child.id);
+    setChild(res.data);
+  };
+
+  const handleRegenerateLinkCode = async () => {
+    if (!child) return;
+    if (
+      !window.confirm('Yakin ingin membuat kode tautan baru? Kode lama yang sudah dibagikan langsung tidak berlaku.')
+    ) {
+      return;
+    }
+    const res = await growthApi.regenerateLinkCode(child.id);
     setChild(res.data);
   };
 
@@ -130,6 +143,12 @@ export default function ChildDashboard() {
               Pengukuran
             </button>
           )}
+          {canSelfMeasure && (
+            <button onClick={() => navigate(`/pengukuran-mandiri?child=${childId}`)} className="btn-primary">
+              <Plus className="h-4 w-4" aria-hidden="true" />
+              Pengukuran Mandiri
+            </button>
+          )}
         </div>
       </div>
 
@@ -159,6 +178,14 @@ export default function ChildDashboard() {
           token={child.publicToken}
           childName={child.name}
           onRegenerate={canEditDelete ? handleRegenerateToken : undefined}
+        />
+      )}
+
+      {child?.linkCode && (
+        <LinkCodeCard
+          code={child.linkCode}
+          childName={child.name}
+          onRegenerate={canEditDelete ? handleRegenerateLinkCode : undefined}
         />
       )}
 

@@ -22,8 +22,16 @@ Fakultas Ilmu Komputer × Fakultas Kedokteran, President University.
 - **Dashboard orang tua tanpa login (QR/link)** — tiap balita punya link/QR
   unik (`public_token`) yang bisa dibagikan kader ke orang tua; dibuka lewat
   browser HP tanpa perlu akun, langsung tampil hasil terakhir, grafik, dan
-  edukasi gizi sesuai status anaknya — jalur utama orang tua mengakses data
-  sekarang, bukan lewat akun+login.
+  edukasi gizi sesuai status anaknya — cocok untuk sekadar melihat hasil
+  tanpa mendaftar.
+- **Pengukuran mandiri oleh orang tua** — orang tua yang mendaftar akun dan
+  menautkan diri ke balitanya (kode 6-digit dari kader/nakes, menu "Tautkan
+  Balita") bisa mencatat sendiri berat/tinggi badan di antara kunjungan
+  Posyandu lewat form ringkas "Pengukuran Mandiri". Tetap read-only untuk
+  data yang dicatat kader/nakes (tidak bisa edit/hapus riwayat, tidak bisa
+  mendaftarkan balita baru) — pengukuran mandiri otomatis ditandai "Orang
+  Tua (Mandiri)" di riwayat supaya kader/nakes tahu mana yang tercatat di
+  posyandu vs. di rumah.
 - **3 tab hasil per balita** — Hasil Pengukuran, Rekomendasi (ringkasan
   Z-score HAZ/WHZ/WAZ, rekomendasi dari kuesioner, dan catatan petugas dalam
   satu tempat), dan Edukasi (tips + contoh makanan/minuman konkret sesuai
@@ -42,9 +50,11 @@ Fakultas Ilmu Komputer × Fakultas Kedokteran, President University.
 - **Edukasi gizi & tumbuh kembang** — materi ASI/MPASI, Isi Piringku, tanda
   bahaya, mitos vs fakta, dan FAQ.
 - **Permission berbasis role** — **kader/nakes** (input data + CRUD penuh
-  atas semua balita), **orang tua** (read-only, lewat link/QR di atas — tidak
-  perlu akun), **admin** (full access + kelola kode pendaftaran, lihat &
-  hapus akun terdaftar, lewat menu **Setting**).
+  atas semua balita), **orang tua** (akun opsional — tanpa akun cukup pakai
+  link/QR di atas; dengan akun + tautan ke balita, bisa tambah pengukuran
+  mandiri tapi tetap tidak bisa edit/hapus riwayat atau mendaftarkan balita
+  baru), **admin** (full access + kelola kode pendaftaran, lihat & hapus
+  akun terdaftar, lewat menu **Setting**).
 - **Autentikasi JWT** untuk kader/nakes, dengan registrasi publik digerbangi
   kode posyandu (dikelola admin lewat menu Setting → Kode Posyandu) dan
   mewajibkan email + no. HP + (opsional) lokasi klinik/posyandu.
@@ -68,16 +78,21 @@ flowchart TD
     J --> K["Tab Hasil + Rekomendasi + Edukasi<br/>(grafik tinggi & berat, tips, contoh makanan)"]
     K --> L["Bagikan link/QR (public_token) ke orang tua"]
     L --> M["Orang tua buka #/p/:token di HP<br/>(tanpa login) — lihat tab yang sama"]
+    E --> N["Bagikan kode tautan 6-digit (link_code)"]
+    N --> O["Orang tua daftar akun + tautkan lewat kode"]
+    O --> P["Pengukuran Mandiri<br/>(form ringkas: tanggal/berat/tinggi/catatan)"]
+    P --> G
 ```
 
-1. **Login/Registrasi (kader/nakes)** — hanya kader/nakes yang mendaftar/masuk akun, digerbangi kode posyandu (dikelola admin lewat menu Setting), dengan email dan no. HP wajib diisi (lokasi klinik/posyandu opsional); admin dibuat lewat `createsuperuser`. Orang tua **tidak** mendaftar akun sama sekali.
+1. **Login/Registrasi** — kader/nakes mendaftar/masuk akun, digerbangi kode posyandu (dikelola admin lewat menu Setting), dengan email dan no. HP wajib diisi (lokasi klinik/posyandu opsional); admin dibuat lewat `createsuperuser`. Orang tua **boleh** mendaftar akun juga (opsional, role terpisah) kalau ingin mencatat pengukuran mandiri — kalau hanya ingin melihat hasil, cukup lewat link/QR tanpa akun sama sekali.
 2. **Beranda** — ringkasan statistik (balita terdaftar, total skrining, berisiko, stunting/malnutrisi) dan skrining terbaru.
 3. **Skrining Baru** — satu form untuk balita baru (data anak + pengukuran pertama sekaligus) atau balita yang sudah terdaftar (pengukuran lanjutan), termasuk foto dokumentasi opsional.
 4. **Perhitungan otomatis** — backend menghitung HAZ, WHZ, WAZ, dan HCZ (kalau lingkar kepala diisi) dari tabel resmi WHO Child Growth Standards. Nilai yang tidak masuk akal (indikasi salah input) ditolak sebelum sempat tersimpan.
 5. **Status risiko 4-tier** — Normal / Berisiko / Stunting / Malnutrisi, dari skor tertimbang `score_risk()` yang menjumlahkan kontribusi tiap indikator, bukan cuma ambil yang paling parah. Tren 2 pengukuran berturut-turut berat tidak naik (2T) memicu banner peringatan tambahan.
 6. **Tab Hasil / Rekomendasi / Edukasi** — grafik tinggi & berat terhadap usia dan riwayat pengukuran (Hasil); ringkasan Z-score HAZ/WHZ/WAZ, rekomendasi dari kuesioner (atau konfirmasi "tidak ada faktor risiko" kalau memang tidak ada), dan catatan bebas petugas dalam satu tempat (Rekomendasi); serta tips gizi + contoh makanan/minuman konkret sesuai status anak (Edukasi) — tab yang sama persis dipakai di dashboard kader/nakes maupun dashboard orang tua.
 7. **Bagikan ke orang tua** — kader/nakes membagikan link/QR unik per balita (`public_token`); orang tua membukanya langsung dari browser HP tanpa perlu akun atau login untuk melihat ketiga tab di atas.
-8. **Riwayat, Jadwal, & Laporan** — riwayat pengukuran lintas semua balita, jadwal kunjungan Posyandu berikutnya, dan laporan PDF per balita (bisa diunduh atau langsung dicetak).
+8. **Tautkan Balita & Pengukuran Mandiri** — kader/nakes juga bisa membagikan kode tautan 6-digit (`link_code`) per balita, ditampilkan di dashboard balita ("Kode Tautan Akun Orang Tua"). Orang tua yang mendaftar akun menautkan diri lewat kode ini (menu "Tautkan Balita"), lalu bisa mencatat pengukuran sendiri di antara kunjungan Posyandu lewat menu "Pengukuran Mandiri" — hasilnya langsung dihitung Z-score-nya sama seperti input kader/nakes, dan otomatis ditandai "Orang Tua (Mandiri)" di riwayat.
+9. **Riwayat, Jadwal, & Laporan** — riwayat pengukuran lintas semua balita, jadwal kunjungan Posyandu berikutnya, dan laporan PDF per balita (bisa diunduh atau langsung dicetak).
 
 ## Struktur repo
 

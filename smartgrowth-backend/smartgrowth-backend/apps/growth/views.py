@@ -8,7 +8,7 @@ from rest_framework.views import APIView
 from django_filters.rest_framework import DjangoFilterBackend
 
 from .models import Child, GrowthRecord, PosyanduSchedule, RiskAssessment
-from .permissions import RoleBasedGrowthPermission, visible_children
+from .permissions import GrowthRecordPermission, RoleBasedGrowthPermission, visible_children
 from .serializers import (
     ChildSerializer, GrowthRecordSerializer, LinkChildSerializer, PosyanduScheduleSerializer,
     PublicChildDashboardSerializer, RiskAssessmentSerializer,
@@ -87,7 +87,7 @@ class PublicChildDashboardView(APIView):
 
 class GrowthRecordViewSet(viewsets.ModelViewSet):
     serializer_class = GrowthRecordSerializer
-    permission_classes = [IsAuthenticated, RoleBasedGrowthPermission]
+    permission_classes = [IsAuthenticated, GrowthRecordPermission]
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ['child']
 

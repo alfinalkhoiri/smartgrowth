@@ -30,10 +30,12 @@ src/
   pages/            # Dashboard (Beranda), Skrining, ChildrenList (Data
                     # Balita), ChildDashboard, Riwayat, Edukasi, Jadwal,
                     # Login, Register, Setting + UserList + KodePosyandu
-                    # (admin-only, under /admin/setting/*), PublicChildView
-                    # (no-login parent dashboard, #/p/:token) — RequireAuth +
-                    # AppLayout wrap every route except /login, /register,
-                    # and /p/:token (see App.tsx)
+                    # (admin-only, under /admin/setting/*), LinkChild +
+                    # PengukuranMandiri (orangtua-only, "pengukuran mandiri"
+                    # — see Auth section), PublicChildView (no-login parent
+                    # dashboard, #/p/:token) — RequireAuth + AppLayout wrap
+                    # every route except /login, /register, and /p/:token
+                    # (see App.tsx)
   types/            # shared TS types (Child, GrowthRecord, RiskAssessment,
                     # PosyanduSchedule, GrowthReference)
 vite.config.ts      # vite-plugin-pwa: manifest + offline caching rules
@@ -120,30 +122,32 @@ and `VITE_API_BASE_URL` must point to your deployed backend (not localhost).
 
 `Login.tsx` and `Register.tsx` call `/api/auth/login` and `/api/auth/register`
 respectively; both store the returned JWT in `localStorage` and redirect into
-the app (`src/api/auth.ts`). Registration is public but only for
-**kader_nakes** — `Register.tsx` no longer offers an "Orang Tua" role option
-at all (the role selector was removed entirely; the payload always sends
-`role: 'kader_nakes'`), and the `inviteCode` field (matching the backend's
-`RegistrationInviteCode`, managed on the Setting → Kode Posyandu page) is
-always shown and required, not conditional on a role pick anymore. Username,
-password, email, and phone number all have placeholders and `required` on
-the `<input>` (browser-level validation, not just server-side); email/phone
-are enforced server-side too (`RegisterSerializer`), while the optional
-"Lokasi Klinik/Posyandu" field (`posyanduLocation`) isn't. The `orangtua`
-role still exists server-side (`PUBLIC_ROLE_CHOICES` in the backend still
-lists it) but nothing in the UI creates one anymore — parents use the
-no-login QR flow below instead. Admin accounts aren't publicly
-self-serviceable. `authApi.canCreate()`/`canEditDelete()` are both true for
-kader_nakes/admin and both false for orangtua — there's no longer a
-create-vs-edit split like the old kader/nakes roles had. `RequireAuth` in
-`App.tsx` guards every other route and redirects to `/login`; `client.ts`'s
-response interceptor does the same on a 401 (expired token).
+the app (`src/api/auth.ts`). Registration is public for both **kader_nakes**
+and **orangtua** — `Register.tsx` has a `role` `<select>` (defaults to
+`orangtua`, or `kader_nakes` if arriving via the "Kode Posyandu" QR deep link
+with `?code=...&role=kader_nakes`), and the `inviteCode` field (matching the
+backend's `RegistrationInviteCode`, managed on the Setting → Kode Posyandu
+page) only shows/is-required when `role === 'kader_nakes'` — orangtua
+registration needs no code at all (blast radius is small: a fresh orangtua
+account sees nothing until linked to a child). Username, password, email,
+and phone number all have placeholders and `required` on the `<input>`
+(browser-level validation, not just server-side); email/phone are enforced
+server-side too (`RegisterSerializer`), while the optional "Lokasi
+Klinik/Posyandu" field (`posyanduLocation`) isn't. A successful orangtua
+registration redirects to `/tautkan-balita` instead of `/` — a fresh
+orangtua account has no linked child yet, so Beranda would just be empty.
+Admin accounts aren't publicly self-serviceable.
 
-**Superseded by Fase 2** (below) as the primary parent-facing flow — the
-login+redeem-code UI described above was never built, since it turned out
-parents just needed a link, not an account. The role/permission plumbing
-above is still live and unaffected; it's just not the path a parent
-actually takes anymore.
+`authApi.canCreate()`/`canEditDelete()` are both true for kader_nakes/admin
+and both false for orangtua — those still gate the *full* Skrining.tsx flow
+(new child, edit/delete any record) exactly as before. A separate
+`authApi.canSelfMeasure()` (true only for orangtua) gates the narrower
+"pengukuran mandiri" capability described below — deliberately not folded
+into `canCreate()`, since an orangtua who can create a *measurement* for
+their own linked child must never be able to reach "Balita Baru" mode or
+edit/delete an existing record. `RequireAuth` in `App.tsx` guards every
+other route and redirects to `/login`; `client.ts`'s response interceptor
+does the same on a 401 (expired token).
 
 ### Fase 2: dashboard orang tua tanpa login
 
@@ -192,9 +196,58 @@ from the child's own page, not mid-pick in the Skrining flow). Both buttons
 inside `ParentDashboardQr` are explicitly `type="button"` — the Skrining
 instance sits inside a `<form>`, and without that they'd submit it.
 
-The old Fase 1 login-based flow (role `orangtua`, `LinkChildView`) is
-untouched and still works if anyone registers that way — it's just no
-longer the flow either the UI or a fresh parent would actually go through.
+Fase 1 (account + `link_code`, below) and Fase 2 now serve two different
+purposes rather than one superseding the other: Fase 2 for a parent who just
+wants to check results occasionally (no account, one tap on a QR); Fase 1
+for a parent who wants to actively record measurements themselves between
+posyandu visits — writing data needs an authenticated, auditable identity
+(`recorded_by`), which an anonymous bearer token deliberately doesn't have.
+
+### Fase 1: akun orang tua & pengukuran mandiri
+
+`pages/LinkChild.tsx` (route `/tautkan-balita`) — orangtua-only page (guards
+on `authApi.isOrangtua()`, same pattern as the admin-only pages) with a
+single 6-digit numeric input (`inputMode="numeric"`, strips non-digits
+client-side) that calls `growthApi.linkChild(code)` →
+`POST /api/children/link/`. On success it shows a confirmation with the
+linked child's name and a button to Beranda, rather than auto-redirecting —
+a parent linking a second child (twins, siblings) benefits from seeing
+which child just got attached before navigating away.
+
+`pages/PengukuranMandiri.tsx` (route `/pengukuran-mandiri`) — orangtua-only,
+deliberately a separate, much simpler component from `Skrining.tsx` rather
+than a fourth mode bolted onto it: it fetches `growthApi.listChildren()`
+(already scoped server-side to the orangtua's own linked children via
+`visible_children()`), shows a child `<select>` only if there's more than
+one, then just the core anthropometric fields — tanggal, berat, tinggi,
+lingkar kepala (opsional), catatan (opsional). No officer name, no
+location, no risk-factor questionnaire, no photo upload — those are
+kader/nakes-facing fields that don't apply to an at-home self-measurement.
+`ageMonths` is computed client-side with `lib/dates.ts`'s `monthsBetween()`
+(same helper `Skrining.tsx` uses), not entered manually. Submitting calls
+the same `growthApi.createRecord()` used everywhere else — the backend
+computes Z-scores/risk_status identically regardless of who submitted it.
+An empty-children state links out to `/tautkan-balita` instead of showing a
+blank form. Both `ChildDashboard.tsx`'s header ("+ Pengukuran Mandiri"
+button, shown via `canSelfMeasure()`) and `Dashboard.tsx`'s hero CTA branch
+on `authApi.isOrangtua()` to point here instead of `/skrining`.
+
+`components/LinkCodeCard.tsx` — the kader/nakes-facing counterpart to
+`ParentDashboardQr.tsx`: displays `child.linkCode` as plain text (no QR
+needed, it's a short numeric code meant to be read aloud or typed once) with
+a copy button and, when `canEditDelete()`, a "Kode Baru" regenerate button
+(`growthApi.regenerateLinkCode()` → `POST /children/<id>/regenerate-code/`).
+Rendered in `ChildDashboard.tsx` right below the QR card whenever
+`child.linkCode` is present — which per the backend's visibility rule is
+kader_nakes/admin, or an orangtua *already* linked to that specific child
+(so they can hand it on to a co-parent).
+
+`AppLayout.tsx`'s nav swaps in a dedicated `orangtuaNav` array (not just
+conditionally hiding/showing items from `baseNav`) when `authApi.isOrangtua()`
+— "Skrining Baru" is replaced by "Pengukuran Mandiri", and a "Tautkan
+Balita" item is appended; "Data Balita"/"Riwayat"/"Edukasi"/"Jadwal
+Posyandu" stay the same since those pages already work correctly read-scoped
+to whatever `visible_children()` returns for that account.
 
 ### Setting menu (admin-only)
 

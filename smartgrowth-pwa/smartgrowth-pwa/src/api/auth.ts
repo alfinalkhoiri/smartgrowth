@@ -108,6 +108,12 @@ export const authApi = {
     return user.is_superuser === true || user.role === 'kader_nakes' || user.role === 'admin';
   },
   isOrangtua: (): boolean => authApi.getCurrentUser()?.role === 'orangtua',
+  // Narrower than canCreate() — orangtua may add a *measurement* for a child
+  // they're already linked to ("pengukuran mandiri", backend:
+  // GrowthRecordPermission) but never create a new Child or edit/delete an
+  // existing record. Backs the separate "Pengukuran Mandiri" page, not the
+  // full kader/nakes Skrining.tsx flow (which still checks canCreate()).
+  canSelfMeasure: (): boolean => authApi.isOrangtua(),
   isAdmin: (): boolean => {
     const user = authApi.getCurrentUser();
     return Boolean(user && (user.is_superuser === true || user.role === 'admin'));

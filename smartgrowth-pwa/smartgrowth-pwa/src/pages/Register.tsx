@@ -2,9 +2,14 @@ import { useState, type FormEvent } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import axios from 'axios';
 import { Activity, Loader2, QrCode, UserPlus } from 'lucide-react';
-import { authApi } from '@/api/auth';
+import { authApi, type PublicRole } from '@/api/auth';
 import { firstErrorMessage, parseFieldErrors } from '@/api/errors';
 import { FieldError } from '@/components/FieldError';
+
+const roleLabels: Record<PublicRole, string> = {
+  orangtua: 'Orang Tua',
+  kader_nakes: 'Kader/Nakes'
+};
 
 export default function Register() {
   // Prefilled when arriving via the QR/link from the admin "Kode Posyandu"
@@ -18,9 +23,7 @@ export default function Register() {
   const [email, setEmail] = useState('');
   const [phoneNumber, setPhoneNumber] = useState('');
   const [posyanduLocation, setPosyanduLocation] = useState('');
-  // Orangtua tidak lagi mendaftar akun (lihat Fase 2: dashboard tanpa login
-  // lewat QR/link publik) — satu-satunya peran yang bisa self-register lewat
-  // form ini sekarang adalah kader_nakes.
+  const [role, setRole] = useState<PublicRole>(prefilledCode ? 'kader_nakes' : 'orangtua');
   const [inviteCode, setInviteCode] = useState(prefilledCode);
   const [error, setError] = useState('');
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
@@ -37,13 +40,16 @@ export default function Register() {
       await authApi.register({
         username,
         password,
-        role: 'kader_nakes',
+        role,
         email: email || undefined,
         phoneNumber: phoneNumber || undefined,
         posyanduLocation: posyanduLocation || undefined,
-        inviteCode
+        ...(role === 'kader_nakes' ? { inviteCode } : {})
       });
-      navigate('/', { replace: true });
+      // Orangtua baru belum tertaut ke balita mana pun — kode 6-digit dari
+      // kader/nakes itulah yang menautkannya, jadi arahkan langsung ke
+      // halaman itu alih-alih Beranda yang masih kosong.
+      navigate(role === 'orangtua' ? '/tautkan-balita' : '/', { replace: true });
     } catch (err) {
       if (axios.isAxiosError(err) && err.response?.data) {
         const fields = parseFieldErrors(err.response.data);
@@ -161,23 +167,47 @@ export default function Register() {
             <FieldError message={fieldErrors.posyanduLocation} />
           </div>
           <div>
-            <label htmlFor="register-invite-code" className="field-label">
-              Kode Posyandu
+            <label htmlFor="register-role" className="field-label">
+              Peran
             </label>
-            <input
-              id="register-invite-code"
-              className={inputClass('inviteCode')}
-              value={inviteCode}
-              onChange={(e) => setInviteCode(e.target.value)}
-              placeholder="Minta ke koordinator posyandu Anda"
-              required
-            />
-            <FieldError message={fieldErrors.inviteCode} />
+            <select
+              id="register-role"
+              className="field-input"
+              value={role}
+              onChange={(e) => setRole(e.target.value as PublicRole)}
+            >
+              {(Object.keys(roleLabels) as PublicRole[]).map((r) => (
+                <option key={r} value={r}>
+                  {roleLabels[r]}
+                </option>
+              ))}
+            </select>
             <p className="text-xs text-gray-400 mt-1">
-              Akun ini bisa melihat data semua balita, jadi butuh kode ini agar tidak sembarang orang bisa
-              mendaftar.
+              {role === 'orangtua'
+                ? 'Setelah daftar, tautkan akun ke balita Anda pakai kode 6-digit dari kader/nakes agar bisa mencatat pengukuran mandiri.'
+                : 'Bisa melihat & mencatat data semua balita di posyandu.'}
             </p>
           </div>
+          {role === 'kader_nakes' && (
+            <div>
+              <label htmlFor="register-invite-code" className="field-label">
+                Kode Posyandu
+              </label>
+              <input
+                id="register-invite-code"
+                className={inputClass('inviteCode')}
+                value={inviteCode}
+                onChange={(e) => setInviteCode(e.target.value)}
+                placeholder="Minta ke koordinator posyandu Anda"
+                required
+              />
+              <FieldError message={fieldErrors.inviteCode} />
+              <p className="text-xs text-gray-400 mt-1">
+                Peran Kader/Nakes bisa melihat data semua balita, jadi butuh kode ini agar tidak sembarang orang
+                bisa mendaftar.
+              </p>
+            </div>
+          )}
           <button type="submit" disabled={loading} className="btn-primary w-full">
             {loading ? (
               <>

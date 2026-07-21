@@ -325,11 +325,11 @@ kepindah) kelihatan lebih awal:
 
 Dua role publik (plus `admin` untuk superuser/ops):
 
-| Role                                    | Lihat balita                     | Create/Update/Delete |
-| --------------------------------------- | --------------------------------- | --------------------- |
-| **admin** (superuser atau `role=admin`) | Semua                              | ✅                     |
-| **kader_nakes**                         | Semua                              | ✅                     |
-| **orangtua**                            | Hanya yang ditautkan (lihat bawah) | ❌ (403)               |
+| Role                                    | Lihat balita                       | Create/Update/Delete Child | Create GrowthRecord | Update/Delete GrowthRecord |
+| --------------------------------------- | ----------------------------------- | -------------------------- | -------------------- | --------------------------- |
+| **admin** (superuser atau `role=admin`) | Semua                                | ✅                          | ✅                    | ✅                           |
+| **kader_nakes**                         | Semua                                | ✅                          | ✅                    | ✅                           |
+| **orangtua**                            | Hanya yang ditautkan (lihat bawah)   | ❌ (403)                    | ✅ **hanya untuk balita yang ditautkan** ("pengukuran mandiri", lihat bawah) | ❌ (403) |
 
 `kader_nakes` menggabungkan role `kader`/`nakes` lama menjadi satu — dulu
 dipisah (kader create-only, nakes full CRUD) karena nakes dianggap
@@ -342,11 +342,24 @@ penuh, jadi pemisahan itu cuma menambah friksi tanpa manfaat nyata. Role
 scoped lewat `visible_children()` (orangtua tidak bisa lihat risk assessment
 anak yang bukan miliknya, meski endpoint-nya sendiri tidak role-gated).
 
+`GrowthRecordViewSet` memakai `GrowthRecordPermission` (subclass
+`RoleBasedGrowthPermission`), bukan induknya langsung — satu-satunya
+endpoint dengan matriks berbeda: orangtua boleh POST (bukan PUT/PATCH/
+DELETE). Object-level scoping-nya (balita mana yang boleh) tidak bisa
+ditulis di `has_permission()` karena belum ada objek saat create, jadi
+dicek terpisah di `GrowthRecordSerializer.validate()` lewat
+`visible_children(user)` — orangtua yang mencoba `child_id` balita yang
+bukan miliknya dapat `400` (bukan `403`, karena secara HTTP method dia
+memang boleh POST, cuma `child_id`-nya yang ditolak).
+
 Diuji end-to-end di `apps/growth/tests.py`
-(`RoleBasedGrowthPermissionAPITests`, `VisibleChildrenScopingTests`): create
-sebagai orangtua → 403, GET balita yang belum ditautkan → 404 (bukan 403 —
-lihat "Peran & tautan orang tua"), create/update/delete sebagai kader_nakes
-→ 201/200/204.
+(`RoleBasedGrowthPermissionAPITests`, `VisibleChildrenScopingTests`,
+`OrangtuaSelfMeasurementTests`): create Child sebagai orangtua → 403, GET
+balita yang belum ditautkan → 404 (bukan 403 — lihat "Peran & tautan orang
+tua"), create/update/delete sebagai kader_nakes → 201/200/204, create
+GrowthRecord sebagai orangtua untuk balita yang ditautkan → 201, untuk
+balita yang bukan miliknya → 400, update/delete GrowthRecord sebagai
+orangtua (termasuk punya sendiri) → 403.
 
 **Frontend juga menyembunyikan/menonaktifkan tombol** sesuai role yang sama
 persis (`src/api/auth.ts` → `canCreate()`/`canEditDelete()`), bukan cuma
@@ -376,6 +389,22 @@ kebetulan salah lihat data anak keluarga lain.
   ulang dengan kode yang sama itu idempotent (tidak duplikat).
 - **`POST /api/children/<id>/regenerate-code/`** (kader_nakes/admin saja) —
   membatalkan kode lama kalau salah disampaikan ke orang yang salah.
+  Frontend merendernya sebagai kartu "Kode Tautan Akun Orang Tua"
+  (`components/LinkCodeCard.tsx`) di **ChildDashboard**, sejajar dengan
+  kartu QR Fase 2 — kode ini yang harus disampaikan kader/nakes ke orang
+  tua supaya mereka bisa menautkan diri.
+- **Pengukuran mandiri** — sejak orang tua bisa POST `GrowthRecord` untuk
+  balita yang ditautkan (lihat matriks permission di atas), alur akun+login
+  Fase 1 bukan cuma soal "melihat" data lagi. Frontend merendernya sebagai
+  halaman `pages/PengukuranMandiri.tsx` (form ringkas: tanggal, berat,
+  tinggi, lingkar kepala opsional, catatan — sengaja tanpa
+  `officer_name`/`location`/kuesioner, itu bukan hal yang relevan untuk
+  pengukuran di rumah oleh orang tua) dan `pages/LinkChild.tsx` (redeem
+  `link_code`). `GrowthRecordSerializer.create()` otomatis mengisi
+  `officer_name = 'Orang Tua (Mandiri)'` kalau kosong dan penggunanya
+  ber-role `orangtua`, supaya kader/nakes bisa membedakan pengukuran yang
+  dicatat di rumah vs. di posyandu langsung dari riwayat, tanpa perlu field
+  atau migrasi baru.
 - **`visible_children(user)`** (`apps/growth/permissions.py`) — satu-satunya
   tempat logic scoping ditulis, dipakai `ChildViewSet.get_queryset()`,
   `GrowthRecordViewSet.get_queryset()` (lewat `child__in=`), dan
@@ -466,9 +495,15 @@ sendiri.
   generate QR (lazy-loaded `qrcode`, lihat frontend README) dan link `.../
   #/p/<token>`.
 
-Alur akun+login Fase 1 (`RegisterView`/`LinkChildView`/role `orangtua`) tetap
-ada dan tidak dihapus — tidak dipakai sebagai jalur utama lagi, tapi tidak
-mengganggu apa pun kalau dibiarkan.
+Alur akun+login Fase 1 (`RegisterView`/`LinkChildView`/role `orangtua`) dan
+Fase 2 (token publik di atas) sekarang **hidup berdampingan**, bukan
+Fase 1 digantikan Fase 2: orang tua yang cuma ingin sesekali melihat hasil
+cukup pakai link/QR Fase 2 tanpa akun sama sekali; orang tua yang ingin
+ikut mencatat pengukuran sendiri di antara kunjungan Posyandu perlu akun +
+tautan lewat `link_code` (Fase 1), karena menulis data (POST
+`GrowthRecord`) perlu identitas yang bisa diautentikasi dan diaudit
+(`recorded_by`) — sesuatu yang bearer token anonim Fase 2 sengaja tidak
+punya.
 
 ## Cakupan API
 
@@ -486,7 +521,7 @@ mengganggu apa pun kalau dibiarkan.
 | POST           | `/api/children/<id>/regenerate-code/` | `ChildViewSet`     | Membatalkan `link_code` lama; kader_nakes/admin saja |
 | POST           | `/api/children/<id>/regenerate-public-token/` | `ChildViewSet` | Membatalkan `public_token` (QR Fase 2) lama; kader_nakes/admin saja |
 | GET            | `/api/public/children/<token>/`    | `PublicChildDashboardView` | Publik (`AllowAny`, tidak butuh login sama sekali), di-throttle 30/menit per IP; payload minimal (nama, tanggal lahir, `growth_alert`, riwayat pengukuran) |
-| GET/POST       | `/api/growth-records/`             | `GrowthRecordViewSet` | Filter dengan `?child=<uuid>`; daftar sudah discoping lewat `visible_children()`; field `officer_name`/`location`/`notes`/`head_circumference_cm`/`photo` opsional (tidak diikutkan saat update = nilai lama tidak berubah); `photo` butuh `multipart/form-data` (sudah didukung `CamelCaseMultiPartParser`) kalau diisi; `height_for_age_z`/`weight_for_height_z`/`weight_for_age_z`/`head_circumference_z`/`risk_status` dihitung otomatis saat create/update |
+| GET/POST       | `/api/growth-records/`             | `GrowthRecordViewSet` | Filter dengan `?child=<uuid>`; daftar sudah discoping lewat `visible_children()`; field `officer_name`/`location`/`notes`/`head_circumference_cm`/`photo` opsional (tidak diikutkan saat update = nilai lama tidak berubah); `photo` butuh `multipart/form-data` (sudah didukung `CamelCaseMultiPartParser`) kalau diisi; `height_for_age_z`/`weight_for_height_z`/`weight_for_age_z`/`head_circumference_z`/`risk_status` dihitung otomatis saat create/update; POST juga boleh untuk role orangtua ("pengukuran mandiri" — hanya untuk `child_id` yang ditautkan ke akunnya, ditolak `400` kalau bukan, lihat `GrowthRecordPermission`) |
 | GET/PUT/DELETE | `/api/growth-records/<id>/`        | `GrowthRecordViewSet` | PUT/DELETE butuh role kader_nakes/admin                                                                                               |
 | GET            | `/api/risk-assessment/<child_id>/` | `RiskAssessmentView`  | Membuat `RiskAssessment` baru setiap kali dipanggil; scoped lewat `visible_children()` (404 kalau balita bukan milik orangtua yang minta) |
 | GET            | `/api/growth-reference/`           | `GrowthReferenceView` | Query params `sex`, `ageMonths` (wajib), `heightCm` (opsional); rentang -2SD..+2SD WHO sebagai panduan input, bukan validasi; `IsAuthenticated` saja, semua role boleh akses |
@@ -494,7 +529,9 @@ mengganggu apa pun kalau dibiarkan.
 | GET/PUT/DELETE | `/api/posyandu-schedules/<id>/`    | `PosyanduScheduleViewSet` | PUT/DELETE butuh role kader_nakes/admin |
 
 Semua endpoint mewajibkan autentikasi JWT (`IsAuthenticated`), ditambah
-`RoleBasedGrowthPermission` di atas untuk `children`/`growth-records`.
+`RoleBasedGrowthPermission` di atas untuk `children`/`posyandu-schedules`,
+dan `GrowthRecordPermission` (subclass-nya, dengan carve-out POST untuk
+orangtua) untuk `growth-records`.
 Semua request/response JSON otomatis dikonversi camelCase ⇄ snake_case oleh
 `djangorestframework-camel-case`, jadi frontend (yang pakai camelCase di
 `src/types/index.ts`) dan backend (yang pakai snake_case di model Django)

@@ -8,8 +8,10 @@ import {
   CalendarClock,
   FilePlus2,
   LayoutDashboard,
+  Link2,
   LogOut,
   Menu,
+  Ruler,
   Settings,
   ShieldAlert,
   X
@@ -32,6 +34,20 @@ const baseNav: NavItem[] = [
   { to: '/jadwal', label: 'Jadwal Posyandu', icon: CalendarClock }
 ];
 
+// Orangtua tidak "Skrining Baru" (itu bisa buat balita baru & isi kuesioner
+// klinis, wewenang kader/nakes) — diganti "Pengukuran Mandiri" (form
+// sederhana untuk balita yang sudah tertaut) plus "Tautkan Balita" untuk
+// menautkan balita tambahan (mis. anak kedua) kapan saja.
+const orangtuaNav: NavItem[] = [
+  { to: '/', label: 'Beranda', icon: LayoutDashboard, end: true },
+  { to: '/pengukuran-mandiri', label: 'Pengukuran Mandiri', icon: Ruler },
+  { to: '/balita', label: 'Data Balita', icon: Baby },
+  { to: '/riwayat', label: 'Riwayat', icon: BarChart3 },
+  { to: '/edukasi', label: 'Edukasi', icon: BookOpen },
+  { to: '/jadwal', label: 'Jadwal Posyandu', icon: CalendarClock },
+  { to: '/tautkan-balita', label: 'Tautkan Balita', icon: Link2 }
+];
+
 const adminNavItem: NavItem = { to: '/admin/setting', label: 'Setting', icon: Settings };
 
 export function AppLayout() {
@@ -40,7 +56,11 @@ export function AppLayout() {
   // Admin-only, appended at render time (not baked into the static array)
   // so the same nav config works for every role — easy to miss otherwise
   // and forget this exists, which is exactly why the user asked for it.
-  const nav = authApi.isAdmin() ? [...baseNav, adminNavItem] : baseNav;
+  const nav = authApi.isOrangtua()
+    ? orangtuaNav
+    : authApi.isAdmin()
+      ? [...baseNav, adminNavItem]
+      : baseNav;
 
   const handleLogout = () => {
     if (!window.confirm('Yakin ingin keluar?')) return;

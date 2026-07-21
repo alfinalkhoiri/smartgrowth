@@ -25,6 +25,10 @@ export interface Child {
   // ChildSerializer.get_public_token on the backend) — the bearer token for
   // the no-login parent dashboard QR (Fase 2). undefined for anyone else.
   publicToken?: string;
+  // Same visibility rule as publicToken — the 6-digit code an orangtua
+  // redeems (POST /children/link/) to attach their own account to this
+  // child, so they can see it *and* record pengukuran mandiri for it.
+  linkCode?: string;
 }
 
 // Slice of a measurement shown on the no-login parent dashboard — same

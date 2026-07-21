@@ -29,6 +29,9 @@ export const growthApi = {
   // Invalidates the old QR/link immediately — used when it was shown/handed
   // to the wrong person. kader_nakes/admin only (backend-enforced).
   regeneratePublicToken: (id: string) => apiClient.post<Child>(`/children/${id}/regenerate-public-token/`),
+  // Same idea, for the 6-digit account-link code (LinkCodeCard) instead of
+  // the no-login QR token.
+  regenerateLinkCode: (id: string) => apiClient.post<Child>(`/children/${id}/regenerate-code/`),
 
   listRecords: (childId: string) =>
     apiClient.get<GrowthRecord[]>('/growth-records/', { params: { child: childId } }),
@@ -47,5 +50,10 @@ export const growthApi = {
   getReference: (sex: 'male' | 'female', ageMonths: number, heightCm?: number) =>
     apiClient.get<GrowthReference>('/growth-reference/', {
       params: { sex, ageMonths, ...(heightCm != null ? { heightCm } : {}) }
-    })
+    }),
+
+  // Orangtua redeems a kader-issued 6-digit code to see (and, since
+  // "pengukuran mandiri", now also add measurements for) that child —
+  // idempotent-ish on the backend (Child.parents is a M2M `.add()`).
+  linkChild: (code: string) => apiClient.post<Child>('/children/link/', { code })
 };

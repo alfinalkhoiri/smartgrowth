@@ -814,6 +814,54 @@ class RoleBasedGrowthPermissionAPITests(TestCase):
         self.assertEqual(create_response.status_code, 201, create_response.data)
 
 
+class OrangtuaSelfMeasurementTests(TestCase):
+    """
+    Orangtua may POST a new GrowthRecord for their own linked child
+    ("pengukuran mandiri") but never edit/delete one, and never for a child
+    they aren't linked to — see GrowthRecordPermission +
+    GrowthRecordSerializer.validate().
+    """
+
+    def setUp(self):
+        User = get_user_model()
+        self.parent = User.objects.create_user(username='parent_selfm', password='x', role='orangtua')
+        self.child = Child.objects.create(name='Anak Mandiri', birth_date=date(2024, 1, 1), sex='male')
+        self.other_child = Child.objects.create(name='Anak Mandiri 2', birth_date=date(2024, 1, 1), sex='female')
+        self.child.parents.add(self.parent)
+
+    def _client(self):
+        client = APIClient()
+        client.force_authenticate(user=self.parent)
+        return client
+
+    def _payload(self, child_id):
+        return {
+            'child_id': str(child_id), 'measured_at': '2024-06-01', 'weight_kg': '9.0', 'height_cm': '70', 'age_months': 5,
+        }
+
+    def test_orangtua_can_create_record_for_linked_child(self):
+        response = self._client().post('/api/growth-records/', self._payload(self.child.id))
+        self.assertEqual(response.status_code, 201, response.data)
+        self.assertEqual(response.data['officer_name'], 'Orang Tua (Mandiri)')
+
+    def test_orangtua_cannot_create_record_for_unlinked_child(self):
+        response = self._client().post('/api/growth-records/', self._payload(self.other_child.id))
+        self.assertEqual(response.status_code, 400)
+        self.assertIn('child_id', response.data)
+
+    def test_orangtua_cannot_update_own_record(self):
+        create_response = self._client().post('/api/growth-records/', self._payload(self.child.id))
+        record_id = create_response.data['id']
+        update_response = self._client().patch(f'/api/growth-records/{record_id}/', {'weight_kg': '9.5'})
+        self.assertEqual(update_response.status_code, 403)
+
+    def test_orangtua_cannot_delete_own_record(self):
+        create_response = self._client().post('/api/growth-records/', self._payload(self.child.id))
+        record_id = create_response.data['id']
+        delete_response = self._client().delete(f'/api/growth-records/{record_id}/')
+        self.assertEqual(delete_response.status_code, 403)
+
+
 class LinkChildEndpointTests(TestCase):
     def setUp(self):
         User = get_user_model()

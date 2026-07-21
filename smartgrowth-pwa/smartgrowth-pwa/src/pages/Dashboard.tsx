@@ -14,6 +14,7 @@ import {
   Users
 } from 'lucide-react';
 import { growthApi } from '@/api/growth';
+import { authApi } from '@/api/auth';
 import { scheduleApi } from '@/api/schedule';
 import { RiskBadge } from '@/components/RiskBadge';
 import type { Child, GrowthRecord, PosyanduSchedule, RiskStatus } from '@/types';
@@ -88,9 +89,12 @@ export default function Dashboard() {
             AI Screening Engine.
           </p>
           <div className="flex flex-wrap gap-3">
-            <Link to="/skrining" className="btn-primary bg-white text-primary hover:bg-white/90">
+            <Link
+              to={authApi.isOrangtua() ? '/pengukuran-mandiri' : '/skrining'}
+              className="btn-primary bg-white text-primary hover:bg-white/90"
+            >
               <FilePlus2 className="h-4 w-4" aria-hidden="true" />
-              Mulai Skrining
+              {authApi.isOrangtua() ? 'Pengukuran Mandiri' : 'Mulai Skrining'}
             </Link>
             <Link
               to="/edukasi"

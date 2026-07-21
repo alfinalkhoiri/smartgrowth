@@ -152,6 +152,22 @@ class GrowthRecordSerializer(serializers.ModelSerializer):
                 {'measured_at': 'Tanggal pengukuran tidak boleh sebelum tanggal lahir anak.'}
             )
 
+        # child_id's queryset is Child.objects.all() (kader_nakes/admin need to
+        # reference any child) — GrowthRecordPermission only checks the HTTP
+        # method, not which child, so an orangtua's own scoping has to happen
+        # here instead: reject any child they're not linked to, on create.
+        request = self.context.get('request')
+        user = getattr(request, 'user', None)
+        if (
+            child and user is not None and not user.is_superuser
+            and getattr(user, 'role', None) == Role.ORANGTUA
+        ):
+            from .permissions import visible_children
+            if not visible_children(user).filter(pk=child.pk).exists():
+                raise serializers.ValidationError(
+                    {'child_id': 'Anda tidak memiliki akses untuk menambah pengukuran balita ini.'}
+                )
+
         # Only re-check plausibility when the measurement itself is actually
         # changing (a create, or an update that touches height/weight/age).
         # Otherwise an update that only saves notes/questionnaire answers on
@@ -206,7 +222,15 @@ class GrowthRecordSerializer(serializers.ModelSerializer):
         return attrs
 
     def create(self, validated_data):
-        validated_data['recorded_by'] = self.context['request'].user
+        user = self.context['request'].user
+        validated_data['recorded_by'] = user
+        # Self-measurement (orangtua) skips the officer_name field entirely
+        # in the frontend form — defaulting it here means the existing
+        # history list (which already renders officer_name/location) shows
+        # kader/nakes at a glance which entries were self-reported at home
+        # vs. recorded at a posyandu visit, with no new field/migration.
+        if not validated_data.get('officer_name') and getattr(user, 'role', None) == Role.ORANGTUA:
+            validated_data['officer_name'] = 'Orang Tua (Mandiri)'
         # height_for_age_z / risk_status get filled in by the view after
         # calling the risk_engine service — kept out of the serializer so
         # the scoring logic stays in one place (services/risk_engine.py).

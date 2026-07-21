@@ -8,7 +8,9 @@ import Riwayat from '@/pages/Riwayat';
 import Edukasi from '@/pages/Edukasi';
 import Jadwal from '@/pages/Jadwal';
 import KodePosyandu from '@/pages/KodePosyandu';
+import LinkChild from '@/pages/LinkChild';
 import Login from '@/pages/Login';
+import PengukuranMandiri from '@/pages/PengukuranMandiri';
 import PublicChildView from '@/pages/PublicChildView';
 import Register from '@/pages/Register';
 import Setting from '@/pages/Setting';
@@ -50,6 +52,8 @@ export default function App() {
           <Route path="/riwayat" element={<Riwayat />} />
           <Route path="/edukasi" element={<Edukasi />} />
           <Route path="/jadwal" element={<Jadwal />} />
+          <Route path="/tautkan-balita" element={<LinkChild />} />
+          <Route path="/pengukuran-mandiri" element={<PengukuranMandiri />} />
           <Route path="/admin/setting" element={<Setting />} />
           <Route path="/admin/setting/users" element={<UserList />} />
           <Route path="/admin/setting/kode-posyandu" element={<KodePosyandu />} />
