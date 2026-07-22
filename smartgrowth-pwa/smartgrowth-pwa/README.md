@@ -230,14 +230,20 @@ made *after* scanning, not on which QR was scanned (see the picker below).
 
 `components/LinkCodeCard.tsx` — rendered in `ChildDashboard.tsx` as the
 single "Bagikan ke Orang Tua" card whenever `child.linkCode` is present
-(kader_nakes/admin, or an orangtua *already* linked to that child, so they
-can hand it on to a co-parent). Lazy-loads `qrcode` to render a QR encoding
+**and** `canEditDelete()` — i.e. kader_nakes/admin only, even though the
+backend also lets an already-linked orangtua read `child.linkCode` (so they
+*could* hand it on to a co-parent, see permissions.py). The card is gated
+out for orangtua here anyway: it's the tool kader_nakes uses to onboard a
+parent, and a parent looking at their own already-linked child's dashboard
+has no use for a QR whose whole purpose is registering + linking an
+account they already have. Lazy-loads `qrcode` to render a QR encoding
 `#/register?linkCode=<code>&role=orangtua&viewToken=<child.publicToken>`
 (the `viewToken` param is omitted if the child has no `public_token` yet),
 plus the plain 6-digit code as a manual fallback (read aloud, or typed in
-if scanning isn't possible) with a copy button and, when `canEditDelete()`,
-a "Kode Baru" regenerate button (`growthApi.regenerateLinkCode()` →
-`POST /children/<id>/regenerate-code/`).
+if scanning isn't possible) with a copy button and a "Kode Baru" regenerate
+button (`growthApi.regenerateLinkCode()` → `POST /children/<id>/regenerate-
+code/`) — both always shown here since the card itself is already
+`canEditDelete()`-gated.
 
 `pages/Register.tsx` reads both the `linkCode` and `viewToken` query params
 (distinct from the existing `code` param used for the kader_nakes

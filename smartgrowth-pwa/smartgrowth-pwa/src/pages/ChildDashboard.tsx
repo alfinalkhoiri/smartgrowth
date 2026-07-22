@@ -163,12 +163,17 @@ export default function ChildDashboard() {
         </div>
       )}
 
-      {child?.linkCode && (
+      {/* kader_nakes/admin-only — this is the card *they* use to onboard a
+          parent (or a co-parent). An orangtua viewing their own already-
+          linked child's dashboard has no use for it (they're already in),
+          even though the backend still lets them read child.linkCode so
+          they *could* pass it on — see permissions.py's visibility note. */}
+      {child?.linkCode && canEditDelete && (
         <LinkCodeCard
           code={child.linkCode}
           childName={child.name}
           publicToken={child.publicToken}
-          onRegenerate={canEditDelete ? handleRegenerateLinkCode : undefined}
+          onRegenerate={handleRegenerateLinkCode}
         />
       )}
 
