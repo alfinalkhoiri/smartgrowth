@@ -21,6 +21,10 @@ src/
                     # RiskBadge (4-tier), Toggle (switch input), etc.
   lib/
     dates.ts        # monthsBetween()
+    parentLink.ts   # registrationLink(linkCode, publicToken?) — the single
+                    # #/register?linkCode=...&viewToken=... URL shared by
+                    # LinkCodeCard.tsx's QR and the printed PDF's QR, so the
+                    # two can't drift into encoding different links
     pdf.ts          # jsPDF/jsPDF-autotable report generator — A5, Buku KIA
                     # sized, compact summary + QR (see "Laporan PDF" below),
                     # lazy-loaded via dynamic import (see ChildDashboard.tsx)
@@ -204,12 +208,13 @@ this link as its own QR card in both `Skrining.tsx` and `ChildDashboard.tsx`
 images** to choose between ("view only" vs. "register") was just confusing
 (which one do I scan?), not two genuinely useful options. The choice itself
 is still offered — just as an in-app picker after a single scan, see Fase 1
-below — rather than as two physical QR codes. The one remaining place this
-route (`#/p/:token`) is still reached directly (no picker) is the QR
-printed on the A5 report (`lib/pdf.ts`) — a physical keepsake deliberately
-keeps the no-login link, since forcing whoever picks it up later to
-register just to check a number would defeat the point of a
-disposable/handed-around paper copy.
+below — rather than as two physical QR codes. This route (`#/p/:token`) is
+no longer reached *directly* by any QR in the app — even the QR printed on
+the A5 report (`lib/pdf.ts`) now encodes the same registration+picker link
+as `LinkCodeCard.tsx` (via the shared `lib/parentLink.ts` helper, keyed off
+`child.linkCode`, not `child.publicToken`), so a parent scanning a printed
+report gets the identical "Lihat Saja" vs "Daftar & Catat Mandiri" choice
+instead of a third, inconsistent flow just for paper copies.
 
 ### Fase 1: akun orang tua & pengukuran mandiri
 
@@ -353,15 +358,15 @@ snapshot, not the full record: branded header band, child profile line, a
 colored risk status callout (same 4-tier palette as `RiskBadge.tsx`), the
 latest measurement's weight/height/Z-score/officer summary, a short history
 table (last 5 measurements only, with a "riwayat lengkap ada di web" note
-if there are more), and — when `child.publicToken` is set — a large QR
-call-to-action box encoding the same `#/p/:token` no-login link the app's
-UI itself no longer shows (see the Fase 2 section above), framed as
-"Detail Lengkap & Rekomendasi di Web".
-The full recommendation list, officer notes, nutrition tips, and food
-examples are deliberately **not** printed — they only live on the web
-dashboard behind that QR, so parents have a reason to actually open the
-link instead of the print being a complete (and instantly stale) substitute
-for it.
+if there are more), and — when `child.linkCode` is set — a large QR
+call-to-action box encoding the same registration+picker link as
+`LinkCodeCard.tsx` (`lib/parentLink.ts`'s `registrationLink()`, not the
+bare `#/p/:token` link this used to point to), framed as "Detail Lengkap &
+Rekomendasi di Web". The full recommendation list, officer notes, nutrition
+tips, and food examples are deliberately **not** printed — they only live
+on the web (behind either "Lihat Saja" or a registered account), so
+parents have a reason to actually open the link instead of the print being
+a complete (and instantly stale) substitute for it.
 
 ## Design system
 

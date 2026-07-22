@@ -1,21 +1,7 @@
 import { useEffect, useState } from 'react';
 import { RefreshCw, Users } from 'lucide-react';
 import { CopyButton } from '@/components/CopyButton';
-
-// #/register?linkCode=...&role=orangtua&viewToken=... (HashRouter) — the
-// ONE QR shown to parents. Scanning it lands on Register.tsx, which offers
-// a choice (see its "picker" mode): "Lihat Saja" jumps straight to the
-// read-only #/p/:token dashboard, no account; "Daftar" registers a new
-// orangtua account and links it to this child in a single submit, landing
-// on the child's own (fuller) dashboard — already-registered parents (e.g.
-// scanning a sibling's QR) skip the picker/form entirely and just get
-// linked. Same deep-link-QR pattern as KodePosyandu.tsx's kader_nakes
-// invite. `viewToken` is omitted from the URL if publicToken isn't set
-// (Register.tsx just won't offer the "Lihat Saja" option in that case).
-function registrationLink(code: string, publicToken?: string): string {
-  const base = `${window.location.origin}${window.location.pathname}#/register?linkCode=${code}&role=orangtua`;
-  return publicToken ? `${base}&viewToken=${publicToken}` : base;
-}
+import { registrationLink } from '@/lib/parentLink';
 
 interface Props {
   code: string;

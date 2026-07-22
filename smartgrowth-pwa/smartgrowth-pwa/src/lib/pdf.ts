@@ -1,6 +1,7 @@
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { riskLabel, riskDescription } from '@/features/growth/zscore';
+import { registrationLink } from '@/lib/parentLink';
 import type { Child, GrowthRecord } from '@/types';
 
 const SEX_LABEL: Record<Child['sex'], string> = { male: 'Laki-laki', female: 'Perempuan' };
@@ -28,16 +29,6 @@ const PAGE_WIDTH = 148;
 const PAGE_HEIGHT = 210;
 const CONTENT_WIDTH = PAGE_WIDTH - MARGIN * 2;
 
-// #/p/:token (HashRouter) — the no-login, read-only public dashboard
-// (PublicChildView.tsx). The in-app UI dropped its own QR for this in favor
-// of a single "scan to register" QR (LinkCodeCard.tsx) — this printed
-// report is the one remaining place that still points here, deliberately:
-// a physical keepsake shouldn't force whoever picks it up later to create
-// an account just to check a number.
-function publicDashboardLink(token: string): string {
-  return `${window.location.origin}${window.location.pathname}#/p/${token}`;
-}
-
 // Shared by generateChildReport() (download) and printChildReport() (print
 // dialog) so the two entry points can never drift into different layouts —
 // only what happens to the finished doc (save vs. autoPrint) differs.
@@ -49,12 +40,19 @@ async function buildChildReportDoc(child: Child, records: GrowthRecord[]): Promi
 
   // Generated up front (needs to be awaited) — 'qrcode' is lazy-loaded here
   // too, same pattern as LinkCodeCard.tsx, so it's never in the main
-  // bundle even though two entry points now pull in pdf.ts.
+  // bundle even though two entry points now pull in pdf.ts. Same
+  // registration+choice link as LinkCodeCard.tsx's QR (not the bare
+  // #/p/:token link) — a parent scanning the printed report gets the same
+  // "Lihat Saja" vs "Daftar & Catat Mandiri" choice as scanning it in-app,
+  // instead of a third, inconsistent flow just for paper copies.
   let qrDataUrl: string | null = null;
-  if (child.publicToken) {
+  if (child.linkCode) {
     try {
       const { default: QRCode } = await import('qrcode');
-      qrDataUrl = await QRCode.toDataURL(publicDashboardLink(child.publicToken), { margin: 1, width: 320 });
+      qrDataUrl = await QRCode.toDataURL(registrationLink(child.linkCode, child.publicToken), {
+        margin: 1,
+        width: 320
+      });
     } catch {
       qrDataUrl = null; // report still generates fine without the QR
     }
@@ -224,7 +222,8 @@ async function buildChildReportDoc(child: Child, records: GrowthRecord[]): Promi
     doc.setFontSize(7);
     doc.setTextColor(...INK);
     const ctaBody = doc.splitTextToSize(
-      `Scan untuk lihat riwayat lengkap, rekomendasi, dan tips gizi ${child.name} kapan saja — tanpa login.`,
+      `Scan untuk lihat riwayat lengkap, rekomendasi & tips gizi ${child.name} — lalu pilih: lihat saja tanpa ` +
+        'daftar, atau daftar akun untuk mencatat pengukuran mandiri.',
       CONTENT_WIDTH - 8
     );
     doc.text(ctaBody, PAGE_WIDTH / 2, y + 9 + qrSize + 4, { align: 'center' });
