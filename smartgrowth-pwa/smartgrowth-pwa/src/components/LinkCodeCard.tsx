@@ -1,12 +1,16 @@
 import { useEffect, useState } from 'react';
-import { KeyRound, RefreshCw } from 'lucide-react';
+import { RefreshCw, Users } from 'lucide-react';
 import { CopyButton } from '@/components/CopyButton';
 
-// #/register?linkCode=...&role=orangtua (HashRouter) — scanning this both
-// registers a new orangtua account AND links it to this child in one step
-// (see Register.tsx's autoLinking/prefilledLinkCode handling), instead of
-// registering then separately visiting /tautkan-balita to type the code by
-// hand. Same deep-link-QR pattern as KodePosyandu.tsx's kader_nakes invite.
+// #/register?linkCode=...&role=orangtua (HashRouter) — the ONE QR shown to
+// parents. Scanning it registers a new orangtua account and links it to
+// this child in a single submit (see Register.tsx's
+// autoLinking/prefilledLinkCode handling), landing straight on the child's
+// own dashboard — already-registered parents (e.g. scanning a sibling's QR)
+// skip the form entirely and just get linked. Same deep-link-QR pattern as
+// KodePosyandu.tsx's kader_nakes invite. This replaced two separate cards/
+// QRs (one read-only no-login link, one account-link code) — a parent no
+// longer has to pick which one to scan.
 function registrationLink(code: string): string {
   return `${window.location.origin}${window.location.pathname}#/register?linkCode=${code}&role=orangtua`;
 }
@@ -14,16 +18,10 @@ function registrationLink(code: string): string {
 interface Props {
   code: string;
   childName: string;
-  // Only passed where regeneration makes sense (ChildDashboard) — same
-  // convention as ParentDashboardQr.tsx's onRegenerate.
+  // Only passed where regeneration makes sense (ChildDashboard).
   onRegenerate?: () => void;
 }
 
-// Kader/nakes-facing counterpart to ParentDashboardQr.tsx: that one is the
-// no-login Fase 2 QR (read-only, no account needed); this is the plain
-// 6-digit Child.link_code an orangtua redeems (POST /children/link/) to
-// attach their own account to this child, so they can also record
-// pengukuran mandiri for it — not just view it.
 export function LinkCodeCard({ code, childName, onRegenerate }: Props) {
   const [qrDataUrl, setQrDataUrl] = useState('');
 
@@ -42,18 +40,18 @@ export function LinkCodeCard({ code, childName, onRegenerate }: Props) {
   return (
     <div className="card p-4 space-y-3">
       <p className="flex items-center gap-1.5 font-display font-bold text-gray-900">
-        <KeyRound className="h-4 w-4 text-accent" aria-hidden="true" />
-        Tautkan Akun Orang Tua
+        <Users className="h-4 w-4 text-accent" aria-hidden="true" />
+        Bagikan ke Orang Tua
       </p>
       <p className="text-xs text-gray-500">
-        Orang tua {childName} scan QR ini untuk langsung daftar akun &amp; tertaut ke balita ini sekaligus — bisa
-        langsung mencatat pengukuran mandiri, tanpa perlu masukkan kode manual.
+        Orang tua {childName} scan QR ini untuk daftar akun dan langsung masuk ke dashboard balitanya — bisa
+        langsung lihat hasil pengukuran, rekomendasi, dan mencatat pengukuran mandiri sendiri.
       </p>
       <div className="flex items-center gap-4">
         {qrDataUrl ? (
           <img
             src={qrDataUrl}
-            alt={`QR tautan akun orang tua ${childName}`}
+            alt={`QR daftar & dashboard orang tua ${childName}`}
             className="h-28 w-28 rounded-lg border border-gray-100 shrink-0"
           />
         ) : (

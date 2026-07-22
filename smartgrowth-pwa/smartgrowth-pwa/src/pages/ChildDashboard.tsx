@@ -23,7 +23,6 @@ import { DetailTabs, type DetailTab } from '@/components/DetailTabs';
 import { EducationTips } from '@/components/EducationTips';
 import { GrowthChart } from '@/components/GrowthChart';
 import { LinkCodeCard } from '@/components/LinkCodeCard';
-import { ParentDashboardQr } from '@/components/ParentDashboardQr';
 import { RecommendationsPanel } from '@/components/RecommendationsPanel';
 import { RiskBadge } from '@/components/RiskBadge';
 import { riskDescription } from '@/features/growth/zscore';
@@ -77,15 +76,6 @@ export default function ChildDashboard() {
     } finally {
       setPrintingReport(false);
     }
-  };
-
-  const handleRegenerateToken = async () => {
-    if (!child) return;
-    if (!window.confirm('Yakin ingin membuat QR baru? Link/QR lama yang sudah dibagikan langsung tidak berlaku.')) {
-      return;
-    }
-    const res = await growthApi.regeneratePublicToken(child.id);
-    setChild(res.data);
   };
 
   const handleRegenerateLinkCode = async () => {
@@ -171,14 +161,6 @@ export default function ChildDashboard() {
             Cetak Laporan
           </button>
         </div>
-      )}
-
-      {child?.publicToken && (
-        <ParentDashboardQr
-          token={child.publicToken}
-          childName={child.name}
-          onRegenerate={canEditDelete ? handleRegenerateToken : undefined}
-        />
       )}
 
       {child?.linkCode && (

@@ -28,7 +28,12 @@ const PAGE_WIDTH = 148;
 const PAGE_HEIGHT = 210;
 const CONTENT_WIDTH = PAGE_WIDTH - MARGIN * 2;
 
-// #/p/:token (HashRouter) — same public route as ParentDashboardQr.tsx.
+// #/p/:token (HashRouter) — the no-login, read-only public dashboard
+// (PublicChildView.tsx). The in-app UI dropped its own QR for this in favor
+// of a single "scan to register" QR (LinkCodeCard.tsx) — this printed
+// report is the one remaining place that still points here, deliberately:
+// a physical keepsake shouldn't force whoever picks it up later to create
+// an account just to check a number.
 function publicDashboardLink(token: string): string {
   return `${window.location.origin}${window.location.pathname}#/p/${token}`;
 }
@@ -43,7 +48,7 @@ async function buildChildReportDoc(child: Child, records: GrowthRecord[]): Promi
   const recentHistory = sorted.slice(-5);
 
   // Generated up front (needs to be awaited) — 'qrcode' is lazy-loaded here
-  // too, same pattern as ParentDashboardQr.tsx, so it's never in the main
+  // too, same pattern as LinkCodeCard.tsx, so it's never in the main
   // bundle even though two entry points now pull in pdf.ts.
   let qrDataUrl: string | null = null;
   if (child.publicToken) {

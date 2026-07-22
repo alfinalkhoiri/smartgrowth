@@ -487,23 +487,31 @@ sendiri.
   token ke siapa pun selain kader_nakes/admin.
 - **Frontend**: `pages/PublicChildView.tsx` di route publik `#/p/:token`
   (di luar `RequireAuth`, lihat `App.tsx`) — dashboard baca-saja (hasil
-  terakhir + riwayat + grafik), tanpa nav/login/logout sama sekali. QR-nya
-  sendiri dirender lewat `components/ParentDashboardQr.tsx`, dipasang di
-  **halaman Skrining** (begitu mode "Balita Terdaftar" & balita dipilih) dan
-  di **ChildDashboard** (selalu, sebagai kartu "Bagikan ke Orang Tua") —
-  keduanya cukup pasang `token`+`childName`, komponennya sendiri yang
-  generate QR (lazy-loaded `qrcode`, lihat frontend README) dan link `.../
-  #/p/<token>`.
+  terakhir + riwayat + grafik), tanpa nav/login/logout sama sekali.
 
-Alur akun+login Fase 1 (`RegisterView`/`LinkChildView`/role `orangtua`) dan
-Fase 2 (token publik di atas) sekarang **hidup berdampingan**, bukan
-Fase 1 digantikan Fase 2: orang tua yang cuma ingin sesekali melihat hasil
-cukup pakai link/QR Fase 2 tanpa akun sama sekali; orang tua yang ingin
-ikut mencatat pengukuran sendiri di antara kunjungan Posyandu perlu akun +
-tautan lewat `link_code` (Fase 1), karena menulis data (POST
-`GrowthRecord`) perlu identitas yang bisa diautentikasi dan diaudit
-(`recorded_by`) — sesuatu yang bearer token anonim Fase 2 sengaja tidak
-punya.
+Awalnya alur ini punya QR sendiri di dalam aplikasi
+(`components/ParentDashboardQr.tsx`, dipasang di halaman Skrining &
+ChildDashboard) — **dihapus** setelah alur Fase 1 di bawah disederhanakan
+jadi satu kali scan, karena menunjukkan dua QR berbeda ke orang tua (satu
+"lihat saja", satu "daftar") cuma bikin bingung, bukan dua pilihan yang
+benar-benar berguna. Endpoint dan route-nya (`GET
+/api/public/children/<token>/`, `#/p/:token`) tetap ada dan tetap dipakai
+di satu tempat: QR di laporan PDF cetak (`lib/pdf.ts`, lihat frontend
+README) — laporan kertas sengaja tetap pakai link tanpa login, karena
+memaksa siapa pun yang memegang kertasnya nanti untuk mendaftar cuma buat
+lihat satu angka akan menghilangkan gunanya sebagai salinan fisik yang bisa
+dibagikan/disimpan bebas.
+
+Alur akun+login Fase 1 (`RegisterView`/`LinkChildView`/role `orangtua`)
+sekarang jadi **satu-satunya** cara orang tua mendapat akses lewat aplikasi
+(scan QR "Bagikan ke Orang Tua" → daftar + tertaut sekaligus → langsung ke
+dashboard, lihat frontend README bagian "Fase 1"); token publik Fase 2 di
+atas masih hidup sebagai jalur baca-saja tanpa akun, khusus lewat laporan
+PDF cetak — bukan lagi opsi yang ditawarkan berdampingan di UI aplikasi.
+Menulis data (POST `GrowthRecord`) tetap perlu identitas yang bisa
+diautentikasi dan diaudit (`recorded_by`), sesuatu yang bearer token anonim
+Fase 2 sengaja tidak punya — itu sebabnya pengukuran mandiri tetap lewat
+Fase 1, bukan token publik.
 
 ## Cakupan API
 

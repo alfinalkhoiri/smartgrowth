@@ -183,25 +183,16 @@ the full `GrowthRecord`) — the latter is why this page's slimmer
 component; the former is why both dashboards render it twice instead of one
 combined multi-line chart.
 
-The QR itself is `components/ParentDashboardQr.tsx` — takes just
-`token` + `childName`, lazy-loads the `qrcode` package (dynamic `import()`,
-not in the main bundle, same pattern as `jspdf`/`lib/pdf.ts`) and renders
-a data-URL `<img>` of `.../#/p/<token>`, plus a copy-link button
-(`components/CopyButton.tsx`, also shared with `KodePosyandu.tsx`). It's
-mounted in two places: `Skrining.tsx` (once an existing child is selected
-in "Balita Terdaftar" mode) and `ChildDashboard.tsx` (always, as a
-"Bagikan ke Orang Tua" card — this one also gets an `onRegenerate` handler,
-since invalidating a QR that's already been shown/printed only makes sense
-from the child's own page, not mid-pick in the Skrining flow). Both buttons
-inside `ParentDashboardQr` are explicitly `type="button"` — the Skrining
-instance sits inside a `<form>`, and without that they'd submit it.
-
-Fase 1 (account + `link_code`, below) and Fase 2 now serve two different
-purposes rather than one superseding the other: Fase 2 for a parent who just
-wants to check results occasionally (no account, one tap on a QR); Fase 1
-for a parent who wants to actively record measurements themselves between
-posyandu visits — writing data needs an authenticated, auditable identity
-(`recorded_by`), which an anonymous bearer token deliberately doesn't have.
+There used to be a dedicated `components/ParentDashboardQr.tsx` rendering
+this link as its own QR card in both `Skrining.tsx` and `ChildDashboard.tsx`
+— removed once Fase 1's registration flow got fast enough (one scan, see
+below) that showing parents **two different QR codes** to choose between
+("view only" vs. "register") was just confusing, not two genuinely useful
+options. The one remaining place this route is still reachable from is the
+QR printed on the A5 report (`lib/pdf.ts`) — a physical keepsake
+deliberately keeps the no-login link, since forcing whoever picks it up
+later to register just to check a number would defeat the point of a
+disposable/handed-around paper copy.
 
 ### Fase 1: akun orang tua & pengukuran mandiri
 
@@ -211,18 +202,18 @@ code by hand — three steps for what's conceptually one action ("this is my
 child's account"). It's now collapsed into one: scanning a QR both
 registers the account **and** links it, matching the same
 deep-link-QR pattern `KodePosyandu.tsx` already used for kader_nakes
-invites.
+invites — and it's the **one and only** "share with parent" QR shown
+anywhere in the app now (see the note above about the removed
+`ParentDashboardQr.tsx`).
 
-`components/LinkCodeCard.tsx` — the kader/nakes-facing counterpart to
-`ParentDashboardQr.tsx`, rendered in `ChildDashboard.tsx` right below the QR
-card whenever `child.linkCode` is present (kader_nakes/admin, or an
-orangtua *already* linked to that child, so they can hand it on to a
-co-parent). Lazy-loads `qrcode` (same pattern as `ParentDashboardQr.tsx`)
-to render a QR encoding `#/register?linkCode=<code>&role=orangtua`, plus the
-plain 6-digit code as a manual fallback (read aloud, or typed in if scanning
-isn't possible) with a copy button and, when `canEditDelete()`, a "Kode
-Baru" regenerate button (`growthApi.regenerateLinkCode()` →
-`POST /children/<id>/regenerate-code/`).
+`components/LinkCodeCard.tsx` — rendered in `ChildDashboard.tsx` as the
+single "Bagikan ke Orang Tua" card whenever `child.linkCode` is present
+(kader_nakes/admin, or an orangtua *already* linked to that child, so they
+can hand it on to a co-parent). Lazy-loads `qrcode` to render a QR encoding
+`#/register?linkCode=<code>&role=orangtua`, plus the plain 6-digit code as a
+manual fallback (read aloud, or typed in if scanning isn't possible) with a
+copy button and, when `canEditDelete()`, a "Kode Baru" regenerate button
+(`growthApi.regenerateLinkCode()` → `POST /children/<id>/regenerate-code/`).
 
 `pages/Register.tsx` reads that `linkCode` query param (distinct from the
 existing `code` param used for the kader_nakes invite-code QR — the two
@@ -333,8 +324,9 @@ colored risk status callout (same 4-tier palette as `RiskBadge.tsx`), the
 latest measurement's weight/height/Z-score/officer summary, a short history
 table (last 5 measurements only, with a "riwayat lengkap ada di web" note
 if there are more), and — when `child.publicToken` is set — a large QR
-call-to-action box encoding the same `#/p/:token` link as
-`ParentDashboardQr.tsx`, framed as "Detail Lengkap & Rekomendasi di Web".
+call-to-action box encoding the same `#/p/:token` no-login link the app's
+UI itself no longer shows (see the Fase 2 section above), framed as
+"Detail Lengkap & Rekomendasi di Web".
 The full recommendation list, officer notes, nutrition tips, and food
 examples are deliberately **not** printed — they only live on the web
 dashboard behind that QR, so parents have a reason to actually open the

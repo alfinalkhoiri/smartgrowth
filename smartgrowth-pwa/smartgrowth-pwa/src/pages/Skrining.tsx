@@ -19,7 +19,6 @@ import { scheduleApi } from '@/api/schedule';
 import { firstErrorMessage, parseFieldErrors } from '@/api/errors';
 import { authApi } from '@/api/auth';
 import { FieldError } from '@/components/FieldError';
-import { ParentDashboardQr } from '@/components/ParentDashboardQr';
 import { Toggle } from '@/components/Toggle';
 import { monthsBetween } from '@/lib/dates';
 import type { Child } from '@/types';
@@ -101,7 +100,6 @@ export default function Skrining() {
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [editRecordChildName, setEditRecordChildName] = useState('');
   const [editRecordChildBirthDate, setEditRecordChildBirthDate] = useState('');
-  const selectedChild = children.find((c) => c.id === selectedChildId);
   const inputClass = (field: string) => `field-input${fieldErrors[field] ? ' field-input-error' : ''}`;
 
   useEffect(() => {
@@ -438,9 +436,6 @@ export default function Skrining() {
                   ))}
                 </select>
               </div>
-              {selectedChild?.publicToken && (
-                <ParentDashboardQr token={selectedChild.publicToken} childName={selectedChild.name} />
-              )}
             </div>
           ) : (
             <div className="space-y-3">
