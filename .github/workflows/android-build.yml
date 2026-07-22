@@ -1,0 +1,72 @@
+name: Build Android APK
+
+# Manual only (workflow_dispatch) — Android builds burn real CI minutes and
+# the app isn't published anywhere yet, so there's no reason to build one on
+# every push. Trigger it from the Actions tab whenever you actually want an
+# installable .apk. Add a `push:` trigger later if that changes.
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: smartgrowth-pwa/smartgrowth-pwa/package-lock.json
+
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: gradle
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Accept SDK licenses & install compileSdk platform
+        # AGP resolves matching build-tools on its own during the Gradle
+        # build (auto-download) as long as the platform is present and every
+        # license is pre-accepted — pinning an exact build-tools version here
+        # would just be one more number to keep in sync with variables.gradle.
+        run: |
+          yes | sdkmanager --licenses || true
+          sdkmanager "platforms;android-36" "platform-tools"
+
+      - name: Install frontend dependencies
+        working-directory: smartgrowth-pwa/smartgrowth-pwa
+        run: npm ci
+
+      - name: Build web assets (Capacitor mode)
+        # Loads .env.capacitor (VITE_API_BASE_URL pointed at the deployed
+        # backend) instead of the relative "/api" the web build uses — see
+        # frontend README's "Native Android app" section.
+        working-directory: smartgrowth-pwa/smartgrowth-pwa
+        run: npm run build:capacitor
+
+      - name: Sync Capacitor Android project
+        working-directory: smartgrowth-pwa/smartgrowth-pwa
+        run: npx cap sync android
+
+      - name: Build debug APK
+        # assembleDebug, not assembleRelease — debug builds are auto-signed
+        # with a throwaway debug key, which is exactly what you want for
+        # "install this on my own phone to try it", and needs no signing
+        # config setup. A Play Store release build is a separate, later step
+        # (needs a real signing key — see frontend README).
+        working-directory: smartgrowth-pwa/smartgrowth-pwa/android
+        run: ./gradlew assembleDebug --no-daemon
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: smartgrowth-debug-apk
+          path: smartgrowth-pwa/smartgrowth-pwa/android/app/build/outputs/apk/debug/app-debug.apk
+          retention-days: 30

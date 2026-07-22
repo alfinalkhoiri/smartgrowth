@@ -147,9 +147,25 @@ project, not just scaffolding notes. What's in place:
   it same as the deployed frontend's own origin (see backend README's
   `.env.example` for the annotated production block).
 
-To actually build/run the APK, from a machine with **Android Studio +
-Android SDK installed** (this repo's dev/CI environment doesn't have
-either, so that step can't happen here):
+To actually build/run the APK you need the Android SDK + Gradle toolchain
+somewhere. Two ways to get one, no Android Studio required for either if you
+just want a debug .apk to sideload onto your own phone:
+
+**Option A — GitHub Actions (`.github/workflows/android-build.yml`)**: builds
+`assembleDebug` in the cloud on GitHub's own runner, no local Android SDK at
+all. Trigger it manually from the repo's **Actions tab → "Build Android
+APK" → Run workflow** (or `gh workflow run android-build.yml` with the
+GitHub CLI), wait for it to finish, then download the `smartgrowth-debug-apk`
+artifact from the completed run — that's the installable file. Copy it to
+the phone (email/Drive/USB/whatever) and open it; Android will prompt to
+allow installing from that source the first time. It's `workflow_dispatch`-
+only (not on every push) since Android builds cost real CI minutes and
+nothing is published anywhere yet — add a `push:` trigger later if you want
+it automatic.
+
+**Option B — Android Studio locally**, if you have it installed (also the
+only option once you need to actually *develop/debug* the native side, not
+just produce a build):
 
 ```bash
 npm run cap:sync        # rebuilds dist/ (capacitor mode) and copies it into android/
@@ -158,10 +174,11 @@ npm run cap:open:android  # opens the project in Android Studio
 # connected device/emulator.
 ```
 
-Re-run `npm run cap:sync` after every code change you want reflected in the
-app — unlike the web deploy, there's no service worker auto-update story
-here; the native build only picks up whatever was in `dist/` the last time
-`cap sync` ran.
+Either way, re-run the sync (`npm run cap:sync`, or re-trigger the Actions
+workflow) after every code change you want reflected in the app — unlike
+the web deploy, there's no service worker auto-update story here; the
+native build only picks up whatever was in `dist/` the last time `cap sync`
+ran.
 
 **Not yet done** (left for whoever actually builds/ships this): custom app
 icon/splash screen (still Capacitor's default placeholders — generating
