@@ -142,7 +142,10 @@ export default function ChildDashboard() {
         </div>
       </div>
 
-      {records.length > 0 && child && (
+      {/* kader_nakes/admin-only — the printed report is a keepsake meant to
+          be handed to a parent, not something a parent needs to generate
+          for themselves off their own dashboard. */}
+      {records.length > 0 && child && canEditDelete && (
         <div className="flex flex-wrap items-center gap-2">
           <button onClick={handleDownloadReport} disabled={generatingReport} className="btn-ghost">
             {generatingReport ? (
