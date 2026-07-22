@@ -167,6 +167,7 @@ export default function ChildDashboard() {
         <LinkCodeCard
           code={child.linkCode}
           childName={child.name}
+          publicToken={child.publicToken}
           onRegenerate={canEditDelete ? handleRegenerateLinkCode : undefined}
         />
       )}

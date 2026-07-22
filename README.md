@@ -19,19 +19,17 @@ Fakultas Ilmu Komputer × Fakultas Kedokteran, President University.
 - **CRUD lengkap** untuk data balita dan riwayat pengukuran pertumbuhan,
   lengkap dengan grafik tinggi & berat terhadap usia, foto dokumentasi
   opsional, dan laporan PDF per anak.
-- **Dashboard orang tua tanpa login (QR/link)** — tiap balita punya link/QR
-  unik (`public_token`) yang bisa dibagikan kader ke orang tua; dibuka lewat
-  browser HP tanpa perlu akun, langsung tampil hasil terakhir, grafik, dan
-  edukasi gizi sesuai status anaknya — cocok untuk sekadar melihat hasil
-  tanpa mendaftar.
-- **Pengukuran mandiri oleh orang tua** — orang tua yang mendaftar akun dan
-  menautkan diri ke balitanya (kode 6-digit dari kader/nakes, menu "Tautkan
-  Balita") bisa mencatat sendiri berat/tinggi badan di antara kunjungan
-  Posyandu lewat form ringkas "Pengukuran Mandiri". Tetap read-only untuk
-  data yang dicatat kader/nakes (tidak bisa edit/hapus riwayat, tidak bisa
-  mendaftarkan balita baru) — pengukuran mandiri otomatis ditandai "Orang
-  Tua (Mandiri)" di riwayat supaya kader/nakes tahu mana yang tercatat di
-  posyandu vs. di rumah.
+- **Satu QR untuk orang tua, dua pilihan** — tiap balita punya satu QR
+  ("Bagikan ke Orang Tua" di dashboard balita). Scan langsung menampilkan
+  pilihan: **Lihat Saja** (buka dashboard baca-saja tanpa akun — hasil
+  terakhir, grafik, edukasi gizi) atau **Daftar & Catat Mandiri** (daftar
+  akun sekali jalan, otomatis tertaut ke balitanya, langsung bisa mencatat
+  berat/tinggi badan sendiri di antara kunjungan Posyandu lewat form ringkas
+  "Pengukuran Mandiri"). Pengukuran mandiri tetap read-only untuk data yang
+  dicatat kader/nakes (tidak bisa edit/hapus riwayat, tidak bisa
+  mendaftarkan balita baru) dan otomatis ditandai "Orang Tua (Mandiri)" di
+  riwayat supaya kader/nakes tahu mana yang tercatat di posyandu vs. di
+  rumah.
 - **3 tab hasil per balita** — Hasil Pengukuran, Rekomendasi (ringkasan
   Z-score HAZ/WHZ/WAZ, rekomendasi dari kuesioner, dan catatan petugas dalam
   satu tempat), dan Edukasi (tips + contoh makanan/minuman konkret sesuai
@@ -76,10 +74,10 @@ flowchart TD
     H -->|Tidak| I[Ditolak, minta periksa ulang input]
     H -->|Ya| J["score_risk(): skor 0-100<br/>Status: Normal / Berisiko / Stunting / Malnutrisi"]
     J --> K["Tab Hasil + Rekomendasi + Edukasi<br/>(grafik tinggi & berat, tips, contoh makanan)"]
-    K --> L["Bagikan link/QR (public_token) ke orang tua"]
-    L --> M["Orang tua buka #/p/:token di HP<br/>(tanpa login) — lihat tab yang sama"]
-    E --> N["Bagikan QR/kode tautan (link_code)"]
-    N --> O["Orang tua scan QR<br/>→ daftar akun + tertaut sekaligus"]
+    E --> L["Bagikan 1 QR &quot;Bagikan ke Orang Tua&quot;"]
+    L --> M{"Orang tua scan QR<br/>→ pilih salah satu"}
+    M -->|Lihat Saja| N["#/p/:token di HP<br/>(tanpa login) — lihat tab yang sama"]
+    M -->|Daftar & Catat Mandiri| O["Daftar akun<br/>→ otomatis tertaut ke balita"]
     O --> P["Pengukuran Mandiri<br/>(form ringkas: tanggal/berat/tinggi/catatan)"]
     P --> G
 ```
@@ -90,8 +88,8 @@ flowchart TD
 4. **Perhitungan otomatis** — backend menghitung HAZ, WHZ, WAZ, dan HCZ (kalau lingkar kepala diisi) dari tabel resmi WHO Child Growth Standards. Nilai yang tidak masuk akal (indikasi salah input) ditolak sebelum sempat tersimpan.
 5. **Status risiko 4-tier** — Normal / Berisiko / Stunting / Malnutrisi, dari skor tertimbang `score_risk()` yang menjumlahkan kontribusi tiap indikator, bukan cuma ambil yang paling parah. Tren 2 pengukuran berturut-turut berat tidak naik (2T) memicu banner peringatan tambahan.
 6. **Tab Hasil / Rekomendasi / Edukasi** — grafik tinggi & berat terhadap usia dan riwayat pengukuran (Hasil); ringkasan Z-score HAZ/WHZ/WAZ, rekomendasi dari kuesioner (atau konfirmasi "tidak ada faktor risiko" kalau memang tidak ada), dan catatan bebas petugas dalam satu tempat (Rekomendasi); serta tips gizi + contoh makanan/minuman konkret sesuai status anak (Edukasi) — tab yang sama persis dipakai di dashboard kader/nakes maupun dashboard orang tua.
-7. **Bagikan ke orang tua** — kader/nakes membagikan link/QR unik per balita (`public_token`); orang tua membukanya langsung dari browser HP tanpa perlu akun atau login untuk melihat ketiga tab di atas.
-8. **Tautkan Balita & Pengukuran Mandiri** — kader/nakes membagikan QR "Tautkan Akun Orang Tua" per balita (dashboard balita); orang tua tinggal **scan sekali** untuk sekaligus mendaftar akun *dan* tertaut ke balitanya — tidak ada langkah tautkan manual terpisah lagi (kode 6-digit tetap ada sebagai alternatif kalau QR tidak bisa dipindai). Setelah itu bisa mencatat pengukuran sendiri di antara kunjungan Posyandu lewat menu "Pengukuran Mandiri" — hasilnya langsung dihitung Z-score-nya sama seperti input kader/nakes, dan otomatis ditandai "Orang Tua (Mandiri)" di riwayat.
+7. **Bagikan ke orang tua (1 QR, 2 pilihan)** — kader/nakes membagikan satu QR "Bagikan ke Orang Tua" per balita (kode 6-digit tetap ada sebagai alternatif manual kalau QR tidak bisa dipindai). Scan memunculkan pilihan: **Lihat Saja** — buka dashboard baca-saja tanpa akun/login, langsung lihat ketiga tab (Hasil, Rekomendasi, Edukasi); atau **Daftar & Catat Mandiri** — daftar akun sekali jalan, otomatis tertaut ke balitanya, tanpa langkah tautkan manual terpisah.
+8. **Pengukuran Mandiri** — orang tua yang memilih daftar bisa mencatat berat/tinggi badan sendiri di antara kunjungan Posyandu lewat form ringkas "Pengukuran Mandiri" — hasilnya langsung dihitung Z-score-nya sama seperti input kader/nakes, dan otomatis ditandai "Orang Tua (Mandiri)" di riwayat.
 9. **Riwayat, Jadwal, & Laporan** — riwayat pengukuran lintas semua balita, jadwal kunjungan Posyandu berikutnya, dan laporan PDF per balita (bisa diunduh atau langsung dicetak).
 
 ## Struktur repo

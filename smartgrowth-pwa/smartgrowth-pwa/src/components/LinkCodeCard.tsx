@@ -2,40 +2,46 @@ import { useEffect, useState } from 'react';
 import { RefreshCw, Users } from 'lucide-react';
 import { CopyButton } from '@/components/CopyButton';
 
-// #/register?linkCode=...&role=orangtua (HashRouter) — the ONE QR shown to
-// parents. Scanning it registers a new orangtua account and links it to
-// this child in a single submit (see Register.tsx's
-// autoLinking/prefilledLinkCode handling), landing straight on the child's
-// own dashboard — already-registered parents (e.g. scanning a sibling's QR)
-// skip the form entirely and just get linked. Same deep-link-QR pattern as
-// KodePosyandu.tsx's kader_nakes invite. This replaced two separate cards/
-// QRs (one read-only no-login link, one account-link code) — a parent no
-// longer has to pick which one to scan.
-function registrationLink(code: string): string {
-  return `${window.location.origin}${window.location.pathname}#/register?linkCode=${code}&role=orangtua`;
+// #/register?linkCode=...&role=orangtua&viewToken=... (HashRouter) — the
+// ONE QR shown to parents. Scanning it lands on Register.tsx, which offers
+// a choice (see its "picker" mode): "Lihat Saja" jumps straight to the
+// read-only #/p/:token dashboard, no account; "Daftar" registers a new
+// orangtua account and links it to this child in a single submit, landing
+// on the child's own (fuller) dashboard — already-registered parents (e.g.
+// scanning a sibling's QR) skip the picker/form entirely and just get
+// linked. Same deep-link-QR pattern as KodePosyandu.tsx's kader_nakes
+// invite. `viewToken` is omitted from the URL if publicToken isn't set
+// (Register.tsx just won't offer the "Lihat Saja" option in that case).
+function registrationLink(code: string, publicToken?: string): string {
+  const base = `${window.location.origin}${window.location.pathname}#/register?linkCode=${code}&role=orangtua`;
+  return publicToken ? `${base}&viewToken=${publicToken}` : base;
 }
 
 interface Props {
   code: string;
   childName: string;
+  // Embedded into the QR so Register.tsx can offer "Lihat Saja" (no
+  // account) alongside "Daftar" — omitted from the QR link if the child has
+  // no public_token yet.
+  publicToken?: string;
   // Only passed where regeneration makes sense (ChildDashboard).
   onRegenerate?: () => void;
 }
 
-export function LinkCodeCard({ code, childName, onRegenerate }: Props) {
+export function LinkCodeCard({ code, childName, publicToken, onRegenerate }: Props) {
   const [qrDataUrl, setQrDataUrl] = useState('');
 
   useEffect(() => {
     let cancelled = false;
     import('qrcode').then(({ default: QRCode }) =>
-      QRCode.toDataURL(registrationLink(code), { margin: 1, width: 180 }).then((url) => {
+      QRCode.toDataURL(registrationLink(code, publicToken), { margin: 1, width: 180 }).then((url) => {
         if (!cancelled) setQrDataUrl(url);
       })
     );
     return () => {
       cancelled = true;
     };
-  }, [code]);
+  }, [code, publicToken]);
 
   return (
     <div className="card p-4 space-y-3">
@@ -44,8 +50,8 @@ export function LinkCodeCard({ code, childName, onRegenerate }: Props) {
         Bagikan ke Orang Tua
       </p>
       <p className="text-xs text-gray-500">
-        Orang tua {childName} scan QR ini untuk daftar akun dan langsung masuk ke dashboard balitanya — bisa
-        langsung lihat hasil pengukuran, rekomendasi, dan mencatat pengukuran mandiri sendiri.
+        Orang tua {childName} scan QR ini, lalu bisa pilih: lihat saja hasil &amp; rekomendasi tanpa daftar, atau
+        daftar akun sekalian supaya bisa mencatat pengukuran mandiri sendiri.
       </p>
       <div className="flex items-center gap-4">
         {qrDataUrl ? (

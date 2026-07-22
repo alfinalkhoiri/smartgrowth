@@ -185,13 +185,15 @@ combined multi-line chart.
 
 There used to be a dedicated `components/ParentDashboardQr.tsx` rendering
 this link as its own QR card in both `Skrining.tsx` and `ChildDashboard.tsx`
-— removed once Fase 1's registration flow got fast enough (one scan, see
-below) that showing parents **two different QR codes** to choose between
-("view only" vs. "register") was just confusing, not two genuinely useful
-options. The one remaining place this route is still reachable from is the
-QR printed on the A5 report (`lib/pdf.ts`) — a physical keepsake
-deliberately keeps the no-login link, since forcing whoever picks it up
-later to register just to check a number would defeat the point of a
+— removed once it became clear that showing parents **two different QR
+images** to choose between ("view only" vs. "register") was just confusing
+(which one do I scan?), not two genuinely useful options. The choice itself
+is still offered — just as an in-app picker after a single scan, see Fase 1
+below — rather than as two physical QR codes. The one remaining place this
+route (`#/p/:token`) is still reached directly (no picker) is the QR
+printed on the A5 report (`lib/pdf.ts`) — a physical keepsake deliberately
+keeps the no-login link, since forcing whoever picks it up later to
+register just to check a number would defeat the point of a
 disposable/handed-around paper copy.
 
 ### Fase 1: akun orang tua & pengukuran mandiri
@@ -199,25 +201,37 @@ disposable/handed-around paper copy.
 The first version of this flow made a parent register, land on an empty
 Beranda, then separately visit a "Tautkan Balita" page and type a 6-digit
 code by hand — three steps for what's conceptually one action ("this is my
-child's account"). It's now collapsed into one: scanning a QR both
-registers the account **and** links it, matching the same
+child's account"). It's now collapsed into one scan, matching the same
 deep-link-QR pattern `KodePosyandu.tsx` already used for kader_nakes
 invites — and it's the **one and only** "share with parent" QR shown
 anywhere in the app now (see the note above about the removed
-`ParentDashboardQr.tsx`).
+`ParentDashboardQr.tsx`). What that one scan leads to depends on a choice
+made *after* scanning, not on which QR was scanned (see the picker below).
 
 `components/LinkCodeCard.tsx` — rendered in `ChildDashboard.tsx` as the
 single "Bagikan ke Orang Tua" card whenever `child.linkCode` is present
 (kader_nakes/admin, or an orangtua *already* linked to that child, so they
 can hand it on to a co-parent). Lazy-loads `qrcode` to render a QR encoding
-`#/register?linkCode=<code>&role=orangtua`, plus the plain 6-digit code as a
-manual fallback (read aloud, or typed in if scanning isn't possible) with a
-copy button and, when `canEditDelete()`, a "Kode Baru" regenerate button
-(`growthApi.regenerateLinkCode()` → `POST /children/<id>/regenerate-code/`).
+`#/register?linkCode=<code>&role=orangtua&viewToken=<child.publicToken>`
+(the `viewToken` param is omitted if the child has no `public_token` yet),
+plus the plain 6-digit code as a manual fallback (read aloud, or typed in
+if scanning isn't possible) with a copy button and, when `canEditDelete()`,
+a "Kode Baru" regenerate button (`growthApi.regenerateLinkCode()` →
+`POST /children/<id>/regenerate-code/`).
 
-`pages/Register.tsx` reads that `linkCode` query param (distinct from the
-existing `code` param used for the kader_nakes invite-code QR — the two
-never appear together). When present: the role `<select>` and the
+`pages/Register.tsx` reads both the `linkCode` and `viewToken` query params
+(distinct from the existing `code` param used for the kader_nakes
+invite-code QR — the three never appear together). When both `linkCode`
+and `viewToken` are present and the visitor **isn't already authenticated**,
+it renders a picker (`mode: 'choose' | 'form'`, defaulting to `'choose'`)
+instead of jumping straight to the form: **"Lihat Saja"** navigates to
+`/p/<viewToken>` (the same no-login dashboard Fase 2 always used, no
+account created); **"Daftar & Catat Mandiri"** switches to `'form'` mode.
+If `viewToken` is missing (child has no `public_token`), there's nothing to
+offer a "just look" link to, so it skips the picker and goes straight to
+the form — same as before this change.
+
+Choosing (or defaulting straight to) the form: the role `<select>` and the
 kader_nakes-only "Lokasi Klinik/Posyandu" field are hidden entirely (role is
 fixed to `orangtua`, unambiguous from having scanned a *specific child's*
 QR), and a banner explains the account will auto-link after registering.
@@ -226,9 +240,10 @@ QR), and a banner explains the account will auto-link after registering.
 intermediate page. If a user who's **already** authenticated opens the same
 link (e.g. an existing parent scanning a second child's QR for a sibling),
 a `useEffect` keyed off `autoLinking = Boolean(prefilledLinkCode) &&
-authApi.isAuthenticated()` skips the registration form entirely and redeems
-the code right away, so the exact same QR works whether or not the scanning
-parent already has an account.
+authApi.isAuthenticated()` skips the picker and the form entirely and
+redeems the code right away — an account holder scanning a new child's QR
+almost certainly wants to link it, not view it read-only when they already
+have full access.
 
 `pages/LinkChild.tsx` (route `/tautkan-balita`) — still exists as the manual
 fallback (QR didn't scan, or linking a second child without wanting to

@@ -1,7 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import axios from 'axios';
-import { Activity, Loader2, QrCode, UserPlus } from 'lucide-react';
+import { Activity, Eye, Loader2, QrCode, UserPlus } from 'lucide-react';
 import { authApi, type PublicRole } from '@/api/auth';
 import { growthApi } from '@/api/growth';
 import { firstErrorMessage, parseFieldErrors } from '@/api/errors';
@@ -16,11 +16,17 @@ export default function Register() {
   const [searchParams] = useSearchParams();
   // From the admin "Kode Posyandu" QR (?code=...&role=kader_nakes).
   const prefilledCode = searchParams.get('code') ?? '';
-  // From a child's own "Kode Tautan Akun Orang Tua" QR
-  // (?linkCode=...&role=orangtua, see LinkCodeCard.tsx) — scanning it both
-  // registers AND links in one step, instead of registering then having to
-  // separately visit /tautkan-balita and type a code by hand.
+  // From a child's own "Bagikan ke Orang Tua" QR (?linkCode=...&role=
+  // orangtua&viewToken=..., see LinkCodeCard.tsx) — scanning it lands on
+  // the picker below instead of registering immediately, so a parent who
+  // just wants to check results isn't forced to create an account.
   const prefilledLinkCode = searchParams.get('linkCode') ?? '';
+  const viewToken = searchParams.get('viewToken') ?? '';
+
+  // Only shown when there's actually a "just look" option to offer — if the
+  // child has no public_token yet, viewToken is empty and this skips
+  // straight to the registration form (mode stays 'form').
+  const [mode, setMode] = useState<'choose' | 'form'>(prefilledLinkCode && viewToken ? 'choose' : 'form');
 
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -108,6 +114,58 @@ export default function Register() {
         <div className="flex items-center gap-2 text-gray-400 text-sm">
           <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
           Menautkan balita ke akun Anda...
+        </div>
+      </div>
+    );
+  }
+
+  if (mode === 'choose') {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-4">
+        <div className="w-full max-w-sm space-y-6">
+          <div className="flex flex-col items-center gap-2 text-center">
+            <span className="flex items-center justify-center h-12 w-12 rounded-2xl bg-gradient-primary shadow-soft">
+              <Activity className="h-6 w-6 text-white" aria-hidden="true" />
+            </span>
+            <h1 className="text-xl font-display font-bold text-gray-900">SmartGrowth</h1>
+            <p className="text-sm text-gray-500">Pilih salah satu untuk melanjutkan</p>
+          </div>
+
+          <div className="space-y-3">
+            <button
+              type="button"
+              onClick={() => navigate(`/p/${viewToken}`)}
+              className="w-full text-left card p-4 space-y-1 hover:border-primary/40 border-2 border-transparent"
+            >
+              <p className="flex items-center gap-1.5 font-display font-bold text-gray-900">
+                <Eye className="h-4 w-4 text-accent" aria-hidden="true" />
+                Lihat Saja
+              </p>
+              <p className="text-xs text-gray-500">
+                Lihat hasil pengukuran &amp; rekomendasi balita, tanpa perlu daftar akun.
+              </p>
+            </button>
+            <button
+              type="button"
+              onClick={() => setMode('form')}
+              className="w-full text-left card p-4 space-y-1 hover:border-primary/40 border-2 border-transparent"
+            >
+              <p className="flex items-center gap-1.5 font-display font-bold text-gray-900">
+                <UserPlus className="h-4 w-4 text-accent" aria-hidden="true" />
+                Daftar &amp; Catat Mandiri
+              </p>
+              <p className="text-xs text-gray-500">
+                Daftar akun supaya bisa mencatat pengukuran sendiri di rumah, di antara kunjungan Posyandu.
+              </p>
+            </button>
+          </div>
+
+          <p className="text-sm text-gray-500 text-center">
+            Sudah punya akun?{' '}
+            <Link to="/login" className="text-primary font-medium hover:underline">
+              Masuk
+            </Link>
+          </p>
         </div>
       </div>
     );
