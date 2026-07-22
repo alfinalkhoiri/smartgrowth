@@ -1,8 +1,8 @@
 # SmartGrowth PWA
 
-React + TypeScript + Vite PWA scaffold for the SmartGrowth telescreening app.
-Structured so it can be wrapped into a native app with **Capacitor** later
-without rewriting the UI.
+React + TypeScript + Vite PWA for the SmartGrowth telescreening app —
+also ships as a native Android app via **Capacitor** (`android/`, see
+"Native Android app" below), same UI/code, no rewrite.
 
 ## Structure
 
@@ -78,7 +78,9 @@ notices a deploy without needing to navigate anywhere first.
    avoids that, and is Capacitor's own recommended pattern for exactly this
    reason.
 3. **API base URL is env-driven** (`VITE_API_BASE_URL`), not hardcoded to `/api`,
-   because a native WebView has no dev-server proxy to fall back on.
+   because a native WebView has no dev-server proxy to fall back on — this is
+   exactly what `.env.capacitor` sets for the real Android build now (see
+   "Native Android app" below), not just a hypothetical.
 4. **All state/data logic lives in `api/` and `features/`, separate from UI** —
    if you ever *do* need to rewrite the UI in React Native, this layer moves over
    almost unchanged.
@@ -121,21 +123,55 @@ npm run preview   # serves dist/ at :4173, proxies /api like the dev server —
 # output in dist/, deployable to any static host (installable, offline-capable)
 ```
 
-## Upgrading to a native app later (Capacitor)
+## Native Android app (Capacitor)
 
-When you're ready to produce an installable APK/IPA for a competition demo:
+Set up and committed — `android/` is a real, buildable Android Studio
+project, not just scaffolding notes. What's in place:
+
+- **`capacitor.config.ts`** — `appId: 'com.smartgrowth.app'`, `webDir: 'dist'`,
+  no `server.url` (deliberately — the built `dist/` assets are bundled into
+  the app itself, Capacitor's default, rather than loading a remote page, so
+  the app shell works offline the same way the PWA already does).
+- **`.env.capacitor`** — sets `VITE_API_BASE_URL=https://smartgrowth.f-mc.my.id/api`
+  for native builds only (checked into git; it's a public URL, not a
+  secret). The regular web build never reads this file — it still resolves
+  the relative `/api` default in `src/api/client.ts` against nginx.
+- **`npm run build:capacitor`** — `tsc -b && vite build --mode capacitor`,
+  i.e. the normal build but loading `.env.capacitor` instead of
+  `.env`/`.env.production`.
+- **`npm run cap:sync`** — `build:capacitor` then `npx cap sync`, i.e. "get
+  the native project's bundled assets up to date with the latest code".
+- **Backend CORS**: `CORS_ALLOWED_ORIGINS` on the VPS now also includes
+  `https://localhost` — Capacitor's Android WebView serves local assets from
+  that origin by default (`androidScheme`), so the API needs to allow-list
+  it same as the deployed frontend's own origin (see backend README's
+  `.env.example` for the annotated production block).
+
+To actually build/run the APK, from a machine with **Android Studio +
+Android SDK installed** (this repo's dev/CI environment doesn't have
+either, so that step can't happen here):
 
 ```bash
-npm install @capacitor/core @capacitor/cli
-npx cap init smartgrowth id.ac.presuniv.smartgrowth
-npm run build
-npx cap add android   # and/or: npx cap add ios
-npx cap sync
-npx cap open android  # opens Android Studio to build the APK
+npm run cap:sync        # rebuilds dist/ (capacitor mode) and copies it into android/
+npm run cap:open:android  # opens the project in Android Studio
+# From Android Studio: Build > Build Bundle(s) / APK(s), or just Run ▶ on a
+# connected device/emulator.
 ```
 
-No UI code changes needed for this step — only `capacitor.config.ts` gets added,
-and `VITE_API_BASE_URL` must point to your deployed backend (not localhost).
+Re-run `npm run cap:sync` after every code change you want reflected in the
+app — unlike the web deploy, there's no service worker auto-update story
+here; the native build only picks up whatever was in `dist/` the last time
+`cap sync` ran.
+
+**Not yet done** (left for whoever actually builds/ships this): custom app
+icon/splash screen (still Capacitor's default placeholders — generating
+proper multi-density Android icons is a separate task, e.g. via
+`@capacitor/assets`), release signing config (`android/app/build.gradle`'s
+`signingConfigs`, needed before a Play Store upload), and a native
+`Camera`/`Filesystem` plugin if the photo-upload field in `Skrining.tsx`
+ever needs a nicer in-app camera experience than the plain HTML
+`<input type="file">` it uses today (which does already work via the OS's
+own picker/camera chooser without any native plugin).
 
 ## Auth
 
