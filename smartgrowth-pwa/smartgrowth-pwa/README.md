@@ -205,14 +205,49 @@ posyandu visits — writing data needs an authenticated, auditable identity
 
 ### Fase 1: akun orang tua & pengukuran mandiri
 
-`pages/LinkChild.tsx` (route `/tautkan-balita`) — orangtua-only page (guards
-on `authApi.isOrangtua()`, same pattern as the admin-only pages) with a
+The first version of this flow made a parent register, land on an empty
+Beranda, then separately visit a "Tautkan Balita" page and type a 6-digit
+code by hand — three steps for what's conceptually one action ("this is my
+child's account"). It's now collapsed into one: scanning a QR both
+registers the account **and** links it, matching the same
+deep-link-QR pattern `KodePosyandu.tsx` already used for kader_nakes
+invites.
+
+`components/LinkCodeCard.tsx` — the kader/nakes-facing counterpart to
+`ParentDashboardQr.tsx`, rendered in `ChildDashboard.tsx` right below the QR
+card whenever `child.linkCode` is present (kader_nakes/admin, or an
+orangtua *already* linked to that child, so they can hand it on to a
+co-parent). Lazy-loads `qrcode` (same pattern as `ParentDashboardQr.tsx`)
+to render a QR encoding `#/register?linkCode=<code>&role=orangtua`, plus the
+plain 6-digit code as a manual fallback (read aloud, or typed in if scanning
+isn't possible) with a copy button and, when `canEditDelete()`, a "Kode
+Baru" regenerate button (`growthApi.regenerateLinkCode()` →
+`POST /children/<id>/regenerate-code/`).
+
+`pages/Register.tsx` reads that `linkCode` query param (distinct from the
+existing `code` param used for the kader_nakes invite-code QR — the two
+never appear together). When present: the role `<select>` and the
+kader_nakes-only "Lokasi Klinik/Posyandu" field are hidden entirely (role is
+fixed to `orangtua`, unambiguous from having scanned a *specific child's*
+QR), and a banner explains the account will auto-link after registering.
+`handleSubmit()` calls `authApi.register()` then immediately
+`growthApi.linkChild(linkCode)`, landing directly on `/child/<id>` — no
+intermediate page. If a user who's **already** authenticated opens the same
+link (e.g. an existing parent scanning a second child's QR for a sibling),
+a `useEffect` keyed off `autoLinking = Boolean(prefilledLinkCode) &&
+authApi.isAuthenticated()` skips the registration form entirely and redeems
+the code right away, so the exact same QR works whether or not the scanning
+parent already has an account.
+
+`pages/LinkChild.tsx` (route `/tautkan-balita`) — still exists as the manual
+fallback (QR didn't scan, or linking a second child without wanting to
+re-register): orangtua-only page (guards on `authApi.isOrangtua()`) with a
 single 6-digit numeric input (`inputMode="numeric"`, strips non-digits
 client-side) that calls `growthApi.linkChild(code)` →
 `POST /api/children/link/`. On success it shows a confirmation with the
 linked child's name and a button to Beranda, rather than auto-redirecting —
-a parent linking a second child (twins, siblings) benefits from seeing
-which child just got attached before navigating away.
+useful here since, unlike the QR path, there's no single child context to
+jump straight into.
 
 `pages/PengukuranMandiri.tsx` (route `/pengukuran-mandiri`) — orangtua-only,
 deliberately a separate, much simpler component from `Skrining.tsx` rather
@@ -231,16 +266,6 @@ An empty-children state links out to `/tautkan-balita` instead of showing a
 blank form. Both `ChildDashboard.tsx`'s header ("+ Pengukuran Mandiri"
 button, shown via `canSelfMeasure()`) and `Dashboard.tsx`'s hero CTA branch
 on `authApi.isOrangtua()` to point here instead of `/skrining`.
-
-`components/LinkCodeCard.tsx` — the kader/nakes-facing counterpart to
-`ParentDashboardQr.tsx`: displays `child.linkCode` as plain text (no QR
-needed, it's a short numeric code meant to be read aloud or typed once) with
-a copy button and, when `canEditDelete()`, a "Kode Baru" regenerate button
-(`growthApi.regenerateLinkCode()` → `POST /children/<id>/regenerate-code/`).
-Rendered in `ChildDashboard.tsx` right below the QR card whenever
-`child.linkCode` is present — which per the backend's visibility rule is
-kader_nakes/admin, or an orangtua *already* linked to that specific child
-(so they can hand it on to a co-parent).
 
 `AppLayout.tsx`'s nav swaps in a dedicated `orangtuaNav` array (not just
 conditionally hiding/showing items from `baseNav`) when `authApi.isOrangtua()`

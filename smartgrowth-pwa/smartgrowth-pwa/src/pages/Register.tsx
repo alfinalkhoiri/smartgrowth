@@ -1,8 +1,9 @@
-import { useState, type FormEvent } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import axios from 'axios';
 import { Activity, Loader2, QrCode, UserPlus } from 'lucide-react';
 import { authApi, type PublicRole } from '@/api/auth';
+import { growthApi } from '@/api/growth';
 import { firstErrorMessage, parseFieldErrors } from '@/api/errors';
 import { FieldError } from '@/components/FieldError';
 
@@ -12,11 +13,14 @@ const roleLabels: Record<PublicRole, string> = {
 };
 
 export default function Register() {
-  // Prefilled when arriving via the QR/link from the admin "Kode Posyandu"
-  // page (?code=...&role=kader_nakes) — HashRouter reads the query string
-  // from the part after the '#' just like any other route.
   const [searchParams] = useSearchParams();
+  // From the admin "Kode Posyandu" QR (?code=...&role=kader_nakes).
   const prefilledCode = searchParams.get('code') ?? '';
+  // From a child's own "Kode Tautan Akun Orang Tua" QR
+  // (?linkCode=...&role=orangtua, see LinkCodeCard.tsx) — scanning it both
+  // registers AND links in one step, instead of registering then having to
+  // separately visit /tautkan-balita and type a code by hand.
+  const prefilledLinkCode = searchParams.get('linkCode') ?? '';
 
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -28,8 +32,25 @@ export default function Register() {
   const [error, setError] = useState('');
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
+  // True while an already-logged-in orangtua's linkCode QR scan is being
+  // auto-redeemed (e.g. linking a second/third child) — skips the whole
+  // registration form since they already have an account.
+  const [autoLinking, setAutoLinking] = useState(Boolean(prefilledLinkCode) && authApi.isAuthenticated());
   const navigate = useNavigate();
   const inputClass = (field: string) => `field-input${fieldErrors[field] ? ' field-input-error' : ''}`;
+
+  useEffect(() => {
+    if (!autoLinking) return;
+    growthApi
+      .linkChild(prefilledLinkCode)
+      .then((res) => navigate(`/child/${res.data.id}`, { replace: true }))
+      .catch((err) => {
+        const message = axios.isAxiosError(err) ? firstErrorMessage(err.response?.data) : null;
+        setError(message ?? 'Gagal menautkan balita. Kode mungkin sudah tidak berlaku.');
+        setAutoLinking(false);
+      });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoLinking]);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -46,9 +67,23 @@ export default function Register() {
         posyanduLocation: posyanduLocation || undefined,
         ...(role === 'kader_nakes' ? { inviteCode } : {})
       });
-      // Orangtua baru belum tertaut ke balita mana pun — kode 6-digit dari
-      // kader/nakes itulah yang menautkannya, jadi arahkan langsung ke
-      // halaman itu alih-alih Beranda yang masih kosong.
+      if (role === 'orangtua' && prefilledLinkCode) {
+        // Scanned a child's QR — link right away instead of sending them to
+        // /tautkan-balita to type the same code in again.
+        try {
+          const res = await growthApi.linkChild(prefilledLinkCode);
+          navigate(`/child/${res.data.id}`, { replace: true });
+          return;
+        } catch {
+          // Registration itself succeeded — don't strand them on an error
+          // page over just the link step. /tautkan-balita lets them retry
+          // (or enter a different code) with an account that already exists.
+          navigate('/tautkan-balita', { replace: true });
+          return;
+        }
+      }
+      // Orangtua tanpa QR (mis. buka /register langsung) belum tertaut ke
+      // balita mana pun — arahkan ke halaman tautkan manual.
       navigate(role === 'orangtua' ? '/tautkan-balita' : '/', { replace: true });
     } catch (err) {
       if (axios.isAxiosError(err) && err.response?.data) {
@@ -67,6 +102,17 @@ export default function Register() {
     }
   };
 
+  if (autoLinking) {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-4">
+        <div className="flex items-center gap-2 text-gray-400 text-sm">
+          <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+          Menautkan balita ke akun Anda...
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen flex items-center justify-center p-4">
       <div className="w-full max-w-sm space-y-6">
@@ -75,7 +121,9 @@ export default function Register() {
             <Activity className="h-6 w-6 text-white" aria-hidden="true" />
           </span>
           <h1 className="text-xl font-display font-bold text-gray-900">Daftar Akun SmartGrowth</h1>
-          <p className="text-sm text-gray-500">Untuk kader posyandu &amp; tenaga kesehatan</p>
+          <p className="text-sm text-gray-500">
+            {prefilledLinkCode ? 'Untuk orang tua/wali balita' : 'Untuk kader posyandu & tenaga kesehatan'}
+          </p>
         </div>
 
         <form onSubmit={handleSubmit} className="card p-6 space-y-4">
@@ -88,6 +136,12 @@ export default function Register() {
             <p className="flex items-center gap-1.5 text-sm text-primary bg-primary-light/60 rounded-lg px-3 py-2">
               <QrCode className="h-4 w-4 shrink-0" aria-hidden="true" />
               Kode posyandu sudah terisi dari QR — tinggal lengkapi username &amp; password.
+            </p>
+          )}
+          {prefilledLinkCode && (
+            <p className="flex items-center gap-1.5 text-sm text-primary bg-primary-light/60 rounded-lg px-3 py-2">
+              <QrCode className="h-4 w-4 shrink-0" aria-hidden="true" />
+              Balita terdeteksi dari QR — lengkapi data di bawah, akun akan otomatis tertaut setelah daftar.
             </p>
           )}
           <div>
@@ -153,41 +207,50 @@ export default function Register() {
             />
             <FieldError message={fieldErrors.phoneNumber} />
           </div>
-          <div>
-            <label htmlFor="register-posyandu-location" className="field-label">
-              Lokasi Klinik/Posyandu
-            </label>
-            <input
-              id="register-posyandu-location"
-              className={inputClass('posyanduLocation')}
-              value={posyanduLocation}
-              onChange={(e) => setPosyanduLocation(e.target.value)}
-              placeholder="cth: Posyandu Melati"
-            />
-            <FieldError message={fieldErrors.posyanduLocation} />
-          </div>
-          <div>
-            <label htmlFor="register-role" className="field-label">
-              Peran
-            </label>
-            <select
-              id="register-role"
-              className="field-input"
-              value={role}
-              onChange={(e) => setRole(e.target.value as PublicRole)}
-            >
-              {(Object.keys(roleLabels) as PublicRole[]).map((r) => (
-                <option key={r} value={r}>
-                  {roleLabels[r]}
-                </option>
-              ))}
-            </select>
-            <p className="text-xs text-gray-400 mt-1">
-              {role === 'orangtua'
-                ? 'Setelah daftar, tautkan akun ke balita Anda pakai kode 6-digit dari kader/nakes agar bisa mencatat pengukuran mandiri.'
-                : 'Bisa melihat & mencatat data semua balita di posyandu.'}
+          {role === 'kader_nakes' && (
+            <div>
+              <label htmlFor="register-posyandu-location" className="field-label">
+                Lokasi Klinik/Posyandu
+              </label>
+              <input
+                id="register-posyandu-location"
+                className={inputClass('posyanduLocation')}
+                value={posyanduLocation}
+                onChange={(e) => setPosyanduLocation(e.target.value)}
+                placeholder="cth: Posyandu Melati"
+              />
+              <FieldError message={fieldErrors.posyanduLocation} />
+            </div>
+          )}
+          {prefilledLinkCode ? (
+            <p className="text-xs text-gray-400">
+              Mendaftar sebagai <span className="font-medium text-gray-600">Orang Tua</span> — otomatis tertaut ke
+              balita di atas setelah daftar, langsung bisa mencatat pengukuran mandiri.
             </p>
-          </div>
+          ) : (
+            <div>
+              <label htmlFor="register-role" className="field-label">
+                Peran
+              </label>
+              <select
+                id="register-role"
+                className="field-input"
+                value={role}
+                onChange={(e) => setRole(e.target.value as PublicRole)}
+              >
+                {(Object.keys(roleLabels) as PublicRole[]).map((r) => (
+                  <option key={r} value={r}>
+                    {roleLabels[r]}
+                  </option>
+                ))}
+              </select>
+              <p className="text-xs text-gray-400 mt-1">
+                {role === 'orangtua'
+                  ? 'Setelah daftar, tautkan akun ke balita Anda pakai kode/QR dari kader/nakes agar bisa mencatat pengukuran mandiri.'
+                  : 'Bisa melihat & mencatat data semua balita di posyandu.'}
+              </p>
+            </div>
+          )}
           {role === 'kader_nakes' && (
             <div>
               <label htmlFor="register-invite-code" className="field-label">

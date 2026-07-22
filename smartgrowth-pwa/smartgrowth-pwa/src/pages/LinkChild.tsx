@@ -61,8 +61,9 @@ export default function LinkChild() {
           Tautkan Balita
         </h1>
         <p className="text-sm text-gray-500">
-          Masukkan kode 6-digit dari kader/nakes posyandu untuk melihat data &amp; mencatat pengukuran mandiri
-          balita Anda.
+          Untuk balita tambahan (mis. anak kedua) — kalau baru pertama kali daftar, biasanya lebih cepat scan QR
+          dari kader/nakes langsung dari halaman Daftar. Masukkan kode 6-digit di bawah untuk menautkan balita
+          tanpa perlu daftar akun baru.
         </p>
       </div>
 

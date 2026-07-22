@@ -78,8 +78,8 @@ flowchart TD
     J --> K["Tab Hasil + Rekomendasi + Edukasi<br/>(grafik tinggi & berat, tips, contoh makanan)"]
     K --> L["Bagikan link/QR (public_token) ke orang tua"]
     L --> M["Orang tua buka #/p/:token di HP<br/>(tanpa login) — lihat tab yang sama"]
-    E --> N["Bagikan kode tautan 6-digit (link_code)"]
-    N --> O["Orang tua daftar akun + tautkan lewat kode"]
+    E --> N["Bagikan QR/kode tautan (link_code)"]
+    N --> O["Orang tua scan QR<br/>→ daftar akun + tertaut sekaligus"]
     O --> P["Pengukuran Mandiri<br/>(form ringkas: tanggal/berat/tinggi/catatan)"]
     P --> G
 ```
@@ -91,7 +91,7 @@ flowchart TD
 5. **Status risiko 4-tier** — Normal / Berisiko / Stunting / Malnutrisi, dari skor tertimbang `score_risk()` yang menjumlahkan kontribusi tiap indikator, bukan cuma ambil yang paling parah. Tren 2 pengukuran berturut-turut berat tidak naik (2T) memicu banner peringatan tambahan.
 6. **Tab Hasil / Rekomendasi / Edukasi** — grafik tinggi & berat terhadap usia dan riwayat pengukuran (Hasil); ringkasan Z-score HAZ/WHZ/WAZ, rekomendasi dari kuesioner (atau konfirmasi "tidak ada faktor risiko" kalau memang tidak ada), dan catatan bebas petugas dalam satu tempat (Rekomendasi); serta tips gizi + contoh makanan/minuman konkret sesuai status anak (Edukasi) — tab yang sama persis dipakai di dashboard kader/nakes maupun dashboard orang tua.
 7. **Bagikan ke orang tua** — kader/nakes membagikan link/QR unik per balita (`public_token`); orang tua membukanya langsung dari browser HP tanpa perlu akun atau login untuk melihat ketiga tab di atas.
-8. **Tautkan Balita & Pengukuran Mandiri** — kader/nakes juga bisa membagikan kode tautan 6-digit (`link_code`) per balita, ditampilkan di dashboard balita ("Kode Tautan Akun Orang Tua"). Orang tua yang mendaftar akun menautkan diri lewat kode ini (menu "Tautkan Balita"), lalu bisa mencatat pengukuran sendiri di antara kunjungan Posyandu lewat menu "Pengukuran Mandiri" — hasilnya langsung dihitung Z-score-nya sama seperti input kader/nakes, dan otomatis ditandai "Orang Tua (Mandiri)" di riwayat.
+8. **Tautkan Balita & Pengukuran Mandiri** — kader/nakes membagikan QR "Tautkan Akun Orang Tua" per balita (dashboard balita); orang tua tinggal **scan sekali** untuk sekaligus mendaftar akun *dan* tertaut ke balitanya — tidak ada langkah tautkan manual terpisah lagi (kode 6-digit tetap ada sebagai alternatif kalau QR tidak bisa dipindai). Setelah itu bisa mencatat pengukuran sendiri di antara kunjungan Posyandu lewat menu "Pengukuran Mandiri" — hasilnya langsung dihitung Z-score-nya sama seperti input kader/nakes, dan otomatis ditandai "Orang Tua (Mandiri)" di riwayat.
 9. **Riwayat, Jadwal, & Laporan** — riwayat pengukuran lintas semua balita, jadwal kunjungan Posyandu berikutnya, dan laporan PDF per balita (bisa diunduh atau langsung dicetak).
 
 ## Struktur repo
