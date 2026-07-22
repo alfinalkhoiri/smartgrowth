@@ -41,11 +41,26 @@ src/
 vite.config.ts      # vite-plugin-pwa: manifest + offline caching rules
                     # (NetworkFirst for children/growth-records/posyandu-
                     # schedules) + navigateFallback (app-shell for offline
-                    # SPA routes), dev/preview proxy to Django, and the
-                    # "@/*" alias (must mirror tsconfig.json's "paths" — tsc
-                    # only type-checks aliases, it doesn't make Vite resolve
-                    # them at runtime)
+                    # SPA routes), injectRegister: false (see main.tsx below
+                    # for why), dev/preview proxy to Django, and the "@/*"
+                    # alias (must mirror tsconfig.json's "paths" — tsc only
+                    # type-checks aliases, it doesn't make Vite resolve them
+                    # at runtime)
 ```
+
+**Service worker registration** (`main.tsx`) registers via `virtual:pwa-
+register`'s `registerSW()` rather than letting the plugin auto-inject its
+own `<script>` (`injectRegister: false` in `vite.config.ts`) — the default
+injected script turns out to be a bare `serviceWorker.register()` call with
+no update-checking or reload logic at all, regardless of `registerType:
+'autoUpdate'`. Discovered the hard way: a deploy went out, was verified
+correct server-side, but a tab left open from before the deploy kept
+rendering the old UI — the normal kader/nakes usage pattern (app open all
+day at posyandu) means a tab can sit for hours without a navigation event
+ever triggering an update check. `registerSW({ immediate: true, ... })`
+reloads the tab once a new service worker takes over, plus an hourly
+`registration.update()` call (`setInterval`) so a long-lived open tab
+notices a deploy without needing to navigate anywhere first.
 
 ## Why this is "Capacitor-ready"
 
