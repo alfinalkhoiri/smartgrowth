@@ -19,6 +19,15 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
+      // We register manually via `virtual:pwa-register` in main.tsx instead
+      // of letting the plugin auto-inject its own <script> — the default
+      // injected script only calls `serviceWorker.register()` with no
+      // update-checking/reload logic at all, which is exactly why a kader
+      // who leaves this open all day at posyandu can end up staring at a
+      // deploy from hours ago until they manually close and reopen the tab.
+      // The virtual-module registration this replaces it with is the one
+      // that actually reloads the tab once a new version takes over.
+      injectRegister: false,
       includeAssets: ['icons/*.png'],
       manifest: {
         name: 'SmartGrowth: Pengembangan Sistem Tele-Screening Stunting Berbasis Digital untuk Deteksi Dini Risiko Malnutrisi Balita',
