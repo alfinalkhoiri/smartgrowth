@@ -83,9 +83,26 @@ export const authApi = {
     localStorage.setItem('smartgrowth_refresh', res.data.refresh);
     return res.data;
   },
+  // Clears local storage immediately (the part that actually matters for
+  // "am I still logged in on THIS device") and separately, best-effort,
+  // tells the backend to blacklist the refresh token so it can't be reused
+  // elsewhere even after this logout — e.g. if it had already been copied
+  // off a compromised device. Fire-and-forget: a slow/failed network call
+  // should never delay or block the local logout the user is waiting on.
   logout: () => {
+    // Captured before clearing — the request interceptor only attaches
+    // Authorization when it finds a token in storage, and by the time this
+    // call actually fires that storage is already empty. Set explicitly
+    // instead of relying on it (LogoutView requires IsAuthenticated).
+    const access = localStorage.getItem('smartgrowth_token');
+    const refresh = localStorage.getItem('smartgrowth_refresh');
     localStorage.removeItem('smartgrowth_token');
     localStorage.removeItem('smartgrowth_refresh');
+    if (access && refresh) {
+      apiClient
+        .post('/auth/logout', { refresh }, { headers: { Authorization: `Bearer ${access}` } })
+        .catch(() => {});
+    }
   },
   isAuthenticated: () => Boolean(localStorage.getItem('smartgrowth_token')),
   getCurrentUser: (): TokenPayload | null => {

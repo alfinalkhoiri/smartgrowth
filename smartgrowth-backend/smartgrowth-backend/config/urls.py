@@ -4,12 +4,15 @@ from django.urls import path, include, re_path
 from django.views.static import serve
 from rest_framework_simplejwt.views import TokenRefreshView
 
-from apps.accounts.views import InviteCodeView, RegisterView, RoleTokenObtainPairView, UserDetailView, UserListView
+from apps.accounts.views import (
+    InviteCodeView, LogoutView, RegisterView, RoleTokenObtainPairView, UserDetailView, UserListView,
+)
 
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/auth/login', RoleTokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('api/auth/refresh', TokenRefreshView.as_view(), name='token_refresh'),
+    path('api/auth/logout', LogoutView.as_view(), name='logout'),
     path('api/auth/register', RegisterView.as_view(), name='register'),
     path('api/auth/invite-code', InviteCodeView.as_view(), name='invite-code'),
     path('api/auth/users', UserListView.as_view(), name='user-list'),

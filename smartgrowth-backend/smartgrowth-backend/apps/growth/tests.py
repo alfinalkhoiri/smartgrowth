@@ -885,6 +885,42 @@ class LinkChildEndpointTests(TestCase):
         self.assertFalse(self.child.parents.filter(pk=self.parent.pk).exists())
 
 
+class LogoutViewTests(TestCase):
+    """POST /api/auth/logout — blacklists the refresh token (BLACKLIST_AFTER_ROTATION)."""
+
+    def setUp(self):
+        User = get_user_model()
+        User.objects.create_user(username='logout_user', password='StrongPass123!', role='kader_nakes')
+
+    def _login(self):
+        response = APIClient().post('/api/auth/login', {'username': 'logout_user', 'password': 'StrongPass123!'})
+        self.assertEqual(response.status_code, 200, response.data)
+        return response.data['access'], response.data['refresh']
+
+    def test_logout_blacklists_refresh_token(self):
+        access, refresh = self._login()
+        client = APIClient()
+        client.credentials(HTTP_AUTHORIZATION=f'Bearer {access}')
+
+        logout_response = client.post('/api/auth/logout', {'refresh': refresh})
+        self.assertEqual(logout_response.status_code, 205)
+
+        # The now-blacklisted refresh token can no longer mint a new access token.
+        refresh_response = APIClient().post('/api/auth/refresh', {'refresh': refresh})
+        self.assertEqual(refresh_response.status_code, 401)
+
+    def test_logout_requires_authentication(self):
+        response = APIClient().post('/api/auth/logout', {'refresh': 'whatever'})
+        self.assertEqual(response.status_code, 401)
+
+    def test_logout_with_already_invalid_refresh_still_succeeds(self):
+        access, _ = self._login()
+        client = APIClient()
+        client.credentials(HTTP_AUTHORIZATION=f'Bearer {access}')
+        response = client.post('/api/auth/logout', {'refresh': 'not-a-real-token'})
+        self.assertEqual(response.status_code, 205)
+
+
 class PublicChildDashboardTests(TestCase):
     """Fase 2: orangtua tidak perlu login — GET /api/public/children/<token>/."""
 

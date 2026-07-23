@@ -218,8 +218,31 @@ and both false for orangtua — those still gate the *full* Skrining.tsx flow
 into `canCreate()`, since an orangtua who can create a *measurement* for
 their own linked child must never be able to reach "Balita Baru" mode or
 edit/delete an existing record. `RequireAuth` in `App.tsx` guards every
-other route and redirects to `/login`; `client.ts`'s response interceptor
-does the same on a 401 (expired token).
+other route.
+
+**Session refresh (`api/client.ts`)**: a 401 no longer means an automatic
+redirect to `/login` — it used to, which meant every session died exactly
+`ACCESS_TOKEN_LIFETIME` after logging in regardless of whether the person
+was mid-task (the `smartgrowth_refresh` token was stored on login/register
+but never actually *used* anywhere). The response interceptor now tries
+`POST /auth/refresh` with the stored refresh token first and retries the
+original request with the new access token; only if that refresh call
+*itself* fails (refresh token expired or blacklisted — see backend README's
+"Sesi & masa berlaku token") does it clear storage and redirect. A shared
+in-flight promise (`refreshAccessToken()`) makes sure several requests
+401-ing at the same moment trigger exactly one refresh call, not one each —
+with the backend's `ROTATE_REFRESH_TOKENS`+`BLACKLIST_AFTER_ROTATION`, a
+second concurrent refresh call would just blacklist the token the first
+one already rotated in, turning a normal expiry into a spurious logout.
+Login/refresh/register requests are explicitly excluded from this retry
+logic (`AUTH_BOOTSTRAP_PATHS`) — a 401 there is a real "wrong password"/
+validation error for the calling page to show, not a session expiry.
+
+`authApi.logout()` clears `localStorage` immediately (that's what actually
+determines "am I logged in on this device" from the UI's perspective), then
+fires a best-effort `POST /auth/logout` to blacklist the refresh token
+server-side too — captured into local variables *before* clearing storage,
+since the request interceptor can't attach a token that's already gone.
 
 ### Fase 2: dashboard orang tua tanpa login
 

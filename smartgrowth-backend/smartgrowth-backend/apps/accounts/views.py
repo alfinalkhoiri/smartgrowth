@@ -2,6 +2,8 @@ from rest_framework import generics, permissions, status
 from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from rest_framework_simplejwt.exceptions import TokenError
+from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenObtainPairView
 
 from .models import RegistrationInviteCode, User, generate_invite_code
@@ -13,6 +15,29 @@ from .tokens import RoleTokenObtainPairSerializer, tokens_with_claims
 class RoleTokenObtainPairView(TokenObtainPairView):
     """POST /api/auth/login — same as SimpleJWT's default, with role/is_superuser in the token."""
     serializer_class = RoleTokenObtainPairSerializer
+
+
+class LogoutView(APIView):
+    """
+    POST /api/auth/logout — blacklists the given refresh token so clicking
+    "Keluar" actually revokes the session server-side, not just clears
+    localStorage client-side. Without this, a refresh token copied before
+    logout (e.g. from a compromised device) would keep working right up
+    until its own 7-day expiry, regardless of the user having logged out.
+    Requires a still-valid access token (IsAuthenticated) — the normal
+    logout button click happens while the session is still active; a
+    refresh token that's already failed doesn't need blacklisting anyway.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        refresh = request.data.get('refresh')
+        if refresh:
+            try:
+                RefreshToken(refresh).blacklist()
+            except TokenError:
+                pass  # already invalid/blacklisted — logout still "succeeds" from the client's point of view
+        return Response(status=status.HTTP_205_RESET_CONTENT)
 
 
 class RegisterView(generics.CreateAPIView):

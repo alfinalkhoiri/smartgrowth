@@ -18,6 +18,7 @@ INSTALLED_APPS = [
 
     'rest_framework',
     'rest_framework_simplejwt',
+    'rest_framework_simplejwt.token_blacklist',
     'corsheaders',
     'django_filters',
 
@@ -118,9 +119,23 @@ REST_FRAMEWORK = {
 }
 
 SIMPLE_JWT = {
-    'ACCESS_TOKEN_LIFETIME': timedelta(hours=8),
+    # Short-lived access token — an actively-used session never notices
+    # this expiring, since the frontend transparently refreshes on the
+    # first 401 it sees (see client.ts). What actually determines "how long
+    # can this browser sit unused before it's forced to log in again" is
+    # REFRESH_TOKEN_LIFETIME below, not this value.
+    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=30),
+    # This is the real idle-session limit: as long as at least one request
+    # happens within any 7-day window, the rotated refresh token keeps the
+    # session alive indefinitely; leave the browser genuinely untouched for
+    # longer than this and the next visit forces a real login.
     'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
+    # Every refresh issues a new refresh token *and* invalidates the one
+    # just used (via the blacklist app below) — without blacklisting,
+    # rotation alone doesn't actually revoke anything, every refresh token
+    # ever issued would stay valid until its own natural expiry.
     'ROTATE_REFRESH_TOKENS': True,
+    'BLACKLIST_AFTER_ROTATION': True,
 }
 
 CORS_ALLOWED_ORIGINS = config('CORS_ALLOWED_ORIGINS', default='', cast=Csv())

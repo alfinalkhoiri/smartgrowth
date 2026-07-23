@@ -513,12 +513,40 @@ diautentikasi dan diaudit (`recorded_by`), sesuatu yang bearer token anonim
 Fase 2 sengaja tidak punya — itu sebabnya pengukuran mandiri tetap lewat
 Fase 1, bukan token publik.
 
+## Sesi & masa berlaku token (keamanan)
+
+`SIMPLE_JWT` di `settings.py`:
+
+- **`ACCESS_TOKEN_LIFETIME`: 30 menit** — sengaja pendek. Sesi yang aktif
+  dipakai tidak pernah terasa "putus" karena frontend otomatis me-refresh
+  begitu dapat `401` pertama (lihat frontend README bagian "Auth" — sebelum
+  perubahan ini, refresh token tersimpan tapi tidak pernah dipakai sama
+  sekali, jadi setiap 8 jam sesi mati mendadak di tengah pemakaian).
+- **`REFRESH_TOKEN_LIFETIME`: 7 hari** — ini yang sebenarnya menentukan
+  "seberapa lama HP/browser boleh tidak disentuh sebelum harus login
+  ulang". Selama masih ada aktivitas (request apa pun) dalam rentang 7 hari
+  terakhir, sesi terus hidup lewat refresh; kalau benar-benar didiamkan
+  lebih lama dari itu, kunjungan berikutnya dipaksa login ulang.
+- **`ROTATE_REFRESH_TOKENS` + `BLACKLIST_AFTER_ROTATION`: keduanya `True`**
+  — tiap kali refresh token dipakai, token itu langsung di-blacklist dan
+  diganti yang baru (`rest_framework_simplejwt.token_blacklist` app,
+  migrasinya bawaan package, bukan dibuat manual). Tanpa blacklist, rotasi
+  saja tidak benar-benar mencabut apa pun — setiap refresh token yang
+  pernah diterbitkan tetap valid sampai masa berlakunya sendiri habis.
+- **`POST /api/auth/logout`** (`LogoutView`, `IsAuthenticated`) — blacklist
+  refresh token secara eksplisit saat pengguna menekan "Keluar", supaya
+  logout benar-benar mencabut sesi di sisi server, bukan cuma menghapus
+  token di `localStorage` browser. Tanpa ini, refresh token yang sempat
+  disalin sebelum logout (mis. dari perangkat yang diretas) tetap jalan
+  sampai masa berlaku 7 harinya habis, walau penggunanya sudah "logout".
+
 ## Cakupan API
 
 | Method         | Path                               | View                  | Catatan                                                                                                                                |
 | -------------- | ---------------------------------- | --------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
 | POST           | `/api/auth/login`                  | `RoleTokenObtainPairView` | Mengembalikan `{access, refresh}` dari SimpleJWT, dengan klaim `role`/`is_superuser`/`username` disematkan ke JWT (dipakai frontend untuk show/hide tombol) |
-| POST           | `/api/auth/refresh`                | `TokenRefreshView`    |                                                                                                                                        |
+| POST           | `/api/auth/refresh`                | `TokenRefreshView`    | Bawaan SimpleJWT; klaim custom (`role`/`is_superuser`/`username`) ikut tersalin ke access token baru karena sudah ada di payload refresh token-nya. Refresh token lama otomatis di-blacklist (`ROTATE_REFRESH_TOKENS`+`BLACKLIST_AFTER_ROTATION`, lihat "Sesi & masa berlaku token" di atas) |
+| POST           | `/api/auth/logout`                 | `LogoutView`          | `{refresh}` — blacklist refresh token itu juga (`IsAuthenticated`); token yang sudah tidak valid tetap dianggap "berhasil" logout (`205`) |
 | POST           | `/api/auth/register`               | `RegisterView`        | Publik (`AllowAny`); role terbatas ke kader_nakes/orangtua (admin tidak bisa daftar sendiri); `email`/`phone_number` wajib diisi (khusus lewat serializer ini, field model tetap `blank=True`); kader_nakes butuh `invite_code` yang cocok dengan `RegistrationInviteCode.load().code`; mengembalikan `{access, refresh}` langsung, klaim role juga disematkan |
 | GET/POST       | `/api/auth/invite-code`            | `InviteCodeView`      | Admin-only (`IsAppAdmin`); GET lihat kode saat ini, POST bikin kode baru (kode lama langsung tidak berlaku) |
 | GET            | `/api/auth/users`                  | `UserListView`        | Admin-only (`IsAppAdmin`); daftar seluruh akun terdaftar, read-only, tanpa pagination |
